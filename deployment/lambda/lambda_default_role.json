@@ -1,0 +1,31 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:CreateLogGroup",
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:logs:*:*:*"
+      ]
+    },
+    {
+      "Action": [
+      "ec2:Start*",
+      "ec2:Stop*",
+      "ec2:DescribeTags",
+      "rds:StopDBInstance",
+      "rds:StartDBInstance",
+      "rds:Start*",
+      "rds:Stop*"
+    ],
+    "Effect": "Allow",
+      "Resource": [
+        "*"
+      ]
+    }
+  ]
+}
