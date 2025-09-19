@@ -30,7 +30,7 @@ variable "vpc_primary_cidr" {
 
 variable "vpc_secondary_cidr" {
   description = "VPC Secondary CIDR"
-  type = string
+  type = list(any)
 }
 
 variable "azs" {
@@ -53,4 +53,16 @@ variable "tgw_route_target_ips" {
   description = "TGW Route Target IPs"
   type = list(string)
   default = []
+}
+
+variable "attachment_tgw" {
+  description = "Attachment Transit Gateway (Root Account)"
+  type = string
+  default = null
+}
+
+variable "vpc_resolver_rule_id" {
+  description = "VPC Resolver Rule ID"
+  type = string
+  default = null
 }

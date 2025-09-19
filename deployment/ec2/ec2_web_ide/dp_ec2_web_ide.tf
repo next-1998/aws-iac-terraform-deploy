@@ -11,7 +11,7 @@ locals {
 }
 
 module "role_ec2_web_ide" {
-  source = "${var.module_repo_url}//module/security/aws-iam-workload/role"
+  source = "${var.module_repo_url}/module/security/aws-iam-workload/role"
 
   name = "${var.resource_prefix}-WEB-IDE-Instance-Profile-Role"
   path = "/"
@@ -42,7 +42,7 @@ module "role_ec2_web_ide" {
 }
 
 module "security_group_web_ide" {
-  source = "${var.module_repo_url}//module/security/aws-security-group-workload"
+  source = "${var.module_repo_url}/module/security/aws-security-group-workload"
 
   name = "${local.web_ide_name}-sg"
   vpc_id = var.vpc_id
@@ -108,7 +108,7 @@ data "aws_ami" "ec2_golden_ami" {
 
 
 module "ec2_lt_web_ide" {
-  source  = "${var.module_repo_url}//module/computing(작업중)/aws-instance-workload"
+  source  = "${var.module_repo_url}/module/computing(작업중)/aws-instance-workload"
 
   ##w profile
   profile_name           = "${var.resource_prefix}-web-ide-instance-profile"
@@ -144,11 +144,11 @@ module "ec2_lt_web_ide" {
       keycloak_endpoint=local.KEYCLOAK_ENDPOINT
       user_uuid=var.KEYCLOAK_USER_UUID
       oidc_auth_url="${local.KEYCLOAK_ENDPOINT}/auth/realms/${var.KEYCLOAK_REALM}"
-      redirect_uri="https://ide.${var.cluster_name}.${local.root_domain}/callback"
+      redirect_uri="https:/ide.${var.cluster_name}.${local.root_domain}/callback"
       daytona_url=local.daytona_url
       get_access_token_url="${local.KEYCLOAK_ENDPOINT}/auth/realms/${var.KEYCLOAK_REALM}/protocol/openid-connect/token"
       get_client_info_url="${local.KEYCLOAK_ENDPOINT}/auth/admin/realms/${var.KEYCLOAK_REALM}/clients/${var.KEYCLOAK_CLIENT_UUID}"
       update_client_info_url="${local.KEYCLOAK_ENDPOINT}/auth/admin/realms/${var.KEYCLOAK_REALM}/clients/${var.KEYCLOAK_CLIENT_UUID}"
-      valid_uri="\"https://ide.${var.cluster_name}.${local.root_domain}/*\""
+      valid_uri="\"https:/ide.${var.cluster_name}.${local.root_domain}/*\""
     }))
 }

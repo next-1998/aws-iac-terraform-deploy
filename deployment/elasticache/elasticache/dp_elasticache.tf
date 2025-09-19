@@ -9,7 +9,7 @@ locals {
 }
 
 module "security_group_elasticache" {
-  source = "${var.module_repo_url}//module/security/aws-security-group-workload"
+  source = "${var.module_repo_url}/module/security/aws-security-group-workload"
 
   name = "${local.elasticache_name}-sg"
   vpc_id = var.vpc_id

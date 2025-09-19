@@ -1,19 +1,11 @@
 variable "region" {
-  description = "AWS Region"
-  type = string
   default = "ap-northeast-2"
 }
 
-variable "azs" {
-  description = "A list of availability zones names or ids in the region"
-  type = list(string)
-  default = []
-}
-
-variable "cluster_name" { 
-  description = "Cluster Name"
+variable "cluster_name" {
+  description = "All Resource Prefix Name"
   type = string
-  default = "simple"
+  default = ""
 }
 
 variable "resource_prefix" {
@@ -22,28 +14,38 @@ variable "resource_prefix" {
   default = "simple"
 }
 
-variable "transit_gateway_id" {
-  description = "Transit Gateway ID"
+variable "root_domain" {
+  description = "Root Domain"
+  default = ""
+}
+
+variable "root_account" {
+  description = "Root Account"
+  default = ""
+}
+
+variable "attachment_tgw" {
+  description = "Attachment Transit Gateway ID"
   type = string
   default = null
+}
+
+variable "tgw_route_target_ips" {
+  description = "Transit Gateway Target Ips"
+  type        = list(string)
+  default     = null
+}
+
+variable "vpc_resolver_rule_id" {
+  description = "VPC Resolver Rule Id"
+  type        = string
+  default     = null
 }
 
 variable "common_tags" {
   description = "Common Tags"
   type = map(string)
   default = {}
-}
-
-variable "resource_tags" {
-  description = "Resource Tags"
-  type = map(string)
-  default = {}
-}
-
-variable "vpc_name" {
-  description = "VPC Name"
-  type = string
-  default = "simple-vpc"
 }
 
 variable "vpc_primary_cidr" {
@@ -54,376 +56,9 @@ variable "vpc_primary_cidr" {
 
 variable "vpc_secondary_cidr" {
   description = "VPC CIDR Range"
-  type = string
-  default = "100.0.0.0/16"
+  type = list(any)
+  default = ["100.0.0.0/16"]
 }
-
-variable "KEYCLOAK_REALM" {
-  description = "KEYCLOAK Realm"
-  type = string
-  default = "DevOS"
-}
-
-variable "KEYCLOAK_ENDPOINT" {
-  description = "KEYCLOAK Endpoint"
-  type = string
-  default = ""
-}
-
-variable "KEYCLOAK_CLIENT_ID" {
-  description = "KEYCLOAK Client ID"
-  type = string
-  default = ""
-}
-
-variable "KEYCLOAK_CLIENT_UUID" {
-  description = "KEYCLOAK Client UUID"
-  type = string
-  default = ""
-}
-
-variable "KEYCLOAK_CLIENT_SECRET" {
-  description = "KEYCLOAK Client Secret"
-  type = string
-  default = ""
-}
-
-variable "KEYCLOAK_USER_UUID" {
-  description = "KEYCLOAK User UUID"
-  type = string
-  default = ""
-}
-
-variable "attachment_tgw" {
-  description = "Attachment Transit Gateway (Root Account)"
-  type        = string
-  default     = null
-}
-
-variable "attachment_name" {
-  description = "Attachment Name"
-  type = string
-  default = null
-}
-
-variable "tgw_route_target_ips" {
-  description = "Transit Gateway Target Ips"
-  type        = list(string)
-  default     = null
-}
-
-variable "vpc_resolver_rule_id" {
-  description = "VPC Resolver Rule ID"
-  type = string
-  default = null
-}
-
-variable "root_domain" {
-  description = "Root Domain"
-  type = string
-  default = ""
-}
-
-variable "root_account" {
-  description = "Root Account"
-  type = string
-  default = ""
-}
-
-variable "daytona_url" {
-  description = "Daytona URL"
-  type = string
-  default = ""
-}
-
-## RDS
-variable "create_db" {
-  description = "RDS DB 생성여부"
-  type = all
-}
-
-variable "db_name" {
-  description = "RDS DB 이름"
-  type = string
-  default = ""
-}
-
-variable "db_allocated_storage" {
-  description = "RDS DB 저장소 크기"
-  type = number
-  default = 20
-}
-
-variable "db_max_allocated_storage" {
-  description = "RDS DB 최대 저장소 크기"
-  type = number
-  default = 100
-}
-
-variable "db_user_name" {
-  description = "RDS DB 사용자 이름"
-  type = string
-  default = "user"
-}
-
-variable "db_user_pass" {
-  description = "RDS DB 사용자 비밀번호"
-  type = string
-  default = "1234"
-}
-
-variable "db_port" {
-  description = "RDS DB 포트"
-  type = number
-  default = 3306
-} 
-
-variable "db_engine" {
-  description = "RDS DB 엔진"
-  type = string
-  default = "mysql"
-}
-
-variable "db_engine_version" {
-  description = "RDS DB 엔진 버전"
-  type = string
-  default = "8.0"
-}
-
-variable "db_instance_class" {
-  description = "RDS DB 인스턴스 클래스"
-  type = string
-  default = "db.t3.medium"
-}
-
-variable "multi_az" {
-  description = "RDS DB 다중 가용영역 여부"
-  type = bool
-  default = false
-}
-
-variable "db_parameter_group" {
-  description = "RDS DB 파라미터 그룹"
-  type = map(any)
-  default = null
-}
-
-variable "db_subnet_group" {
-  description = "RDS DB 서브넷 그룹"
-  type = string
-  default = null
-}
-
-variable "db_sg" {
-  description = "RDS DB 보안 그룹"
-  type = map(any)
-  default = null
-}
-
-variable "db_sg_rules" {
-  description = "RDS DB 보안 그룹 규칙"
-  type = map(any)
-  default = null
-}
-
-variable "db_sg_ro" {
-  description = "RDS DB 읽기 전용 보안 그룹"
-  type = map(any)
-  default = null
-}
-
-variable "db_sg_ro_rules" {
-  description = "RDS DB 읽기 전용 보안 그룹 규칙"
-  type = map(any)
-  default = null
-}
-
-variable "DAYTONA_SECRET_KEY" {
-  default     = null
-}
-
-variable "DAYTONA_ACCESS_KEY" {
-  default     = null
-}
-
-variable "KEYCLOAK_REALM" {
-  default     = null
-}
-
-variable "KEYCLOAK_ENDPOINT" {
-  default     = null
-}
-
-variable "KEYCLOAK_CLIENT_ID" {
-  default     = null
-}
-
-variable "KEYCLOAK_CLIENT_UUID" {
-  default     = null
-}
-
-variable "KEYCLOAK_CLIENT_SECRET" {
-  default     = null
-}
-
-variable "KEYCLOAK_USER_UUID" {
-  default = null
-}
-
-variable "daytona_url" {
-  default = ""
-}
-
-
-
-## 기존
-
-
-variable "tgw_route_target_ips" {
-  description = "Transit Gateway Target Ips"
-  type        = list(string)
-  default     = null
-}
-
-variable "network_interface_id" {
-  description = "Network Interface ID"
-  type = string
-  default = null
-}
-
-variable "transit_gateway_id" {
-  description = "Transit Gateway ID"
-  type = string
-  default = null
-}
-
-variable "vpc_peering_connection_id" {
-  description = "VPC Peering Connection ID"
-  type = string
-  default = null
-}
-
-variable "vpc_endpoint_id" {
-  description = "VPC Endpoint ID"
-  type = string
-  default = null
-}
-
-## VPC_tgw_attach
-variable "attachment_tgw" {
-  description = "Attachment Transit Gateway (Root Account)"
-  type        = string
-  default     = null
-}
-
-variable "attachment_name" {
-  description = "Attachment Name"
-  type = string
-  default = null
-}
-
-variable "create_elasticache" {
-  description = "elasticache 생성 여부"
-  type = all
-}
-
-variable "create_db" {
-  description = "RDS DB 생성여부"
-  type = all
-}
-
-##route
-variable "tgw_route_target_ips" {
-  description = "Transit Gateway Target Ips"
-  type        = list(string)
-  default     = null
-}
-
-variable "attachment_tgw" {
-  description = "Attachment Transit Gateway (Root Account)"
-  type        = string
-  default     = null
-}
-
-## tgw
-variable "attachment_name" {
-  description = "TGW attachment 이름"
-  type = all
-}
-
-## alb
-variable "was_name" {
-  description = "was EC2 이름"
-  type = all
-}
-
-variable "was_alb" {
-  description = "was에서 사용하는 alb"
-  type = all
-}
-
-variable "web_ide_name" {
-  description = "web_ide EC2 이름"
-  type = all
-}
-
-variable "web_ide_alb" {
-  description = "web_ide에서 사용하는 alb"
-  type = all
-}
-
-variable "cluster_name" {
-  description = "cluster EC2 이름"
-  type = all
-}
-
-variable "root_domain" {
-  description = "root_domain 이름"
-  type = all
-}
-
-variable "vpc_resolver_rule_id" {
-  description = "VPC Resolver Rule Id"
-  type        = string
-  default     = null
-}
-
-
-## 기존
-
-
-
-variable "region" {
-  default = "ap-northeast-2"
-}
-
-variable "cluster_name" {
-  description = "All Resource Prefix Name"
-  type = string
-  default = ""
-}
-
-
-
-variable "root_domain" {
-  description = "Root Domain"
-  default = ""
-}
-
-variable "root_account" {
-  description = "Root Account"
-  default = ""
-}
-
-# VPC
-variable "vpc_id" {
-  description = "The VPC ID."
-  default = ""
-}
-
-
-
-
 
 variable "vpc_name" {
   description = "VPC Name"
@@ -431,7 +66,11 @@ variable "vpc_name" {
   default     = ""
 }
 
-
+variable "azs" {
+  description = "A list of availability zones names or ids in the region"
+  type = list(string)
+  default = []
+}
 
 # Bastion
 #variable "bastion_ami" {
@@ -589,8 +228,18 @@ variable "db_name" {
   default = ""
 }
 
+variable "db_allocated_storage" {
+  description = "RDS DB Allocated Storage"
+  default = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "RDS DB Max Allocated Storage"
+  default = 100
+}
+
 variable "db_user_name" {
-  description = "RDS User Password"
+  description = "RDS User Name"
   default = "user"
 }
 
@@ -598,7 +247,6 @@ variable "db_user_pass" {
   description = "RDS User Password"
   default = "1234"
 }
-
 variable "db_engine" {
   description = "RDS DB Engine"
   default = "mysql"
@@ -609,10 +257,21 @@ variable "db_engine_version" {
   default = "8.0"
 }
 
-variable "db_engine_instance_class" {
-  description = "RDS DB Engine Instance Class"
+variable "db_port" {
+  description = "RDS DB Port"
+  default = 3306
+}
+
+variable "db_instance_class" {
+  description = "RDS DB Instance Class"
   default = "db.t3.micro"
 }
+
+variable "multi_az" {
+  description = "RDS DB Multi AZ"
+  default = false
+}
+
 
 #S3
 variable "create_bucket" {
@@ -693,25 +352,6 @@ variable "elasticache_port" {
   type = number
   default = 6379
 }
-
-variable "attachment_tgw" {
-  description = "Attachment Transit Gateway (Root Account)"
-  type        = string
-  default     = null
-}
-
-variable "vpc_resolver_rule_id" {
-  description = "VPC Resolver Rule Id"
-  type        = string
-  default     = null
-}
-
-variable "tgw_route_target_ips" {
-  description = "Transit Gateway Target Ips"
-  type        = list(string)
-  default     = null
-}
-
 variable "DAYTONA_SECRET_KEY" {
   default     = null
 }
@@ -766,14 +406,51 @@ variable "weekend_stop_enable" {
   default = true # 운영 배포 시 false 처리
 }
 
+variable "allow_after_hours_usage" {
+  description = "Whether the resource can be used outside of business hours"
+  type        = bool
+  default     = false
+}
+
+variable "ctlog_s3" {
+  description = "cloudtrail log collection src s3 name"
+  type = any  
+  default = "s3-an2-daytona-cloudtrail-log"
+}
+
+variable "ctlog_s3_kms" {
+  description = "cloudtrail log collection src s3 kms key"
+  type = any  
+  default = "arn:aws:kms:ap-northeast-2:725748738477:key/39687aba-c21d-4b4c-921e-8ef8bc3925ab"
+}
+
 variable "module_repo_url" {
   description = "Module Repository URL"
   type = string
-  default = "https://github.com/bsp-daytona/bsp-daytona-module.git"
+  # default = "https://github.com/bsp-daytona/bsp-daytona-module.git"
+  default = "../../bsp-daytona-module"
 }
 
-variable "common_tags" {
-  description = "Common Tags"
-  type = map(string)
-  default = {}
+variable "was_alb" {
+  description = "WAS ALB object with dns_name and zone_id"
+  type = object({
+    dns_name = string
+    zone_id  = string
+  })
+  default = {
+    dns_name = ""
+    zone_id  = ""
+  }
+}
+
+variable "web_ide_alb" {
+  description = "Web IDE ALB object with dns_name and zone_id"
+  type = object({
+    dns_name = string
+    zone_id  = string
+  })
+  default = {
+    dns_name = ""
+    zone_id  = ""
+  }
 }

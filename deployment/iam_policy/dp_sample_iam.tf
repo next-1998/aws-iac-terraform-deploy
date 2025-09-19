@@ -26,7 +26,7 @@
 # }
 
 module "codedeploy_service_role" {
-  source = "${var.module_repo_url}//module/security/aws-iam-workload/role"
+  source = "${var.module_repo_url}/module/security/aws-iam-workload/role"
 
   name = "${var.resource_prefix}-CodeDeploy-Service-Role"
   path = "/"
@@ -64,7 +64,7 @@ module "codedeploy_service_role" {
 
 
 module "role_codedeploy" {
-  source = "${var.module_repo_url}//module/devops/aws-codedeploy-workload/code-deploy"
+  source = "${var.module_repo_url}/module/devops/aws-codedeploy-workload/code-deploy"
 
   name = "${var.resource_prefix}-CodeDeploy-Application"
   deployment_group_name = "${var.resource_prefix}-Deployment-Group"

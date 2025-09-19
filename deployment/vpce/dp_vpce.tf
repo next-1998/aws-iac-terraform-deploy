@@ -1,5 +1,5 @@
 module "sts_endpoints" {
-  source = "${var.module_repo_url}//module/network/aws-vpce-workload/vpc-endpoints"
+  source = "${var.module_repo_url}/module/network/aws-vpce-workload/vpc-endpoints"
 
   name = "${var.resource_prefix}-sts-vpce"
   vpc_id             = var.vpc_id
@@ -24,7 +24,7 @@ module "sts_endpoints" {
 }
 
 module "vpce_sts_securitygroup" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/securitygroup"
+  source = "${var.module_repo_url}/module/network/aws-elb-workload/securitygroup"
 
   name = "${local.was_alb}-vpce-sts-sg"
   vpc_id = var.vpc_id

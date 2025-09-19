@@ -1,5 +1,5 @@
 module "kms" {
-  source = "${var.module_repo_url}//module/security/aws-kms-workload"
+  source = "${var.module_repo_url}/module/security/aws-kms-workload"
   
   key_name = "${var.resource_prefix}-ec2-kms"
   region = var.region

@@ -90,3 +90,9 @@ variable "cluster_name" {
   description = "Cluster Name"
   type = string
 }
+
+variable "route53_zone_zone_id" {
+  description = "Route53 Zone Zone ID"
+  type = any
+  default = {}
+}

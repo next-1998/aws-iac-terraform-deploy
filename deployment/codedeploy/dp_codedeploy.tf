@@ -26,7 +26,7 @@
 # }
 
 module "codedeploy_service_role" {
-  source = "${var.module_repo_url}//module/security/aws-iam-workload/role"
+  source = "${var.module_repo_url}/module/security/aws-iam-workload/role"
 
   name = "${var.resource_prefix}-CodeDeploy-Service-Role"
   path = "/"

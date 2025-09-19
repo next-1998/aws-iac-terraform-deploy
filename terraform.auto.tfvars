@@ -10,7 +10,7 @@ resource_prefix = "simple"
 
 vpc_name           = "simple-vpc"
 vpc_primary_cidr   = "10.227.0.0/27"
-vpc_secondary_cidr = "100.0.0.0/16"
+vpc_secondary_cidr = ["100.0.0.0/16"]
 
 #bastion_ami           = "ami-01711d925a1e4cc3a"
 #bastion_instance_name = "simple-bastion"
@@ -66,4 +66,4 @@ daytona_url  = ""
 
 common_tags = {}
 
-# module_repo_url = 
+module_repo_url = "../../bsp-daytona-module"

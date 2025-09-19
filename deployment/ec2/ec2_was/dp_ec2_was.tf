@@ -9,7 +9,7 @@ locals {
 }
 
 module "role_ec2_was" {
-  source = "${var.module_repo_url}//module/security/aws-iam-workload/role"
+  source = "${var.module_repo_url}/module/security/aws-iam-workload/role"
 
   name = "${var.resource_prefix}-CodeDeploy-Instance-Profile-Rol"
   path = "/"
@@ -40,7 +40,7 @@ module "role_ec2_was" {
 }
 
 module "security_group_was" {
-  source = "${var.module_repo_url}//module/security/aws-security-group-workload"
+  source = "${var.module_repo_url}/module/security/aws-security-group-workload"
 
   name = "${local.was_name}-sg"
   vpc_id = var.vpc_id
@@ -85,7 +85,7 @@ module "security_group_was" {
 }
 
 module "ec2_was" {
-  source  = "${var.module_repo_url}//module/computing/aws-ec2-instance-workload"
+  source  = "${var.module_repo_url}/module/computing/aws-ec2-instance-workload"
 
   profile_name           = "${var.resource_prefix}-CodeDeploy-Instance-Profile"
   role                   = module.role_ec2_was.name
@@ -124,7 +124,7 @@ module "ec2_was" {
 }
 
 module "ebs_was_log_volume" {
-  source = "${var.module_repo_url}//module/computing/aws-ebs-workload"
+  source = "${var.module_repo_url}/module/computing/aws-ebs-workload"
   availability_zone = var.subnet_id == var.pri_subnet_ids[0] ? "ap-northeast-2a" : "ap-northeast-2c"
   name = "${local.was_name}-log-volume"
   volume_size = var.was_instance_log_volume
@@ -134,7 +134,7 @@ module "ebs_was_log_volume" {
 }
 
 module "ebs_was_app_volume" {
-  source = "${var.module_repo_url}//module/computing(작업중)/aws-ebs-workload"
+  source = "${var.module_repo_url}/module/computing(작업중)/aws-ebs-workload"
   availability_zone = var.subnet_id == var.pri_subnet_ids[0] ? "ap-northeast-2a" : "ap-northeast-2c"
   name = "${local.was_name}-app-volume"
   volume_size = var.was_instance_engine_volume

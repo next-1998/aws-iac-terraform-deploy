@@ -14,7 +14,7 @@ locals {
 
 
 module "was_alb" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb"
 
   name = local.was_alb
   # name_prefix = var.load_balancer_name_prefix
@@ -22,13 +22,15 @@ module "was_alb" {
   enable_cross_zone_load_balancing = true
   enable_deletion_protection = true
 
-  subnets = var.pub_subnet_ids[*] //고민필요 
-  security_groups = module.was_alb_securitygroup.id[*] 
+  subnet_id_list = var.pub_subnet_ids 
+  lb_sg_id_list = [module.was_alb_securitygroup.securitygroup.id]
   internal = true
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 module "was_alb_securitygroup" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/securitygroup"
+  source = "../../../bsp-daytona-module/module/security/aws-securitygroup-workload"
 
   name = "${local.was_alb}-alb-sg"
   vpc_id = var.vpc_id
@@ -65,7 +67,7 @@ module "was_alb_securitygroup" {
 }
 
 module "was_alb_target_group" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb-target"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb-target"
   target_groups = {
     "8080" = {
       name = "${local.was_name}-WAS-TG"
@@ -80,10 +82,12 @@ module "was_alb_target_group" {
   vpc_id = var.vpc_id  
   target_id = var.ec2_was_id
   target_port = 8080  
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 module "was_alb_listener" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb-listeners"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb-listeners"
 
   listeners = {
     "80" = {
@@ -113,6 +117,9 @@ module "was_alb_listener" {
     }
   }
   listener_rules = {}
+  elb = module.was_alb
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 ############################################################
@@ -120,7 +127,7 @@ module "was_alb_listener" {
 ############################################################
 
 module "web_ide_alb" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb"
 
   name = local.web_ide_alb
   # name_prefix = var.load_balancer_name_prefix
@@ -128,13 +135,15 @@ module "web_ide_alb" {
   enable_cross_zone_load_balancing = true
   enable_deletion_protection = false
 
-  subnets = var.pri_subnet_ids[*]
-  security_groups = module.web_ide_alb_securitygroup.id[*]
+  subnet_id_list = var.pri_subnet_ids[*]
+  lb_sg_id_list = [module.web_ide_alb_securitygroup.securitygroup.id]
   internal = true
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 module "web_ide_alb_securitygroup" {
-  source = "./module/network/aws-elb-workload/securitygroup"
+  source = "../../../bsp-daytona-module/module/security/aws-securitygroup-workload"
 
   name = "${local.web_ide_alb}-alb-sg"
   vpc_id = var.vpc_id
@@ -171,7 +180,7 @@ module "web_ide_alb_securitygroup" {
 }
 
 module "web_ide_alb_target_group_1" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb-target"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb-target"
   target_groups = {
     "80" = {
       name = "${local.web_ide_name}-WEB-IDE-TG"
@@ -185,11 +194,13 @@ module "web_ide_alb_target_group_1" {
   vpc_id = var.vpc_id
   target_id = var.ec2_web_ide_id
   target_port = 80
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 
 module "web_ide_alb_target_group_2" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb-target"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb-target"
   target_groups = {
     "8080" = {
       name = "${local.web_ide_name}-PREVIEW-TG"
@@ -203,10 +214,12 @@ module "web_ide_alb_target_group_2" {
   vpc_id = var.vpc_id
   target_id = var.ec2_web_ide_id
   target_port = 8080
+  common_tags = var.common_tags
+  resource_tags = {}
 }
 
 module "web_ide_alb_listener" {
-  source = "${var.module_repo_url}//module/network/aws-elb-workload/lb-listeners"
+  source = "../../../bsp-daytona-module/module/network/aws-elb-workload/lb-listeners"
 
   listeners = {
     "80" = {
@@ -236,33 +249,73 @@ module "web_ide_alb_listener" {
   }
   listener_rules = {
     "web_ide" = {
-      listener_arn = aws_lb_listener.this["443"].arn
       listener_key = "443"
       priority = 1
-      actions = {
+      actions = [{
         type = "forward"
         target_group_arn = module.web_ide_alb_target_group_1.target_group_arn
-      }
-      conditions = {
+      }]
+      conditions = [{
         host_header = {
-          values = ["ide.${var.cluster_name}.${local.root_domain}"] //도메인 조정 필요
+          values = ["ide.${var.cluster_name}.${local.root_domain}"]
         }
-      } 
+      }]
     }
     "web_ide_preview" = {
-      listener_arn = aws_lb_listener.this["443"].arn
       listener_key = "443"
       priority = 2
-      actions = {
+      actions = [{
         type = "forward"
         target_group_arn = module.web_ide_alb_target_group_2.target_group_arn
-      }
-      conditions = {
+      }]
+      conditions = [{
         host_header = {
-          values = ["ide-preview.${var.cluster_name}.${local.root_domain}"] //도메인 조정필요
+          values = ["ide-preview.${var.cluster_name}.${local.root_domain}"]
         }
-      }
+      }]
     }
   }
+  elb = module.web_ide_alb
+  common_tags = var.common_tags
+  resource_tags = {}
 }
+
+
+module "r53_records" {
+  # source  = "${var.module_repo_url}/module/network/aws-route53-workload/records"
+  source  = "../../../bsp-daytona-module/module/network/aws-route53-workload/records"
+
+  zone_name = keys(var.route53_zone_zone_id[0])
+  records = [
+    {
+      name = "web"
+      type = "A"
+      alias = {
+        name = module.was_alb.elb.dns_name
+        zone_id = module.was_alb.elb.zone_id
+        evaluate_target_health = true
+      }
+    },
+    {
+      name = "ide"
+      type = "A"
+      alias = {
+        name = module.web_ide_alb.elb.dns_name
+        zone_id = module.web_ide_alb.elb.zone_id
+        evaluate_target_health = true
+      }
+    },
+    {
+      name = "ide-preview"
+      type = "A"
+      alias = {
+        name = module.web_ide_alb.elb.dns_name
+        zone_id = module.web_ide_alb.elb.zone_id
+        evaluate_target_health = true
+      }
+    }
+  ]
+
+}
+
 

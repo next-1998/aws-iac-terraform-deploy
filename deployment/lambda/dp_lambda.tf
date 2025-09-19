@@ -1,5 +1,5 @@
 module "start_stop_ec2_rds_policy" {
-  source = "${var.module_repo_url}//module/security/aws-iam-workload/policy"
+  source = "${var.module_repo_url}/module/security/aws-iam-workload/policy"
   name = "${var.resource_prefix}-Lambda-default-Policy"
   description = "Lambda default Policy"
   policy = jsondecode(file("${path.module}/json/lambda_default_policy.json"))
@@ -7,7 +7,7 @@ module "start_stop_ec2_rds_policy" {
 
 
 module "lambda_role" {
-  source = "${var.module_repo_url}//module/devtools/aws-lambda-workload/lambda"
+  source = "${var.module_repo_url}/module/devtools/aws-lambda-workload/lambda"
 
   name = "${var.resource_prefix}-Lambda-default-Role"
   description = "Lambda default Role"
@@ -32,7 +32,7 @@ data "archive_file" "start_stop_ec2_rds_lambda_py" {
 }
 
 module "start_stop_ec2_rds_lambda" {
-  source = "${var.module_repo_url}//module/devtools/aws-lambda-workload/lambda"
+  source = "${var.module_repo_url}/module/devtools/aws-lambda-workload/lambda"
 
   filename = data.archive_file.start_stop_ec2_rds_lambda_py.output_path
   function_name = "start-stop-ec2-rds-lambda-py"

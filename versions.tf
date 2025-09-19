@@ -1,25 +1,12 @@
-provider "aws" {
-  region = var.region
+terraform {
+  required_version = ">= 0.12.26"
 
-  default_tags {
-    tags = {
-      Terraform   = "true"
-      ClusterId = var.cluster_name
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      # version = ">= 2.53"
+      version = "5.100.0"
     }
   }
 }
 
-provider "aws" {
-  alias  = "daytona"
-  region = var.region
-
-  access_key = var.DAYTONA_ACCESS_KEY
-  secret_key = var.DAYTONA_SECRET_KEY
-
-  default_tags {
-    tags = {
-      Terraform   = "true"
-      ClusterId = var.cluster_name
-    }
-  }
-}
