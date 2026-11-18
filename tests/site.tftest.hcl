@@ -14,6 +14,9 @@ mock_provider "aws" {
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::111111111111:role/mock" }
   }
+  mock_resource "aws_lambda_function" {
+    defaults = { arn = "arn:aws:lambda:ap-northeast-2:111111111111:function:mock" }
+  }
   mock_data "aws_partition" {
     defaults = { partition = "aws" }
   }
@@ -416,4 +419,29 @@ run "acm_validation_in_parent_zone_when_no_public" {
     condition     = toset(keys(output.certificate_validation_records)) == toset(["simple.example.com", "*.simple.example.com"]) && alltrue([for k, z in output.certificate_validation_records : z == "ZPARENT123"])
     error_message = "검증 레코드는 public 존이 없으면 상위 존에: ${jsonencode(output.certificate_validation_records)}"
   }
+}
+
+############################################################
+# 주말 중지: 스케줄은 기본 꺼짐, ec2 endpoint 필요
+############################################################
+run "weekend_stop_prepared_but_disabled" {
+  command = apply
+  variables {
+    enable_weekend_stop = true
+    interface_endpoints = ["ssm", "ssmmessages", "ec2messages", "ec2"]
+  }
+  assert {
+    condition     = alltrue([for k, s in output.weekend_stop.schedules : s.state == "DISABLED"]) && toset(keys(output.weekend_stop.schedules)) == toset(["stop", "start"])
+    error_message = "스케줄은 협의 전 DISABLED여야 함: ${jsonencode(output.weekend_stop)}"
+  }
+}
+
+run "reject_weekend_stop_without_ec2_endpoint" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network             = run.layout_v1_2az.network_contract
+    enable_weekend_stop = true
+  }
+  expect_failures = [terraform_data.weekend_stop_checks]
 }

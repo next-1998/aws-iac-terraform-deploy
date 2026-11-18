@@ -61,6 +61,11 @@ variable "enable_certificate" {
   default = false
 }
 
+variable "enable_weekend_stop" {
+  type    = bool
+  default = false
+}
+
 variable "was_enable_alb" {
   type    = bool
   default = true
@@ -100,9 +105,10 @@ module "shared_common" {
 }
 
 module "ec2_common" {
-  source            = "../deployment/ec2-common"
-  network           = module.network_base.contract
-  common_sg_ingress = var.common_sg_ingress
+  source              = "../deployment/ec2-common"
+  network             = module.network_base.contract
+  common_sg_ingress   = var.common_sg_ingress
+  enable_weekend_stop = var.enable_weekend_stop
 }
 
 module "ec2_was" {
@@ -165,3 +171,4 @@ output "webide_alb" { value = module.ec2_webide.alb_arn == null }
 output "network_contract" { value = module.network_base.contract }
 output "ec2_common_contract" { value = module.ec2_common.contract }
 output "certificate_validation_records" { value = { for k, r in module.shared_common.validation_records : k => r.zone_id } }
+output "weekend_stop" { value = module.ec2_common.weekend_stop }

@@ -47,3 +47,28 @@ variable "common_sg_ingress" {
     error_message = "SG 규칙 description은 영문, 숫자, 공백과 일부 기호(_ . : / ( ) # , @ [ ] + = & ; { } ! $ * -)만 쓸 수 있습니다. 한글은 쓸 수 없습니다."
   }
 }
+
+############################################################
+# 주말 중지 (weekend_stop.tf) — 협의 후 적용
+#   enable_weekend_stop = true면 Lambda와 스케줄을 만듭니다.
+#   스케줄은 schedule_enabled = true가 되기 전까지 실행되지 않습니다 (임시 값).
+#   대상은 EC2 태그 WEEKEND_STOP_ENABLE = "true" (ec2-<용도>의 weekend_stop_enable)
+#   VPC 안에서 실행하므로 01-network interface_endpoints에 "ec2"가 있어야 합니다.
+############################################################
+variable "enable_weekend_stop" {
+  description = "EC2 주말 중지 Lambda 생성 여부"
+  type        = bool
+  default     = false
+}
+
+variable "weekend_stop" {
+  description = "주말 중지 설정 (스케줄은 임시 값, 협의 후 변경)"
+  type = object({
+    schedule_enabled = optional(bool, false)
+    stop_schedule    = optional(string, "cron(0 21 ? * FRI *)")
+    start_schedule   = optional(string, "cron(0 7 ? * MON *)")
+    timezone         = optional(string, "Asia/Seoul")
+    dry_run          = optional(bool, false)
+  })
+  default = {}
+}

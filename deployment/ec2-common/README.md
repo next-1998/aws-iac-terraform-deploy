@@ -39,3 +39,17 @@ ec2_common_sg_ingress = [
 | `ready` | 인스턴스보다 먼저 준비돼야 하는 라우트, endpoint 연결 (생성 순서 고정용) |
 
 **주의:** `ec2-<용도>`가 남아 있는 상태에서 이 stack을 지우지 마세요. 서브넷과 공통 SG를 모든 EC2가 같이 씁니다.
+
+## 주말 중지 (선택, 협의 후 적용)
+
+| 입력 | 기본값 | 설명 |
+|---|---|---|
+| `enable_weekend_stop` | `false` | `true`면 Lambda(VPC 안, EC2 서브넷)와 스케줄 2개(중지·시작) 생성 |
+| `weekend_stop.schedule_enabled` | `false` | **협의 전에는 꺼 둠.** 스케줄이 만들어져도 실행되지 않음 |
+| `weekend_stop.stop_schedule` / `start_schedule` | 금 21:00 / 월 07:00 | **임시 값** (EventBridge Scheduler cron, `Asia/Seoul`) |
+| `weekend_stop.dry_run` | `false` | `true`면 중지하지 않고 대상만 로그로 확인 |
+
+- **대상은 태그로 켜고 끕니다.** 서버마다 자기 태그 `WEEKEND_STOP_ENABLE = "true"`일 때만 대상입니다(`ec2-<용도>`의 `weekend_stop_enable`). 태그 하나 때문에 다른 서버까지 중지되던 기존 버그는 고쳤습니다.
+- IAM 권한도 태그가 `true`인 인스턴스만 중지·시작할 수 있게 제한합니다.
+- VPC 안에서 실행하므로 01-network `interface_endpoints`에 **`ec2`**가 있어야 합니다(없으면 plan에서 막힘).
+- Lambda 코드: module repo `module/ops/aws-weekendstop-workload` (RDS도 같은 코드를 씀. `rds-common`을 만들 때 연결)

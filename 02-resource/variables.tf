@@ -58,3 +58,17 @@ variable "webide" {
     health_check_path   = optional(string, "/")
   })
 }
+
+# ── EC2 주말 중지 (협의 후 적용) ───────────────────────────────
+variable "ec2_weekend_stop" {
+  description = "EC2 주말 중지. enabled면 Lambda와 스케줄 생성, schedule_enabled가 true가 되기 전까지는 실행되지 않음"
+  type = object({
+    enabled          = optional(bool, false)
+    schedule_enabled = optional(bool, false)
+    stop_schedule    = optional(string, "cron(0 21 ? * FRI *)")
+    start_schedule   = optional(string, "cron(0 7 ? * MON *)")
+    timezone         = optional(string, "Asia/Seoul")
+    dry_run          = optional(bool, false)
+  })
+  default = {}
+}

@@ -37,3 +37,15 @@ webide = {
   instance_type = "t3.medium"
   enable_alb    = false
 }
+
+# ── EC2 주말 중지 (협의 후 적용) ───────────────────────────────
+# enabled = true      : Lambda와 스케줄 생성 (01-network interface_endpoints에 "ec2" 필요)
+# schedule_enabled    : 협의가 끝나기 전에는 false (스케줄이 실행되지 않음). 아래 시간은 임시 값
+# 대상 서버는 태그로 켜고 끔: was/webide의 weekend_stop_enable = true → WEEKEND_STOP_ENABLE = "true"
+# dry_run = true      : 실제로 중지하지 않고 대상만 로그로 확인
+ec2_weekend_stop = {
+  enabled          = false
+  schedule_enabled = false
+  # stop_schedule  = "cron(0 21 ? * FRI *)"
+  # start_schedule = "cron(0 7 ? * MON *)"
+}

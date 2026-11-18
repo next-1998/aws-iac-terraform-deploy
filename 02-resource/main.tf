@@ -55,7 +55,16 @@ module "ec2_common" {
 
   network           = local.network
   common_sg_ingress = var.ec2_common_sg_ingress
-  common_tags       = var.common_tags
+
+  enable_weekend_stop = var.ec2_weekend_stop.enabled
+  weekend_stop = {
+    schedule_enabled = var.ec2_weekend_stop.schedule_enabled
+    stop_schedule    = var.ec2_weekend_stop.stop_schedule
+    start_schedule   = var.ec2_weekend_stop.start_schedule
+    timezone         = var.ec2_weekend_stop.timezone
+    dry_run          = var.ec2_weekend_stop.dry_run
+  }
+  common_tags = var.common_tags
 }
 
 module "ec2_was" {

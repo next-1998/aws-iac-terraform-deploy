@@ -39,3 +39,11 @@ output "common_sg_ingress_rules" {
   description = "공통 SG에 들어간 인바운드 규칙 (기본값: 없음)"
   value       = module.common_sg.securitygroup.ingress
 }
+
+output "weekend_stop" {
+  description = "주말 중지 Lambda와 스케줄 상태 (켜지 않았으면 null)"
+  value = var.enable_weekend_stop ? {
+    function_name = module.weekend_stop[0].function_name
+    schedules     = module.weekend_stop[0].schedules
+  } : null
+}
