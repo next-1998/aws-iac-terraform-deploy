@@ -1,10 +1,12 @@
 ############################################################
 # 대역 배치 (모든 사이트 공통 고정 규칙)
 #
-# AZ는 최대 4개(a, b, c, d)를 기준으로 자리를 미리 잡습니다.
-# 서브넷 번호(netnum)는 AZ 글자로 고정 (a=0, b=1, c=2, d=3)이라
-# az_count를 늘려도 기존 서브넷 CIDR은 바뀌지 않습니다.
-# 번호를 바꾸거나 재사용하면 서브넷이 다시 만들어집니다.
+# AZ
+#   리전의 AZ 목록(일반 AZ만, 이름순)에서 앞에서부터 az_count개를 순서대로 사용합니다.
+#   예) 서울 2개 → a, b / 도쿄 2개 → a, c (도쿄는 b가 없음)
+#   AZ는 최대 4개 자리를 미리 잡고, 서브넷 번호(netnum)는 목록 순서로 정합니다 (첫 번째=0 ~ 네 번째=3).
+#   AZ가 1개여도 동작하지만 ALB, RDS, EKS는 AWS 규칙상 AZ 2개 이상이 필요합니다.
+#   번호를 바꾸거나 재사용하면 서브넷이 다시 만들어집니다.
 #
 # routable 대역의 앞쪽 /24 = base 영역
 #   x.x.x.0/27   ~ x.x.x.96/27    edge-a ~ edge-d       (ALB, public NAT)
@@ -16,14 +18,22 @@
 #   routable 단독        : routable 대역의 뒤쪽 절반
 ############################################################
 
-data "aws_region" "current" {}
+data "aws_availability_zones" "this" {
+  state = "available"
+
+  # 일반 AZ만 (Local Zone, Wavelength Zone 제외)
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
+}
 
 locals {
-  max_azs    = 4
-  az_letters = ["a", "b", "c", "d"]
+  max_azs = 4
 
-  azs      = [for l in slice(local.az_letters, 0, var.az_count) : "${data.aws_region.current.name}${l}"]
-  az_index = { for az in local.azs : az => index(local.az_letters, substr(az, -1, 1)) }
+  region_azs = sort(data.aws_availability_zones.this.names)
+  azs        = slice(local.region_azs, 0, min(var.az_count, length(local.region_azs)))
+  az_index   = { for i, az in local.azs : az => i } # 목록 순서 = 고정 번호
 
   routable     = var.vpc_cidrs[0].cidr
   internal     = try([for c in var.vpc_cidrs : c.cidr if c.role == "internal"][0], null)

@@ -143,3 +143,15 @@ module "alb_record" {
     }
   }]
 }
+
+# ALB는 AWS 규칙상 서로 다른 AZ의 서브넷이 2개 이상 필요합니다.
+resource "terraform_data" "alb_checks" {
+  count = var.enable_alb ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = length(local.alb_subnet_ids) >= 2
+      error_message = "ALB는 AZ 2개 이상이 필요합니다. 현재 사용 가능한 서브넷 ${length(local.alb_subnet_ids)}개 (network-base의 az_count를 2 이상으로 하거나 enable_alb = false)."
+    }
+  }
+}

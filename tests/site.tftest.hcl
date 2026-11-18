@@ -15,8 +15,8 @@ mock_provider "aws" {
   mock_data "aws_partition" {
     defaults = { partition = "aws" }
   }
-  mock_data "aws_region" {
-    defaults = { name = "ap-northeast-2" }
+  mock_data "aws_availability_zones" {
+    defaults = { names = ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c", "ap-northeast-2d"] }
   }
 }
 
@@ -325,4 +325,62 @@ run "reject_korean_sg_description" {
     common_sg_ingress = [{ from_port = 22, to_port = 22, protocol = "tcp", cidr_blocks = ["10.185.66.0/24"], description = "서버 접근제어" }]
   }
   expect_failures = [var.common_sg_ingress]
+}
+
+############################################################
+# AZ: 리전 AZ 목록에서 앞에서부터, 1개 허용
+############################################################
+run "az_from_region_list" {
+  command = apply
+  override_data {
+    target = module.network_base.data.aws_availability_zones.this
+    values = { names = ["ap-northeast-1d", "ap-northeast-1a", "ap-northeast-1c"] } # 도쿄처럼 b가 없는 리전
+  }
+  assert {
+    condition     = jsonencode(output.azs) == jsonencode(["ap-northeast-1a", "ap-northeast-1c"])
+    error_message = "azs: ${jsonencode(output.azs)} (이름순 앞에서부터 2개여야 함)"
+  }
+}
+
+run "az_count_1" {
+  command = apply
+  variables {
+    az_count       = 1
+    was_enable_alb = false
+  }
+  assert {
+    condition     = length(output.azs) == 1 && length(output.edge) == 1 && length(output.ec2_subnets) == 1
+    error_message = "azs=${jsonencode(output.azs)} edge=${jsonencode(output.edge)}"
+  }
+  assert {
+    condition     = length(output.overlaps) == 0
+    error_message = "overlap: ${jsonencode(output.overlaps)}"
+  }
+}
+
+run "reject_az_count_over_region" {
+  command = plan
+  module { source = "../deployment/network-base" }
+  override_data {
+    target = data.aws_availability_zones.this
+    values = { names = ["ap-northeast-2a", "ap-northeast-2c"] }
+  }
+  variables {
+    site      = "simple"
+    vpc_name  = "simple-vpc"
+    vpc_cidrs = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    az_count  = 3
+  }
+  expect_failures = [terraform_data.checks]
+}
+
+run "reject_alb_with_1_az" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common     = run.az_count_1.ec2_common_contract
+    ami        = "ami-0123456789abcdef0"
+    enable_alb = true
+  }
+  expect_failures = [terraform_data.alb_checks]
 }

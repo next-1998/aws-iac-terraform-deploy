@@ -463,3 +463,14 @@ variable "site" {
     error_message = "site는 소문자, 숫자, '-'만 사용하고 20자 이하여야 합니다."
   }
 }
+
+variable "az_count" {
+  description = "사용할 AZ 개수 (1~4). 제약 사항은 terraform.auto.tfvars의 주석 참고"
+  type        = number
+  default     = 2
+
+  validation {
+    condition     = contains([1, 2, 3, 4], var.az_count)
+    error_message = "az_count는 1, 2, 3, 4 중 하나여야 합니다."
+  }
+}

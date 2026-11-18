@@ -67,13 +67,13 @@ variable "vpc_cidrs" {
 }
 
 variable "az_count" {
-  description = "사용할 AZ 개수 (2~4). a, b, c, d 순서로 늘어남. 늘려도 기존 서브넷은 바뀌지 않음"
+  description = "사용할 AZ 개수 (1~4). 리전의 AZ 목록에서 앞에서부터 순서대로 사용. 1개면 ALB, RDS, EKS를 만들 수 없음"
   type        = number
   default     = 2
 
   validation {
-    condition     = contains([2, 3, 4], var.az_count)
-    error_message = "az_count는 2, 3, 4 중 하나여야 합니다."
+    condition     = contains([1, 2, 3, 4], var.az_count)
+    error_message = "az_count는 1, 2, 3, 4 중 하나여야 합니다."
   }
 }
 

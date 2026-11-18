@@ -28,6 +28,11 @@ variable "az_count" {
   default = 2
 }
 
+variable "was_enable_alb" {
+  type    = bool
+  default = true
+}
+
 variable "nat_per_az" {
   type    = bool
   default = true
@@ -82,7 +87,7 @@ module "ec2_was" {
   source              = "../deployment/ec2-was"
   common              = module.ec2_common.contract
   ami                 = "ami-0123456789abcdef0"
-  enable_alb          = true
+  enable_alb          = var.was_enable_alb
   alb_certificate_arn = "arn:aws:acm:ap-northeast-2:111111111111:certificate/x"
   alb_record_name     = "web"
   weekend_stop_enable = true
@@ -130,3 +135,5 @@ output "webide_sgs" { value = module.ec2_webide.security_group_ids }
 output "was_alb" { value = module.ec2_was.alb_arn != null }
 output "webide_alb" { value = module.ec2_webide.alb_arn == null }
 output "base_contract" { value = module.network_base.contract }
+output "ec2_common_contract" { value = module.ec2_common.contract }
+output "azs" { value = module.network_base.contract.azs }
