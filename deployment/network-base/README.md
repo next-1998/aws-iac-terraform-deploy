@@ -1,143 +1,77 @@
 # network-base
 
-모든 stack이 공유하는 네트워크만 만듭니다. stack 전용 리소스(서브넷, SG, role 등)는 각 stack이 만듭니다.
+`01-network` 단계에서 쓰는 조합 코드입니다. **모든 리소스가 공유하는 네트워크만** 만들고, 리소스별 서브넷은 CIDR만 계산해서 넘깁니다.
 
-## 네트워크 유형
-
-`vpc_cidrs`에 넣은 대역 구성으로 유형이 자동으로 정해집니다.
-
-| 유형 | `vpc_cidrs` | 워크로드 위치 | 사내망 통신 |
-|---|---|---|---|
-| **routable 단독** | `[{ cidr = "10.227.0.0/23", role = "routable" }]` | routable 대역 | TGW 직접 |
-| **routable + internal** | `[{ cidr = "10.227.0.0/24", role = "routable" }, { cidr = "100.64.0.0/16", role = "internal" }]` | internal 대역 | private NAT → TGW |
-
-| role | 의미 |
-|---|---|
-| `routable` | 사내망과 통신할 수 있는 대역 (네트워크팀 할당). 반드시 첫 번째(VPC primary) |
-| `internal` | VPC 안에서만 쓰는 대역. **`100.64.0.0/16`만 허용** |
-
-internal 대역의 워크로드는 TGW로 직접 나가지 않습니다. VPC 안은 local 라우트로 통신하고, 밖으로 나갈 때는 NAT GW를, 들어올 때는 edge 서브넷의 LB를 거칩니다.
-
-## AZ
-
-- `az_count`로 AZ **개수**만 정합니다. **기본값 2개**, 1~4개.
-- 리전의 AZ 목록(일반 AZ만, 이름순)에서 **앞에서부터 순서대로** 사용합니다. 그래서 같은 값을 어느 리전에서나 쓸 수 있습니다.
-
-| `az_count` | 서울 (a~d) | 도쿄 (a, c, d — b 없음) |
-|---|---|---|
-| 1 | a | a |
-| 2 (기본값) | a, b | a, c |
-| 3 | a, b, c | a, c, d |
-| 4 | a, b, c, d | (AZ 부족 → 에러) |
-
-제약 사항
-- 리전의 사용 가능한 AZ 수보다 크면 plan에서 막힙니다.
-- **1개면 ALB, RDS, EKS를 만들 수 없습니다**(AWS 규칙상 AZ 2개 이상). ALB를 켜면 plan에서 막힙니다(RDS, EKS 검사는 해당 `-common`을 만들 때 추가).
-- 사이트를 처음 만들 때 정하고 이후에는 바꾸지 않습니다.
-
-배치는 처음부터 **AZ 4개분 자리를 잡아 두고**, 서브넷 번호를 AZ 목록 순서로 고정합니다(첫 번째=0 ~ 네 번째=3). 그래서 `az_count`를 늘려도 **기존 서브넷 CIDR은 바뀌지 않습니다**(테스트로 확인).
-
-ap-northeast-2b는 일부 인스턴스 타입을 지원하지 않을 수 있습니다. 사용할 인스턴스 타입이 2b에서 지원되는지 먼저 확인하세요.
-
-## 대역 배치 (`layout.tf`, 모든 사이트 공통)
-
-routable 대역의 **앞쪽 /24는 항상 base 영역**입니다.
-
-```text
-routable 앞쪽 /24 (예: 10.227.0.0/24)
-├── 10.227.0.0/27     edge-a     ALB, public NAT
-├── 10.227.0.32/27    edge-b     ALB
-├── 10.227.0.64/27    edge-c     (az_count >= 3)
-├── 10.227.0.96/27    edge-d     (az_count = 4)
-├── 10.227.0.128/28   transit-a  TGW attachment, private NAT
-├── 10.227.0.144/28   transit-b  TGW attachment
-├── 10.227.0.160/28   transit-c  (az_count >= 3)
-├── 10.227.0.176/28   transit-d  (az_count = 4)
-└── 10.227.0.192/26   예비
-```
-
-stack 영역은 유형에 따라 다릅니다. stack은 `zone`과 `slot` 번호로 블록을 받고, 블록을 AZ 4개 자리로 나눠 씁니다.
-
-| 유형 | zone | 영역 | stack 블록 | AZ별 서브넷 |
-|---|---|---|---|---|
-| routable + internal | `ec2` | 100.64.0.0/18 | /23 (최대 32개) | /25 |
-| | `eks` | 100.64.64.0/18 | /18 (1개) | /20 |
-| | `db` | 100.64.128.0/20 | /24 (최대 16개) | /26 |
-| routable 단독 (/23 기준) | `ec2` | 10.227.1.0/25 | /26 (2개) | /28 |
-| | `db` | 10.227.1.128/25 | /26 (2개) | /28 |
-
-routable 단독에서는 eks 영역이 없습니다(Pod IP 부족). routable 대역이 크면 영역과 블록 수가 그만큼 늘어납니다(/21이면 ec2 블록 8개).
-
-**`netnum`과 `slot`은 고정 번호입니다.** 순서를 바꾸거나 재사용하면 서브넷이 삭제됐다가 다시 만들어집니다.
-
-## 만드는 리소스
+## 만드는 것
 
 | 리소스 | 조건 |
 |---|---|
-| VPC (+ internal 대역 연결) | 항상 |
-| edge 서브넷 + 라우트 테이블 (0.0.0.0/0 → IGW, 사내망 → TGW) | 항상 |
-| transit 서브넷 + AZ별 라우트 테이블 (0.0.0.0/0 → 같은 AZ의 public NAT, 사내망 → TGW) | 항상 |
-| IGW, public NAT (+EIP) | `enable_internet = true` (기본값). NAT 개수는 `nat_per_az`에 따름 |
-| private NAT | routable + internal 이고 `tgw_id`가 있을 때 |
-| TGW attachment (transit 서브넷) | `tgw_id`가 있을 때 |
-| Route53 존 `<site>.<root_domain>` + 상위 존 NS 위임 | `root_domain`이 있을 때 |
-| Resolver Rule 연결 | `resolver_rule_id`가 있을 때 |
+| VPC (DNS support/hostnames 켬), 기본 SG 잠금(규칙 없음) | 항상 |
+| 공통 서브넷: **edge**(내부용 LB), **vpce**(endpoint), **transit**(TGW, private NAT) | 항상 |
+| **public** 서브넷 + IGW + public NAT(EIP 삭제 보호) | `enable_public = true` |
+| private NAT | internal 대역(100.64)을 쓰고 TGW나 peering이 있을 때 |
+| 기존 TGW attachment, 사내망·peering 라우트 | `tgw_id`, `peerings` |
+| VPC endpoint (인터페이스·gateway, 다른 state가 만든 것은 skip) | `interface_endpoints`, `gateway_endpoints` |
+| private 존(항상), public 존(public일 때) | `root_domain` |
+| prefix list | `prefix_lists` (필요한 것만) |
+| VPC Flow Logs (S3, Parquet) | `enable_flow_logs` (기본 켬) |
 
-### NAT 배치 (`nat_per_az`)
+ec2, db, eks 서브넷은 **만들지 않습니다.** CIDR만 계산해서 contract로 넘기고, 각 `<유형>-common`이 만듭니다. ALB/NLB도 여기서 만들지 않습니다.
 
-| `nat_per_az` | NAT | 라우팅 | 특징 |
-|---|---|---|---|
-| `true` (기본값) | AZ마다 public NAT, private NAT | 각 AZ의 서브넷은 같은 AZ의 NAT로 나감 | AZ 하나에 장애가 나도 다른 AZ는 정상. AZ 간 전송 비용 없음 |
-| `false` | 첫 번째 AZ(a)에 1개씩 | 모든 AZ가 a의 NAT를 씀 | NAT 비용 절감. a AZ에 장애가 나면 전체 외부 통신 중단 |
+## 대역 배치 v1 (`layout.tf`)
 
-이를 위해 transit 서브넷과 stack 서브넷의 라우트 테이블은 AZ마다 따로 만듭니다.
+받은 첫 routable 대역을 **AZ별로 균등 분배**합니다(AZ 3개면 4등분하고 4번째는 예비). AZ 블록 안의 표준 /24는 다음과 같습니다.
 
-모든 리소스의 `Stack` 태그는 `<site>/network-base`입니다.
-
-## 입력 검증 (plan에서 막힘)
-
-| 잘못된 입력 | 이유 |
-|---|---|
-| internal 대역이 `100.64.0.0/16`이 아님 | internal 대역 고정 규칙 |
-| 첫 번째 대역이 routable이 아님, routable이 2개 | VPC primary는 routable |
-| routable + internal 인데 routable이 /24보다 작음 | base 영역(/24)이 안 들어감 |
-| routable 단독인데 routable이 /23보다 작음 | stack 영역이 없음 |
-| `az_count`가 2~4가 아님 | 최대 AZ 4개 기준 배치 |
-
-## 출력: `contract`
-
-`<유형>-common`은 `base = module.network_base.contract` 하나로 필요한 값을 모두 받습니다.
-
-| 키 | 내용 |
-|---|---|
-| `site`, `vpc_id`, `vpc_name` | 기본 정보 |
-| `azs`, `az_index`, `max_azs` | 사용 중인 AZ, AZ별 고정 번호(a=0 ~ d=3), 최대 AZ 수(4) |
-| `network_type` | `routable` / `hybrid` |
-| `vpc_cidrs`, `routable_cidr`, `internal_cidr`, `stack_zones` | 대역 |
-| `edge_subnet_ids`, `edge_subnet_cidrs`, `edge_route_table_id`, `transit_subnet_cidrs` | base 서브넷 |
-| `igw_id`, `public_nat_ids`, `private_nat_ids` (AZ → NAT ID), `nat_per_az`, `tgw_id`, `tgw_route_cidrs` | 라우팅 대상 |
-| `zone_id`, `zone_name` | DNS |
-| `has_public_nat`, `has_private_nat`, `has_tgw`, `has_zone` | plan 시점에 정해지는 플래그. stack의 `count` 조건은 ID 대신 이 값을 씁니다 |
-| `resource_tags` | stack이 리소스 생성 시 붙일 태그 (`VpcName`) |
-
-## 사용 예
-
-```hcl
-module "network_base" {
-  source   = "./deployment/network-base"
-  site     = var.site
-  vpc_name = "${var.site}-vpc"
-  vpc_cidrs = [
-    { cidr = "10.227.0.0/24", role = "routable" },
-    { cidr = "100.64.0.0/16", role = "internal" },
-  ]
-  az_count         = 2
-  nat_per_az       = true
-  enable_internet  = true
-  tgw_id           = var.attachment_tgw
-  tgw_route_cidrs  = var.tgw_route_target_ips
-  root_domain      = "example.com"
-  resolver_rule_id = var.vpc_resolver_rule_id
-  common_tags      = var.common_tags
-}
+```text
+.0   /26  edge     (59)  내부용 ALB/NLB          private
+.64  /27  vpce     (27)  인터페이스 endpoint     private
+.96  /28  transit  (11)  TGW, private NAT        private
+.112 /28  예비 (수동 서브넷용)
+.128 /26  ec2      (59)  ec2-common              private
+.192 /27  db       (27)  rds-common 등           private
+.224 /27  public   (27)  외부용 LB, public NAT   IGW 경로 (enable_public일 때만)
 ```
+
+| 받은 대역 (AZ 2개) | AZ 블록 | 배치 |
+|---|---|---|
+| /23 | /24 | 표준 /24만 |
+| /22 | /23 | 표준 /24 + 예비 /24 |
+| /21 (EKS routable) | /22 | 표준 /24 + 예비 /24 + **EKS /23**(뒤쪽 절반) |
+
+- 필요한 최소 크기: AZ 1개 /24, 2개 /23, 3~4개 /22. 작으면 plan에서 막힙니다.
+- **배치 규칙은 버전으로 관리합니다** (`layout_version`). 기존 버전은 수정하지 않습니다. 자세한 규칙은 `layout.tf` 상단 주석을 보세요.
+- `sizing` 출력에 AZ별 서브넷, 사용 가능 IP, 예비 공간이 나옵니다(설계서용).
+
+## 라우팅
+
+| 서브넷 | 0.0.0.0/0 | 사내망 대역 | peering 대역 |
+|---|---|---|---|
+| public | → IGW | — | — |
+| edge, transit | 없음 | → TGW | → peering |
+| vpce | 없음 | 없음 | 없음 |
+| ec2, db (각 common) | → 같은 AZ public NAT (public일 때) | → TGW | → peering |
+
+`enable_public = false`면 VPC 어디에도 인터넷 경로가 없습니다. 필요한 AWS 서비스는 VPC endpoint로 접근하므로 `interface_endpoints`를 빠뜨리지 마세요.
+
+## EKS
+
+CIDR만 계산합니다(서브넷은 03-eks).
+- `routable`: AZ 블록 뒤쪽 절반 앞에 `eks_subnet`(기본 /23) 크기. AZ 블록이 /22 이상이어야 함
+- `internal`: 100.64.0.0/16을 AZ별 균등 분배 (AZ 2개 /17). 100.64 대역을 자동으로 VPC에 연결
+
+## 수동 서브넷과 확장
+
+1. `sizing` 출력의 `spare`에 `manual_subnets`로 직접 넣습니다(범위와 겹침을 plan에서 검사).
+2. 부족하면 routable 대역을 추가(`vpc_cidrs`)하고, 그 대역에 수동 서브넷을 넣습니다. 대역 추가는 중앙 네트워크 쪽 TGW 라우트 추가가 필요합니다.
+
+## 출력: `contract` (Parameter Store 묶음)
+
+| 묶음 | 내용 |
+|---|---|
+| `base` | VPC ID, AZ, 대역, `resource_tags` |
+| `subnets` | 공통 서브넷 ID, 모든 용도의 CIDR, EKS CIDR, 수동 서브넷 |
+| `routing` | public/private NAT ID(AZ별), NAT 공인 IP, TGW, 사내망 대역, peering, prefix list ID |
+| `endpoints` | endpoint ID(서비스별), gateway endpoint, endpoint SG |
+| `dns` | 존 이름, private/public 존 ID, 상위 존 ID(인증서 검증용) |
+
+기존 키는 이름을 바꾸거나 지우지 않고 추가만 합니다.
