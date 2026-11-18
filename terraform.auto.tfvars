@@ -7,6 +7,7 @@ azs = [
 
 cluster_name = "simple"
 resource_prefix = "simple"
+site            = "simple"
 
 vpc_name           = "simple-vpc"
 vpc_primary_cidr   = "10.227.0.0/27"
