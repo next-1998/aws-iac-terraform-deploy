@@ -1,15 +1,28 @@
 ############################################################
-# ALB (선택) - main.tf에서 enable_alb = true 일 때만 생성
-#   인증서가 있으면: 80 → 443 리다이렉트, 443 → EC2
-#   인증서가 없으면: 80 → EC2
+# ALB (선택) — 이 리소스가 필요할 때 여기서 만듭니다 (network-base에서 만들지 않음)
+#
+#   alb_internal = true  (기본값): 내부용. edge 서브넷, private 존에 레코드
+#   alb_internal = false          : 외부용. public 서브넷, public 존 + private 존에 레코드
+#                                   01-network enable_public = true여야 함
+#   인증서가 있으면: 80 → 443 리다이렉트, 443 → EC2 / 없으면: 80 → EC2
 ############################################################
 
 locals {
-  alb_subnet_ids    = var.alb_subnet_ids != null ? var.alb_subnet_ids : values(local.base.edge_subnet_ids)
-  alb_ingress_cidrs = var.alb_ingress_cidrs != null ? var.alb_ingress_cidrs : distinct(concat(local.base.vpc_cidrs, local.base.tgw_route_cidrs))
-  use_https         = var.alb_certificate_arn != null
-  alb_ports         = local.use_https ? tolist([80, 443]) : tolist([80])
-  tg_arn            = try(module.alb_tg[0].target_group_arn["app"], null)
+  internet_facing = var.enable_alb && !var.alb_internal
+
+  alb_subnet_ids = var.alb_subnet_ids != null ? var.alb_subnet_ids : values(
+    var.alb_internal ? local.network.subnets.ids.edge : local.network.subnets.ids.public
+  )
+
+  # ALB 접근 허용 출발지: 지정하지 않으면 내부용은 VPC + 사내망, 외부용은 인터넷 전체
+  alb_ingress_cidrs = var.alb_ingress_cidrs != null ? var.alb_ingress_cidrs : (
+    var.alb_internal ? distinct(concat(local.base.vpc_cidrs, local.routing.corp_cidrs)) : ["0.0.0.0/0"]
+  )
+  alb_ingress_pl_ids = [for n in var.alb_ingress_prefix_lists : local.routing.prefix_list_ids[n]]
+
+  use_https = var.alb_certificate_arn != null
+  alb_ports = local.use_https ? tolist([80, 443]) : tolist([80])
+  tg_arn    = try(module.alb_tg[0].target_group_arn["app"], null)
 
   # 후보 listener를 모두 정의하고, 조건에 맞는 것만 골라 씀
   listener_candidates = {
@@ -35,6 +48,12 @@ locals {
     for k, v in local.listener_candidates : k => v
     if var.enable_alb && contains(local.listener_keys, k)
   }
+
+  # 레코드를 넣을 존: 내부용 → private, 외부용 → public + private (VPC 안에서는 private 존만 조회되므로)
+  record_zones = var.enable_alb && var.alb_record_name != null && local.dns.zone_name != null ? merge(
+    { private = local.dns.private_zone_id },
+    local.internet_facing ? { public = local.dns.public_zone_id } : {},
+  ) : {}
 }
 
 module "alb_sg" {
@@ -45,11 +64,12 @@ module "alb_sg" {
   vpc_id = local.base.vpc_id
   default_security_group_rules = {
     ingress = [for p in local.alb_ports : {
-      from_port   = p
-      to_port     = p
-      protocol    = "tcp"
-      cidr_blocks = local.alb_ingress_cidrs
-      description = "HTTP(S) to ALB"
+      from_port       = p
+      to_port         = p
+      protocol        = "tcp"
+      cidr_blocks     = length(var.alb_ingress_prefix_lists) > 0 && var.alb_ingress_cidrs == null ? null : local.alb_ingress_cidrs
+      prefix_list_ids = length(local.alb_ingress_pl_ids) > 0 ? local.alb_ingress_pl_ids : null
+      description     = "HTTP(S) to ALB"
     }]
     egress = [{
       from_port   = var.app_port
@@ -78,12 +98,27 @@ module "alb" {
   lb_sg_id_list                    = [module.alb_sg[0].securitygroup_id]
   enable_cross_zone_load_balancing = true
   enable_deletion_protection       = var.alb_deletion_protection
+  drop_invalid_header_fields       = true
+
+  # 접근 로그: <버킷>/<site>/alb/<ALB 이름>/AWSLogs/...
+  access_logs = var.access_log_bucket != null ? {
+    bucket  = var.access_log_bucket
+    prefix  = "${local.site}/alb/${local.prefix}-alb"
+    enabled = "true"
+  } : {}
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = local.site
   stack         = var.name
   key_target    = local.key
+}
+
+# WAF (선택, 기본값 끔)
+resource "aws_wafv2_web_acl_association" "alb" {
+  count        = var.enable_alb && var.waf_acl_arn != null ? 1 : 0
+  resource_arn = module.alb[0].elb.arn
+  web_acl_arn  = var.waf_acl_arn
 }
 
 module "alb_tg" {
@@ -127,12 +162,11 @@ module "alb_listener" {
 }
 
 module "alb_record" {
-  source = "../../../aws-iac-terraform-module/module/network/aws-route53-workload/records"
-  # zone_id는 apply 전까지 알 수 없으므로 plan 시점에 정해지는 zone_name으로 판단
-  count = var.enable_alb && var.alb_record_name != null && local.base.has_zone ? 1 : 0
+  source   = "../../../aws-iac-terraform-module/module/network/aws-route53-workload/records"
+  for_each = local.record_zones
 
-  zone_id   = local.base.zone_id
-  zone_name = local.base.zone_name
+  zone_id   = each.value
+  zone_name = local.dns.zone_name
   records = [{
     name = var.alb_record_name
     type = "A"
@@ -144,14 +178,19 @@ module "alb_record" {
   }]
 }
 
-# ALB는 AWS 규칙상 서로 다른 AZ의 서브넷이 2개 이상 필요합니다.
 resource "terraform_data" "alb_checks" {
   count = var.enable_alb ? 1 : 0
 
   lifecycle {
+    # ALB는 AWS 규칙상 서로 다른 AZ의 서브넷이 2개 이상 필요합니다.
     precondition {
       condition     = length(local.alb_subnet_ids) >= 2
-      error_message = "ALB는 AZ 2개 이상이 필요합니다. 현재 사용 가능한 서브넷 ${length(local.alb_subnet_ids)}개 (network-base의 az_count를 2 이상으로 하거나 enable_alb = false)."
+      error_message = "ALB는 AZ 2개 이상이 필요합니다. 현재 사용 가능한 서브넷 ${length(local.alb_subnet_ids)}개 (01-network의 az_count를 2 이상으로 하거나 enable_alb = false)."
+    }
+    # 외부용 ALB는 public 서브넷(IGW)이 있어야 합니다.
+    precondition {
+      condition     = var.alb_internal || local.network.routing.has_public
+      error_message = "외부용 ALB(alb_internal = false)는 01-network의 enable_public = true가 필요합니다. public을 끈 사이트는 인터넷을 쓰지 않습니다."
     }
   }
 }

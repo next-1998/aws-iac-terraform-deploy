@@ -1,6 +1,9 @@
 locals {
-  # network-base 정보는 ec2-common contract 안에 들어 있음
-  base = var.common.base
+  # 01-network contract는 ec2-common contract 안에 들어 있음
+  network = var.common.network
+  base    = local.network.base
+  routing = local.network.routing
+  dns     = local.network.dns
 
   site   = local.base.site
   prefix = "${local.site}-${var.name}"

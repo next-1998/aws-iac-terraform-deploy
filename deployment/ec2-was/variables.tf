@@ -29,11 +29,12 @@ variable "common_tags" {
 variable "ingress_rules" {
   description = "개별 SG 인바운드 규칙 (서비스 포트). ALB를 켜면 ALB → app_port 규칙은 자동으로 추가됩니다. 서버 접근(SSH 등)은 ec2-common 공통 SG에 둡니다"
   type = list(object({
-    from_port   = number
-    to_port     = number
-    protocol    = string
-    cidr_blocks = optional(list(string))
-    description = optional(string)
+    from_port    = number
+    to_port      = number
+    protocol     = string
+    prefix_lists = optional(list(string)) # 01-network의 prefix list 이름 (권장)
+    cidr_blocks  = optional(list(string))
+    description  = optional(string)
   }))
   default = []
 
@@ -123,14 +124,32 @@ variable "alb_internal" {
 }
 
 variable "alb_subnet_ids" {
-  description = "ALB 서브넷. null이면 network-base의 edge 서브넷 (routable 대역)"
+  description = "ALB 서브넷. null이면 내부용은 edge, 외부용은 public 서브넷"
   type        = list(string)
   default     = null
 }
 
 variable "alb_ingress_cidrs" {
-  description = "ALB 접근 허용 CIDR. null이면 VPC CIDR + TGW 대역"
+  description = "ALB 접근 허용 CIDR. null이면 내부용은 VPC + 사내망, 외부용은 0.0.0.0/0"
   type        = list(string)
+  default     = null
+}
+
+variable "alb_ingress_prefix_lists" {
+  description = "ALB 접근 허용 prefix list 이름 (01-network). 지정하면 alb_ingress_cidrs 대신 사용 (권장)"
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_acl_arn" {
+  description = "ALB에 연결할 WAF Web ACL ARN. null이면 연결하지 않음 (기본값)"
+  type        = string
+  default     = null
+}
+
+variable "access_log_bucket" {
+  description = "ALB 접근 로그 버킷 이름 (00-bootstrap 버킷 또는 중앙 로그 버킷). null이면 끔"
+  type        = string
   default     = null
 }
 
