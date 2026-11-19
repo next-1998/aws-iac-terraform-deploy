@@ -1,5 +1,5 @@
-# 02-resource 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
-# 01-network가 남긴 Parameter Store 값은 아래 override_data로 대신합니다.
+# 02-compute 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
+# 01-network, 02-shared가 남긴 Parameter Store 값은 아래 override_data로 대신합니다.
 mock_provider "aws" {
   mock_resource "aws_lb" {
     defaults = { arn = "arn:aws:elasticloadbalancing:ap-northeast-2:111111111111:loadbalancer/app/mock/0123456789abcdef" }
@@ -36,16 +36,9 @@ override_data {
   target = data.aws_ssm_parameter.bootstrap_logs[0]
   values = { insecure_value = "{\"bucket\":\"iac-logs-111111111111-ap-northeast-2\",\"bucket_arn\":\"arn:aws:s3:::iac-logs-111111111111-ap-northeast-2\"}" }
 }
-override_resource {
-  target          = module.shared_common.module.acm[0].aws_acm_certificate.this
-  override_during = plan
-  values = {
-    arn = "arn:aws:acm:ap-northeast-2:111111111111:certificate/mock"
-    domain_validation_options = [
-      { domain_name = "simple.example.com", resource_record_name = "_x.simple.example.com.", resource_record_type = "CNAME", resource_record_value = "_y.acm-validations.aws." },
-      { domain_name = "*.simple.example.com", resource_record_name = "_x.simple.example.com.", resource_record_type = "CNAME", resource_record_value = "_y.acm-validations.aws." },
-    ]
-  }
+override_data {
+  target = data.aws_ssm_parameter.shared
+  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null}" }
 }
 
 run "reads_network_and_builds_resources" {
@@ -55,8 +48,8 @@ run "reads_network_and_builds_resources" {
     error_message = "network=${jsonencode(local.network.base)} log=${local.access_log_bucket}"
   }
   assert {
-    condition     = toset(keys(module.contract.names)) == toset(["ec2", "shared"]) && module.contract.names["ec2"] == "/iac/simple/02-resource/ec2"
-    error_message = "02-resource 출력 경로가 다름"
+    condition     = keys(module.contract.names) == ["ec2"] && module.contract.names["ec2"] == "/iac/simple/02-compute/ec2"
+    error_message = "02-compute 출력 경로가 다름: ${jsonencode(module.contract.names)}"
   }
 }
 

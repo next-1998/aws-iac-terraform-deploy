@@ -1,6 +1,6 @@
 # ec2-common
 
-`02-resource` 단계에서 EC2 용도(`ec2-was`, `ec2-webide` 등)가 **같이 쓰는 리소스**를 만듭니다.
+`02-compute` 단계에서 EC2 용도(`ec2-was`, `ec2-webide` 등)가 **같이 쓰는 리소스**를 만듭니다.
 
 ```text
 01-network (Parameter Store) ──network──▶ ec2-common ──contract──▶ ec2-was

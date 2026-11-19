@@ -1,11 +1,10 @@
 ############################################################
-# 02-resource
-#   01-network가 Parameter Store에 남긴 값을 읽어 리소스를 만듭니다.
-#   - shared-common : 사이트 인증서, 알림 토픽
-#   - ec2-common    : EC2 서브넷, 라우트, 공통 SG
-#   - ec2-was, ec2-webide : 서버, 개별 SG, IAM, ALB
-#   rds-common 등 다른 유형은 필요할 때 같은 방식으로 추가합니다.
-#   결과는 /iac/<site>/02-resource/* 에 남깁니다 (03-eks가 읽음).
+# 02-compute
+#   EC2 유형 전체를 만듭니다 (state 하나).
+#   - ec2-common : EC2 서브넷, 라우트, 공통 SG, 주말 중지 (1차 조합)
+#   - ec2-was, ec2-webide : 서버, 개별 SG, IAM, ALB (2차 조합, 용도별)
+#   읽는 값: /iac/<site>/01-network/*, /iac/<site>/02-shared/shared (인증서)
+#   결과는 /iac/<site>/02-compute/ec2 에 남깁니다 (03-eks가 읽음).
 ############################################################
 
 locals {
@@ -19,6 +18,11 @@ data "aws_ssm_parameter" "network" {
   name     = "/iac/${var.site}/01-network/${each.key}"
 }
 
+# 02-shared 값 (사이트 인증서, 알림 토픽)
+data "aws_ssm_parameter" "shared" {
+  name = "/iac/${var.site}/02-shared/shared"
+}
+
 # String 파라미터라 insecure_value로 읽습니다 (value는 항상 sensitive)
 data "aws_ssm_parameter" "bootstrap_logs" {
   count = var.enable_alb_access_logs && var.central_log_bucket_arn == null ? 1 : 0
@@ -27,24 +31,13 @@ data "aws_ssm_parameter" "bootstrap_logs" {
 
 locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
+  shared  = jsondecode(data.aws_ssm_parameter.shared.insecure_value)
 
   # ALB 접근 로그 버킷 이름
   access_log_bucket = !var.enable_alb_access_logs ? null : (
     var.central_log_bucket_arn != null ? element(split(":::", var.central_log_bucket_arn), 1) :
     jsondecode(data.aws_ssm_parameter.bootstrap_logs[0].insecure_value).bucket
   )
-}
-
-############################################################
-# 공용
-############################################################
-module "shared_common" {
-  source = "../deployment/shared-common"
-
-  network            = local.network
-  enable_alarm_topic = length(var.alarm_emails) > 0
-  alarm_emails       = var.alarm_emails
-  common_tags        = var.common_tags
 }
 
 ############################################################
@@ -81,7 +74,7 @@ module "ec2_was" {
 
   enable_alb          = var.was.enable_alb
   alb_internal        = var.was.alb_internal
-  alb_certificate_arn = module.shared_common.certificate_arn
+  alb_certificate_arn = local.shared.certificate_arn
   alb_record_name     = var.was.alb_record_name
   access_log_bucket   = local.access_log_bucket
   app_port            = var.was.app_port
@@ -104,7 +97,7 @@ module "ec2_webide" {
 
   enable_alb          = var.webide.enable_alb
   alb_internal        = var.webide.alb_internal
-  alb_certificate_arn = module.shared_common.certificate_arn
+  alb_certificate_arn = local.shared.certificate_arn
   alb_record_name     = var.webide.alb_record_name
   access_log_bucket   = local.access_log_bucket
   app_port            = var.webide.app_port
@@ -114,14 +107,14 @@ module "ec2_webide" {
 }
 
 ############################################################
-# 다음 단계(03-eks)로 넘길 값
-#   EKS API는 이 단계의 EC2에서만 접근을 허용하므로 EC2 SG 목록을 남깁니다.
+# 다음 단계(03-eks)로 넘길 값 (/iac/<site>/02-compute/ec2)
+#   EKS API는 EC2에서만 접근을 허용하므로 EC2 SG 목록을 남깁니다.
 ############################################################
 module "contract" {
   source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
 
-  path_prefix = "/iac/${var.site}/02-resource"
-  description = "02-resource 묶음 (03-eks가 읽음)"
+  path_prefix = "/iac/${var.site}/02-compute"
+  description = "02-compute 묶음 (03-eks가 읽음)"
   parameters = {
     ec2 = {
       common_sg_id = module.ec2_common.common_sg_id
@@ -130,14 +123,10 @@ module "contract" {
         var.webide.enabled ? { ec2_webide = module.ec2_webide[0].sg_id } : {},
       )
     }
-    shared = {
-      certificate_arn = module.shared_common.certificate_arn
-      alarm_topic_arn = module.shared_common.alarm_topic_arn
-    }
   }
 
   common_tags = var.common_tags
   site        = var.site
-  stack       = "02-resource"
+  stack       = "02-compute"
   key_target  = "contract"
 }

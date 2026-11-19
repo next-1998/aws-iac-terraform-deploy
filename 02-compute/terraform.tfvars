@@ -1,6 +1,6 @@
 ############################################################
-# 02-resource — 사이트: simple (예시 값. 실제 값으로 바꿔서 사용)
-# 01-network를 먼저 apply해야 합니다 (Parameter Store 값을 읽음).
+# 02-compute — 사이트: simple (예시 값. 실제 값으로 바꿔서 사용)
+# 01-network, 02-shared를 먼저 apply해야 합니다 (Parameter Store 값을 읽음).
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
@@ -10,7 +10,6 @@
 #     LB 공개 범위           고객 보안팀          enable_alb, alb_internal (외부용은 enable_public 필요)
 #     서비스 도메인 이름     고객 DNS 담당        alb_record_name
 #     WAF                    고객 보안팀          외부용 LB에 붙일 Web ACL (필요 시 main.tf에서 ec2-<용도>의 waf_acl_arn으로 넘김)
-#     알림 받는 사람         고객 운영팀          alarm_emails
 #     주말 중지 대상·시간    고객 운영팀          ec2_weekend_stop, was/webide.weekend_stop_enable
 #     접근 로그              고객 보안팀          enable_alb_access_logs
 ############################################################
@@ -22,9 +21,6 @@ common_tags = {}
 
 # ALB 접근 로그 (central_log_bucket_arn = null이면 00-bootstrap 로그 버킷)
 enable_alb_access_logs = true
-
-# 알림 이메일 (넣으면 SNS 토픽 생성)
-alarm_emails = []
 
 # ── EC2 공통 SG (서버 접근용, 고객사마다 다름) ─────────────────
 # 출발지는 01-network의 prefix list 이름을 권장합니다. description은 영문만.

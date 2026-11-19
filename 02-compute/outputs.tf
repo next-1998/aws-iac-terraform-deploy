@@ -15,5 +15,5 @@ output "webide" {
 }
 
 output "certificate_arn" {
-  value = module.shared_common.certificate_arn
+  value = local.shared.certificate_arn
 }

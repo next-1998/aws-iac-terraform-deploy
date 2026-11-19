@@ -1,7 +1,7 @@
 ############################################################
 # 01-network
 #   VPC와 기본 네트워크(공통 서브넷, NAT, VPC endpoint, DNS, TGW/peering 연결)를 만들고,
-#   결과를 Parameter Store에 묶음별로 남깁니다. 02-resource, 03-eks가 읽습니다.
+#   결과를 Parameter Store에 묶음별로 남깁니다. 02-shared, 02-compute, 02-database, 03-eks가 읽습니다.
 #     /iac/<site>/01-network/base | subnets | routing | endpoints | dns
 ############################################################
 
@@ -59,7 +59,7 @@ module "contract" {
   source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
 
   path_prefix = "/iac/${var.site}/01-network"
-  description = "01-network 묶음 (02-resource, 03-eks가 읽음)"
+  description = "01-network 묶음 (02-*, 03-eks가 읽음)"
   parameters  = module.network_base.contract
 
   common_tags = var.common_tags
