@@ -45,6 +45,8 @@ locals {
       corp_cidrs      = var.corp_cidrs
       peerings        = var.peerings
       prefix_list_ids = module.prefix_list.ids
+      # SG 규칙 한도 계산용 (prefix list를 참조하는 규칙 하나가 max_entries만큼 한도를 씀)
+      prefix_list_max_entries = { for k, v in var.prefix_lists : k => v.max_entries }
     }
 
     endpoints = {

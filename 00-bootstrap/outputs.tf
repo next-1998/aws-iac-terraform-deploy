@@ -21,3 +21,8 @@ output "backend_hcl_example" {
     dynamodb_table = "${module.lock_table[0].name}"%{endif}
   EOT
 }
+
+output "ebs_kms_key_arn" {
+  description = "EBS 기본 CMK (이 리전의 새 EBS 볼륨 기본 키)"
+  value       = module.ebs_kms_key.key_arn
+}

@@ -12,7 +12,7 @@ workspace/
 
 | 단계 | 범위 | 하는 일 | 상태 |
 |---|---|---|---|
-| `00-bootstrap` | **계정·리전당 1회** | state 버킷, 로그 버킷, (선택) DynamoDB 잠금 | 구현 |
+| `00-bootstrap` | **계정·리전당 1회** | state 버킷, 로그 버킷, (선택) DynamoDB 잠금, **보안 기본값**(EBS CMK 기본 암호화, S3 계정 퍼블릭 차단, IMDSv2) | 구현 |
 | `01-network` | 사이트 | VPC, 공통 서브넷(edge/vpce/transit/public), NAT, VPC endpoint, DNS, prefix list, Flow Logs, 기존 TGW/peering 연결 | 구현 |
 | `02-shared` | 사이트 | 여러 유형이 같이 쓰는 것: 사이트 인증서, 알림 토픽 (`shared-common`) | 구현 |
 | `02-compute` | 사이트 | EC2 유형: `ec2-common` + 용도별 (`ec2-was`, `ec2-webide` …) | 구현 |
@@ -29,7 +29,7 @@ workspace/
 
 ```text
 Parameter Store
-/iac/_account/00-bootstrap/state | logs
+/iac/_account/00-bootstrap/state | logs | ebs
 /iac/<site>/01-network/base | subnets | routing | endpoints | dns
 /iac/<site>/02-shared/shared
 /iac/<site>/02-compute/ec2

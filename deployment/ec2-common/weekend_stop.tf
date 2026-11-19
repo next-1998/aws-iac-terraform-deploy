@@ -96,27 +96,33 @@ module "ws_role_target" {
 
 # 아웃바운드는 VPC endpoint(443)로만
 module "ws_sg" {
-  source   = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload"
+  source   = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   for_each = local.ws
 
-  name   = "${local.ws_name}-sg"
-  vpc_id = local.base.vpc_id
-  default_security_group_rules = {
-    ingress = []
-    egress = [{
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = local.base.vpc_cidrs
-      description = "to VPC endpoints"
-    }]
-  }
+  name        = "${local.ws_name}-sg"
+  description = "weekend stop lambda (egress to VPC endpoints only)"
+  vpc_id      = local.base.vpc_id
 
   common_tags   = local.ws_tags.common_tags
   resource_tags = local.ws_tags.resource_tags
   site          = local.ws_tags.site
   stack         = local.ws_tags.stack
   key_target    = local.ws_key
+}
+
+# 아웃바운드는 VPC endpoint(443)로만
+module "ws_sg_egress" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/egress-rule"
+  rules = {
+    for pair in setproduct(keys(local.ws), local.base.vpc_cidrs) : "${pair[0]}|vpce|${pair[1]}" => {
+      security_group_id = module.ws_sg[pair[0]].securitygroup_id
+      ip_protocol       = "tcp"
+      from_port         = 443
+      to_port           = 443
+      cidr_ipv4         = pair[1]
+      description       = "to VPC endpoints"
+    }
+  }
 }
 
 module "ws_lambda" {

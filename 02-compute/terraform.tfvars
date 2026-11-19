@@ -4,7 +4,7 @@
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
-#     서버 접근 경로         고객 보안팀          ec2_common_sg_ingress (포트, 출발지 prefix list)
+#     SG 규칙 (접근 경로)    고객 보안팀          deployment/ec2-*/src/sg_rules.csv (포트, 출발지 prefix list)
 #     서버 사양·AMI          고객 (서비스 담당)   was/webide.ami, instance_type, ebs_volumes
 #     서비스 포트·헬스체크   고객 (서비스 담당)   app_port, health_check_path
 #     LB 공개 범위           고객 보안팀          enable_alb, alb_internal (외부용은 enable_public 필요)
@@ -22,11 +22,11 @@ common_tags = {}
 # ALB 접근 로그 (central_log_bucket_arn = null이면 00-bootstrap 로그 버킷)
 enable_alb_access_logs = true
 
-# ── EC2 공통 SG (서버 접근용, 고객사마다 다름) ─────────────────
-# 출발지는 01-network의 prefix list 이름을 권장합니다. description은 영문만.
-ec2_common_sg_ingress = [
-  # { from_port = 22, to_port = 22, protocol = "tcp", prefix_lists = ["access_ctl"], description = "server access control" },
-]
+# ── 보안 그룹 규칙 (CSV) ──────────────────────────────────────
+# SG 규칙은 tfvars가 아니라 그 SG를 만드는 폴더의 src/sg_rules.csv에 넣습니다.
+#   공통 SG(서버 접근)  : deployment/ec2-common/src/sg_rules.csv   (sg 열: common)
+#   용도별 SG, ALB SG   : deployment/ec2-<용도>/src/sg_rules.csv   (sg 열: app, alb)
+# 서비스에 꼭 필요한 기본 규칙은 코드에 이미 있고, CSV에는 협의한 추가 규칙만 넣습니다.
 
 # ── WAS ───────────────────────────────────────────────────────
 was = {

@@ -9,6 +9,12 @@ mock_provider "aws" {
   mock_data "aws_elb_service_account" {
     defaults = { arn = "arn:aws:iam::600734575887:root" }
   }
+  mock_data "aws_iam_policy_document" {
+    defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
+  }
+  mock_data "aws_partition" {
+    defaults = { partition = "aws" }
+  }
 }
 
 run "defaults" {
@@ -40,5 +46,25 @@ run "with_lock_table_and_central_logs" {
   assert {
     condition     = length(module.lock_table) == 1 && length(module.log_bucket) == 0
     error_message = "lock=${length(module.lock_table)} logs=${length(module.log_bucket)}"
+  }
+}
+
+run "account_security_defaults" {
+  command = plan
+  assert {
+    condition     = module.ebs_encryption_by_default.enabled == true
+    error_message = "EBS 기본 암호화가 켜져야 함"
+  }
+  assert {
+    condition     = module.imds_defaults.http_tokens == "required"
+    error_message = "IMDSv2 필수여야 함"
+  }
+  assert {
+    condition     = alltrue(values(module.s3_account_public_access_block[0].settings))
+    error_message = "계정 S3 퍼블릭 차단 4개 모두 true여야 함: ${jsonencode(module.s3_account_public_access_block[0].settings)}"
+  }
+  assert {
+    condition     = toset(keys(module.parameters.names)) == toset(["state", "logs", "ebs"])
+    error_message = "파라미터: ${jsonencode(keys(module.parameters.names))}"
   }
 }

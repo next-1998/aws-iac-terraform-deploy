@@ -26,30 +26,12 @@ variable "common_tags" {
 ############################################################
 # 보안 그룹 (sg.tf)
 ############################################################
-variable "ingress_rules" {
-  description = "개별 SG 인바운드 규칙 (서비스 포트). ALB를 켜면 ALB → app_port 규칙은 자동으로 추가됩니다. 서버 접근(SSH 등)은 ec2-common 공통 SG에 둡니다"
-  type = list(object({
-    from_port    = number
-    to_port      = number
-    protocol     = string
-    prefix_lists = optional(list(string)) # 01-network의 prefix list 이름 (권장)
-    cidr_blocks  = optional(list(string))
-    description  = optional(string)
-  }))
-  default = []
-
-  validation {
-    # AWS SG 규칙 설명은 영문, 숫자, 일부 기호만 허용 (한글 불가)
-    condition     = alltrue([for r in var.ingress_rules : r.description == null || can(regex("^[0-9A-Za-z_ .:/()#,@\\[\\]+=&;{}!$*-]*$", r.description))])
-    error_message = "SG 규칙 description은 영문, 숫자, 공백과 일부 기호(_ . : / ( ) # , @ [ ] + = & ; { } ! $ * -)만 쓸 수 있습니다. 한글은 쓸 수 없습니다."
-  }
-}
 
 ############################################################
 # IAM (iam.tf)
 ############################################################
 variable "policy_arns" {
-  description = "role에 추가로 연결할 관리형 정책. 키: 식별 이름, 값: 정책 ARN (SSM 접속용 정책은 자동 포함)"
+  description = "role에 추가로 연결할 관리형 정책. 키: 식별 이름, 값: 정책 ARN (SSM 접속, CloudWatch Agent 정책은 항상 포함되어 뺄 수 없음)"
   type        = map(string)
   default     = {}
 }
@@ -181,4 +163,17 @@ variable "health_check_path" {
   description = "target group 헬스 체크 경로"
   type        = string
   default     = "/"
+}
+
+
+variable "sg_rules_csv" {
+  description = "SG 규칙 CSV 내용. null(기본값)이면 src/sg_rules.csv를 읽음 (테스트나 다른 파일을 쓸 때만 지정)"
+  type        = string
+  default     = null
+}
+
+variable "sg_rule_limit" {
+  description = "SG 하나의 방향별 규칙 한도 (AWS 기본 60). Service Quotas로 올렸으면 그 값으로"
+  type        = number
+  default     = 60
 }

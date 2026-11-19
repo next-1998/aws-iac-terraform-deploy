@@ -13,27 +13,32 @@ locals {
 }
 
 module "vpce_sg" {
-  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload"
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   count  = length(var.interface_endpoints) > 0 ? 1 : 0
 
-  name   = "${var.site}-vpce-sg"
-  vpc_id = module.vpc.vpc.id
-  default_security_group_rules = {
-    ingress = [{
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = local.vpc_cidrs
-      description = "HTTPS from VPC"
-    }]
-    egress = []
-  }
+  name        = "${var.site}-vpce-sg"
+  description = "interface endpoints (HTTPS from VPC)"
+  vpc_id      = module.vpc.vpc.id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = var.site
   stack         = local.stack
   key_target    = "vpce"
+}
+
+module "vpce_sg_ingress" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/ingress-rule"
+  rules = length(var.interface_endpoints) == 0 ? {} : {
+    for c in local.vpc_cidrs : "vpc|${c}" => {
+      security_group_id = module.vpce_sg[0].securitygroup_id
+      ip_protocol       = "tcp"
+      from_port         = 443
+      to_port           = 443
+      cidr_ipv4         = c
+      description       = "HTTPS from VPC"
+    }
+  }
 }
 
 module "vpce" {

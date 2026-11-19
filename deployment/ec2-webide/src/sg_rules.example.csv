@@ -1,0 +1,4 @@
+sg,no,direction,protocol,from_port,to_port,source,description,memo
+app,1,ingress,tcp,80,80,pl:admin,web ide from developers,개발자 PC에서 Web IDE 접속 (ALB 없이 직접)
+app,2,egress,tcp,22,22,cidr:10.185.20.0/24,git over ssh,사내 Git 서버 (SSH)
+app,3,egress,tcp,443,443,pl:corp_proxy,to corp proxy,패키지 저장소 (사내 프록시 경유)

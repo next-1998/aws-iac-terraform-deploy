@@ -193,11 +193,20 @@ run "manual_subnet_in_spare" {
 run "common_sg_and_prefix_list" {
   command = apply
   variables {
-    common_sg_ingress = [{ from_port = 22, to_port = 22, protocol = "tcp", prefix_lists = ["access_ctl"], description = "server access control" }]
+    common_sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,server access control,서버 접근제어\n"
   }
   assert {
-    condition     = length(output.common_sg_rules) == 1 && contains(one(output.common_sg_rules).prefix_list_ids, output.prefix_list_ids["access_ctl"])
+    condition     = length(output.common_sg_rules.ingress) == 1 && one(values(output.common_sg_rules.ingress)).prefix_list_id == output.prefix_list_ids["access_ctl"]
     error_message = "공통 SG 규칙: ${jsonencode(output.common_sg_rules)}"
+  }
+  assert {
+    condition     = length(output.common_sg_rules.egress) == 0
+    error_message = "공통 SG는 아웃바운드 없음: ${jsonencode(output.common_sg_rules.egress)}"
+  }
+  assert {
+    # webide CSV: app 인바운드 80 ← pl:access_ctl (memo의 한글은 무시)
+    condition     = length([for k, r in output.webide_sg_rules.ingress : r if r.prefix_list_id == output.prefix_list_ids["access_ctl"] && r.from_port == 80]) == 1
+    error_message = "webide 규칙: ${jsonencode(output.webide_sg_rules.ingress)}"
   }
   assert {
     condition     = length(output.was_sgs) == 2 && contains(output.was_sgs, output.common_sg_id)
@@ -219,7 +228,7 @@ run "default_sg_locked" {
 run "endpoints_created" {
   command = apply
   assert {
-    condition     = toset(output.endpoint_ids) == toset(["ssm", "ssmmessages", "ec2messages", "s3"])
+    condition     = toset(output.endpoint_ids) == toset(["ssm", "ssmmessages", "ec2messages", "logs", "monitoring", "s3"])
     error_message = "endpoints: ${jsonencode(output.endpoint_ids)}"
   }
 }
@@ -280,10 +289,45 @@ run "reject_korean_sg_description" {
   command = plan
   module { source = "../deployment/ec2-common" }
   variables {
-    network           = run.layout_v1_2az.network_contract
-    common_sg_ingress = [{ from_port = 22, to_port = 22, protocol = "tcp", cidr_blocks = ["10.185.66.0/24"], description = "서버 접근제어" }]
+    network      = run.layout_v1_2az.network_contract
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,cidr:10.185.66.0/24,서버 접근제어,\n"
   }
-  expect_failures = [var.common_sg_ingress]
+  expect_failures = [output.sg_rules]
+}
+
+run "reject_bad_sg_csv_rows" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+    # 없는 SG 이름, 없는 prefix list, 0.0.0.0/0 인바운드, 중복 행
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ndb,1,ingress,tcp,1521,1521,cidr:10.0.0.0/24,x,\napp,1,ingress,tcp,80,80,pl:nope,x,\napp,2,ingress,tcp,443,443,cidr:0.0.0.0/0,x,\napp,3,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\napp,4,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\n"
+  }
+  expect_failures = [output.sg_rules]
+}
+
+run "sg_csv_rules_applied" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+    # BOM + Windows 줄바꿈 (Excel "CSV UTF-8" 저장 형식)
+    sg_rules_csv = "\ufeffsg,no,direction,protocol,from_port,to_port,source,description,memo\r\napp,1,egress,tcp,1521,1521,cidr:10.185.10.0/24,to legacy db,기존 DB\r\napp,2,ingress,tcp,8443,8443,sg:common,from common,\r\napp,3,egress,all,,,self,self,\r\n"
+  }
+  assert {
+    condition     = length([for k, r in output.sg_rules.egress : r if r.cidr_ipv4 == "10.185.10.0/24" && r.from_port == 1521]) == 1
+    error_message = "CSV egress 규칙: ${jsonencode(output.sg_rules.egress)}"
+  }
+  assert {
+    condition     = length([for k, r in output.sg_rules.ingress : r if r.from_port == 8443 && r.referenced_security_group_id == run.layout_v1_2az.ec2_common_contract.common_sg_id]) == 1
+    error_message = "CSV sg:common 규칙: ${jsonencode(output.sg_rules.ingress)}"
+  }
+  assert {
+    condition     = length([for k, r in output.sg_rules.egress : r if r.ip_protocol == "-1" && r.from_port == null && r.cidr_ipv4 == null && r.prefix_list_id == null]) == 1
+    error_message = "CSV self 규칙: ${jsonencode(output.sg_rules.egress)}"
+  }
 }
 
 ############################################################
@@ -428,7 +472,7 @@ run "weekend_stop_prepared_but_disabled" {
   command = apply
   variables {
     enable_weekend_stop = true
-    interface_endpoints = ["ssm", "ssmmessages", "ec2messages", "ec2"]
+    interface_endpoints = ["ssm", "ssmmessages", "ec2messages", "logs", "monitoring", "ec2"]
   }
   assert {
     condition     = alltrue([for k, s in output.weekend_stop.schedules : s.state == "DISABLED"]) && toset(keys(output.weekend_stop.schedules)) == toset(["stop", "start"])
@@ -444,4 +488,181 @@ run "reject_weekend_stop_without_ec2_endpoint" {
     enable_weekend_stop = true
   }
   expect_failures = [output.weekend_stop]
+}
+
+############################################################
+# EC2 CloudWatch Agent: 정책은 항상 포함, 폐쇄망이면 logs/monitoring endpoint 필요
+############################################################
+run "ec2_role_has_cloudwatch_agent_policy" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common      = run.layout_v1_2az.ec2_common_contract
+    ami         = "ami-0123456789abcdef0"
+    policy_arns = { cloudwatch_agent = "arn:aws:iam::111111111111:policy/other" } # 덮어쓰기 시도
+  }
+  assert {
+    condition     = module.role_policy.policy_arns["cloudwatch_agent"] == "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy" && module.role_policy.policy_arns["ssm"] == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    error_message = "필수 정책이 빠지거나 덮어써짐: ${jsonencode(module.role_policy.policy_arns)}"
+  }
+}
+
+run "reject_closed_network_without_cloudwatch_endpoints" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network = merge(run.layout_v1_2az.network_contract, {
+      endpoints = merge(run.layout_v1_2az.network_contract.endpoints, { interface = ["ssm", "ssmmessages", "ec2messages"] })
+    })
+  }
+  expect_failures = [output.contract]
+}
+
+############################################################
+# 보안 기본값: EC2 아웃바운드는 VPC + gateway endpoint만 (인터넷 전체 허용 없음)
+############################################################
+run "ec2_egress_closed_by_default" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+  }
+  assert {
+    condition     = !anytrue([for k, r in output.sg_rules.egress : r.cidr_ipv4 == "0.0.0.0/0"]) && length(output.sg_rules.egress) > 0
+    error_message = "EC2 SG 아웃바운드에 0.0.0.0/0이 있으면 안 됨"
+  }
+}
+
+############################################################
+# src/sg_rules.example.csv 예제가 형식에 맞는지 (복사해서 쓰는 예제라 항상 통과해야 함)
+############################################################
+run "sg_example_csv_common" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network      = run.layout_v1_2az.network_contract
+    sg_rules_csv = file("../deployment/ec2-common/src/sg_rules.example.csv")
+  }
+  assert {
+    condition     = length(output.sg_rules.ingress) == 3
+    error_message = "ec2-common 예제: ${jsonencode(keys(output.sg_rules.ingress))}"
+  }
+}
+
+run "sg_example_csv_was" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common       = run.layout_v1_2az.ec2_common_contract
+    ami          = "ami-0123456789abcdef0"
+    enable_alb   = true # 예제에 alb 행이 있음
+    sg_rules_csv = file("../deployment/ec2-was/src/sg_rules.example.csv")
+  }
+  assert {
+    condition     = length([for k, r in output.sg_rules.ingress : k if !startswith(k, "base|")]) == 2 && length([for k, r in output.sg_rules.egress : k if !startswith(k, "base|")]) == 3
+    error_message = "ec2-was 예제: ${jsonencode(keys(output.sg_rules.ingress))} ${jsonencode(keys(output.sg_rules.egress))}"
+  }
+}
+
+run "sg_example_csv_webide" {
+  command = plan
+  module { source = "../deployment/ec2-webide" }
+  variables {
+    common       = run.layout_v1_2az.ec2_common_contract
+    ami          = "ami-0123456789abcdef0"
+    sg_rules_csv = file("../deployment/ec2-webide/src/sg_rules.example.csv")
+  }
+  assert {
+    condition     = length([for k, r in output.sg_rules.ingress : k if !startswith(k, "base|")]) == 1 && length([for k, r in output.sg_rules.egress : k if !startswith(k, "base|")]) == 2
+    error_message = "ec2-webide 예제: ${jsonencode(keys(output.sg_rules.ingress))} ${jsonencode(keys(output.sg_rules.egress))}"
+  }
+}
+
+############################################################
+# SG CSV: 코드 기본 규칙과 같은 규칙, 표기만 다른 중복, 규칙 한도 (모두 apply 실패 원인 → plan에서 막음)
+############################################################
+run "reject_csv_rule_same_as_base" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+    # 기본 규칙(app 아웃바운드 VPC 전체)과 같음. description은 달라도 같은 규칙
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,egress,all,,,cidr:${run.layout_v1_2az.vpc_cidrs[0]},again,\n"
+  }
+  expect_failures = [output.sg_rules]
+}
+
+run "reject_csv_duplicate_with_different_notation" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network      = run.layout_v1_2az.network_contract
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,TCP,022,22,pl:access_ctl,ssh again,\n"
+  }
+  expect_failures = [output.sg_rules]
+}
+
+run "reject_sg_rule_limit" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network = run.layout_v1_2az.network_contract
+    # access_ctl(max 5) + admin(max 5) = 10 > 한도 8
+    sg_rule_limit = 8
+    sg_rules_csv  = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,tcp,22,22,pl:admin,ssh admin,\n"
+  }
+  expect_failures = [output.sg_rules]
+}
+
+run "sg_rule_limit_counts_prefix_list_entries" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network       = run.layout_v1_2az.network_contract
+    sg_rule_limit = 10 # 정확히 10이면 통과
+    sg_rules_csv  = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,tcp,22,22,pl:admin,ssh admin,\n"
+  }
+  assert {
+    condition     = length(output.sg_rules.ingress) == 2
+    error_message = "규칙: ${jsonencode(keys(output.sg_rules.ingress))}"
+  }
+}
+
+############################################################
+# SG CSV 순번(no): 규칙의 키. 내용을 고쳐도 번호가 같으면 같은 규칙 (그 자리에서 수정)
+############################################################
+run "sg_csv_key_is_no" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network = run.layout_v1_2az.network_contract
+    # common 7번 규칙의 포트를 22 → 2222로 바꾼 상태. 키는 그대로 common-7
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,7,ingress,tcp,2222,2222,pl:access_ctl,ssh,\n"
+  }
+  assert {
+    condition     = jsonencode(keys(output.sg_rules.ingress)) == jsonencode(["common-7"]) && output.sg_rules.ingress["common-7"].from_port == 2222
+    error_message = "키: ${jsonencode(keys(output.sg_rules.ingress))}"
+  }
+}
+
+run "reject_duplicate_no" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network      = run.layout_v1_2az.network_contract
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,3,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,3,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
+  }
+  expect_failures = [output.sg_rules]
+}
+
+run "reject_invalid_no" {
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network      = run.layout_v1_2az.network_contract
+    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,1.5,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
+  }
+  expect_failures = [output.sg_rules]
 }

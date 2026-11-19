@@ -26,7 +26,7 @@ override_data {
 }
 override_data {
   target = data.aws_ssm_parameter.network["endpoints"]
-  values = { insecure_value = "{\"ids\":{\"ssm\":\"vpce-1\",\"s3\":\"vpce-2\"},\"gateway\":{\"s3\":\"vpce-2\"},\"interface\":[\"ssm\"],\"vpce_sg_id\":\"sg-1\"}" }
+  values = { insecure_value = "{\"ids\":{\"ssm\":\"vpce-1\",\"s3\":\"vpce-2\"},\"gateway\":{\"s3\":\"vpce-2\"},\"interface\":[\"ssm\",\"logs\",\"monitoring\"],\"vpce_sg_id\":\"sg-1\"}" }
 }
 override_data {
   target = data.aws_ssm_parameter.network["dns"]

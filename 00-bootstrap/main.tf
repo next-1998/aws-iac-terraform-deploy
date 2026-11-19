@@ -203,6 +203,10 @@ module "parameters" {
         region     = local.region
         lock_table = var.create_lock_table ? module.lock_table[0].name : null
       }
+      ebs = {
+        kms_key_arn = module.ebs_kms_key.key_arn
+        kms_alias   = module.ebs_kms_alias.id
+      }
     },
     var.create_log_bucket ? {
       logs = {

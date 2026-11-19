@@ -57,28 +57,12 @@ locals {
 }
 
 module "alb_sg" {
-  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload"
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   count  = var.enable_alb ? 1 : 0
 
-  name   = "${local.prefix}-alb-sg"
-  vpc_id = local.base.vpc_id
-  default_security_group_rules = {
-    ingress = [for p in local.alb_ports : {
-      from_port       = p
-      to_port         = p
-      protocol        = "tcp"
-      cidr_blocks     = length(var.alb_ingress_prefix_lists) > 0 && var.alb_ingress_cidrs == null ? null : local.alb_ingress_cidrs
-      prefix_list_ids = length(local.alb_ingress_pl_ids) > 0 ? local.alb_ingress_pl_ids : null
-      description     = "HTTP(S) to ALB"
-    }]
-    egress = [{
-      from_port   = var.app_port
-      to_port     = var.app_port
-      protocol    = "tcp"
-      cidr_blocks = values(var.common.subnet_cidrs)
-      description = "to ${local.prefix} EC2"
-    }]
-  }
+  name        = "${local.prefix}-alb-sg"
+  description = "ALB for ${local.prefix}"
+  vpc_id      = local.base.vpc_id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags

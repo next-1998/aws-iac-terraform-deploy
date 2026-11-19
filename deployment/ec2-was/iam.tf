@@ -29,9 +29,15 @@ module "role_policy" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role-policy-attachment"
 
   role_name = module.role.name
+  # 필수 정책은 마지막에 합쳐서 var.policy_arns로 덮어쓰거나 뺄 수 없게 함
+  #   ssm              : Session Manager 접속, 패치
+  #   cloudwatch_agent : CloudWatch Agent 지표·로그 전송 (필수)
   policy_arns = merge(
-    { ssm = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore" },
     var.policy_arns,
+    {
+      ssm              = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      cloudwatch_agent = "arn:${data.aws_partition.current.partition}:iam::aws:policy/CloudWatchAgentServerPolicy"
+    },
   )
 }
 

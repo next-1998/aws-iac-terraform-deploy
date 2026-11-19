@@ -36,3 +36,19 @@ terraform output backend_hcl_example
 ```bash
 terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 ```
+
+## 계정·리전 보안 기본값 (필수, `account_defaults.tf`)
+
+이 단계에서 보안 기본값을 먼저 적용하고, 이후 단계는 그 위에 필요한 것만 추가합니다.
+
+| 항목 | 내용 | 범위 |
+|---|---|---|
+| EBS 기본 암호화 | 켜짐. 새 EBS 볼륨·스냅샷 복사본은 항상 암호화 | 리전 |
+| EBS 기본 키 | 고객 관리형 키(CMK) `alias/iac/ebs-default`, 자동 교체, **삭제 보호** | 리전 |
+| S3 퍼블릭 차단 | 계정 단위 4개 항목 모두 차단 (버킷 설정보다 우선) | 계정 전체 |
+| IMDSv2 | 인스턴스 메타데이터 기본값 `http_tokens = required`, hop limit 2 | 리전 |
+
+- 이미 있는 볼륨·인스턴스는 바뀌지 않습니다. 새로 만드는 것부터 적용됩니다.
+- 여러 리전에서 이 단계를 실행하면 S3 계정 차단은 한 리전에서만 관리합니다 (`manage_s3_account_public_access_block`).
+- Auto Scaling을 쓰면 `ebs_kms_allow_autoscaling = true` (서비스 연결 역할이 계정에 먼저 있어야 함).
+- EBS CMK ARN은 `/iac/_account/00-bootstrap/ebs`에 남깁니다.

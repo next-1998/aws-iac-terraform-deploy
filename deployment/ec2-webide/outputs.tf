@@ -45,3 +45,16 @@ output "alb_arn" {
 output "target_group_arn" {
   value = var.enable_alb ? module.alb_tg[0].target_group_arn["app"] : null
 }
+
+output "sg_rules" {
+  description = "적용한 SG 규칙 (기본 규칙 + src/sg_rules.csv)"
+  value = {
+    ingress = module.sg_ingress.rules
+    egress  = module.sg_egress.rules
+  }
+
+  precondition {
+    condition     = length(module.sg_rules_csv.errors) == 0
+    error_message = "${var.name}/src/sg_rules.csv 오류: ${join(" / ", module.sg_rules_csv.errors)}"
+  }
+}

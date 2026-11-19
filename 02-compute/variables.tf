@@ -9,13 +9,6 @@ variable "enable_alb_access_logs" {
   default     = true
 }
 
-# ── ec2-common ────────────────────────────────────────────────
-variable "ec2_common_sg_ingress" {
-  description = "EC2 공통 SG 인바운드 (서버 접근용). 고객사마다 다름. 출발지는 prefix list 이름 권장"
-  type        = any
-  default     = []
-}
-
 # ── ec2-was ───────────────────────────────────────────────────
 variable "was" {
   description = "WAS 서버 설정"
@@ -26,7 +19,6 @@ variable "was" {
     root_volume_size    = optional(number, 30)
     ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3") })), [])
     weekend_stop_enable = optional(bool, false)
-    ingress_rules       = optional(any, [])
     enable_alb          = optional(bool, true)
     alb_internal        = optional(bool, true)
     alb_record_name     = optional(string, "web")
@@ -45,7 +37,6 @@ variable "webide" {
     root_volume_size    = optional(number, 30)
     ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3") })), [])
     weekend_stop_enable = optional(bool, false)
-    ingress_rules       = optional(any, [])
     enable_alb          = optional(bool, false)
     alb_internal        = optional(bool, true)
     alb_record_name     = optional(string, "ide")

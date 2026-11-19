@@ -46,8 +46,7 @@ locals {
 module "ec2_common" {
   source = "../deployment/ec2-common"
 
-  network           = local.network
-  common_sg_ingress = var.ec2_common_sg_ingress
+  network = local.network
 
   enable_weekend_stop = var.ec2_weekend_stop.enabled
   weekend_stop = {
@@ -70,7 +69,6 @@ module "ec2_was" {
   root_volume_size    = var.was.root_volume_size
   ebs_volumes         = var.was.ebs_volumes
   weekend_stop_enable = var.was.weekend_stop_enable
-  ingress_rules       = var.was.ingress_rules
 
   enable_alb          = var.was.enable_alb
   alb_internal        = var.was.alb_internal
@@ -93,7 +91,6 @@ module "ec2_webide" {
   root_volume_size    = var.webide.root_volume_size
   ebs_volumes         = var.webide.ebs_volumes
   weekend_stop_enable = var.webide.weekend_stop_enable
-  ingress_rules       = var.webide.ingress_rules
 
   enable_alb          = var.webide.enable_alb
   alb_internal        = var.webide.alb_internal

@@ -48,12 +48,13 @@ variable "manual_subnets" {
 
 variable "interface_endpoints" {
   type    = list(string)
-  default = ["ssm", "ssmmessages", "ec2messages"]
+  default = ["ssm", "ssmmessages", "ec2messages", "logs", "monitoring"]
 }
 
-variable "common_sg_ingress" {
-  type    = any
-  default = []
+variable "common_sg_rules_csv" {
+  description = "ec2-common SG 규칙 CSV 내용 (기본: 헤더만 = 규칙 없음)"
+  type        = string
+  default     = "sg,no,direction,protocol,from_port,to_port,source,description,memo\n"
 }
 
 variable "enable_certificate" {
@@ -79,15 +80,20 @@ variable "was_alb_internal" {
 module "network_base" {
   source = "../deployment/network-base"
 
-  site                = "simple"
-  vpc_name            = "simple-vpc"
-  vpc_cidrs           = var.vpc_cidrs
-  az_count            = var.az_count
-  enable_public       = var.enable_public
-  nat_per_az          = var.nat_per_az
-  tgw_id              = "tgw-0123456789abcdef0"
-  corp_cidrs          = ["10.0.0.0/8"]
-  prefix_lists        = { access_ctl = { max_entries = 5, entries = { "10.185.66.10/32" = "server-access-control" } } }
+  site          = "simple"
+  vpc_name      = "simple-vpc"
+  vpc_cidrs     = var.vpc_cidrs
+  az_count      = var.az_count
+  enable_public = var.enable_public
+  nat_per_az    = var.nat_per_az
+  tgw_id        = "tgw-0123456789abcdef0"
+  corp_cidrs    = ["10.0.0.0/8"]
+  prefix_lists = {
+    access_ctl = { max_entries = 5, entries = { "10.185.66.10/32" = "server-access-control" } }
+    admin      = { max_entries = 5, entries = { "10.185.66.0/24" = "admin-pc" } }
+    corp       = { max_entries = 5, entries = { "10.0.0.0/8" = "corp" } }
+    corp_proxy = { max_entries = 2, entries = { "10.185.1.10/32" = "proxy" } }
+  }
   eks_placement       = var.eks_placement
   manual_subnets      = var.manual_subnets
   interface_endpoints = var.interface_endpoints
@@ -107,7 +113,7 @@ module "shared_common" {
 module "ec2_common" {
   source              = "../deployment/ec2-common"
   network             = module.network_base.contract
-  common_sg_ingress   = var.common_sg_ingress
+  sg_rules_csv        = var.common_sg_rules_csv
   enable_weekend_stop = var.enable_weekend_stop
 }
 
@@ -125,10 +131,10 @@ module "ec2_was" {
 }
 
 module "ec2_webide" {
-  source        = "../deployment/ec2-webide"
-  common        = module.ec2_common.contract
-  ami           = "ami-0123456789abcdef0"
-  ingress_rules = [{ from_port = 80, to_port = 80, protocol = "tcp", prefix_lists = ["access_ctl"] }]
+  source       = "../deployment/ec2-webide"
+  common       = module.ec2_common.contract
+  ami          = "ami-0123456789abcdef0"
+  sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,ingress,tcp,80,80,pl:access_ctl,web ide,웹 IDE 접속\n"
 }
 
 locals {
@@ -164,7 +170,8 @@ output "overlaps" { value = local.overlaps }
 output "ec2_subnets" { value = module.ec2_common.subnet_cidrs }
 output "ec2_rts" { value = module.ec2_common.route_table_ids }
 output "common_sg_id" { value = module.ec2_common.common_sg_id }
-output "common_sg_rules" { value = module.ec2_common.common_sg_ingress_rules }
+output "common_sg_rules" { value = module.ec2_common.sg_rules }
+output "webide_sg_rules" { value = module.ec2_webide.sg_rules }
 output "was_sgs" { value = module.ec2_was.security_group_ids }
 output "was_alb" { value = module.ec2_was.alb_arn != null }
 output "webide_alb" { value = module.ec2_webide.alb_arn == null }

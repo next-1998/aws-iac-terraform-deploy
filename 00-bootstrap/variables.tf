@@ -76,3 +76,24 @@ variable "log_transition_glacier_days" {
   type        = number
   default     = 90
 }
+
+############################################################
+# 계정·리전 보안 기본값 (account_defaults.tf) — 필수 적용, 끄는 옵션 없음
+############################################################
+variable "ebs_kms_key_administrators" {
+  description = "EBS 기본 CMK 관리자 (IAM role/user ARN). 비우면 계정 root 정책으로만 관리"
+  type        = list(string)
+  default     = []
+}
+
+variable "ebs_kms_allow_autoscaling" {
+  description = "Auto Scaling 서비스 연결 역할에 EBS CMK 사용 허용 (ASG를 쓸 때 true. 역할이 계정에 먼저 있어야 함)"
+  type        = bool
+  default     = false
+}
+
+variable "manage_s3_account_public_access_block" {
+  description = "계정 단위 S3 퍼블릭 차단을 이 state에서 관리. 계정 전체 설정이라 여러 리전에서 이 단계를 실행하면 한 리전만 true"
+  type        = bool
+  default     = true
+}

@@ -1,6 +1,12 @@
 # ec2-<용도> stack들이 받는 표준 입력 묶음
 output "contract" {
   description = "ec2-common → ec2-<용도> 표준 연결 값"
+
+  # EC2는 CloudWatch Agent(지표·로그)가 필수입니다. 폐쇄망(public 없음)이면 logs, monitoring endpoint가 있어야 전송됩니다.
+  precondition {
+    condition     = var.network.routing.has_public || length(setsubtract(["logs", "monitoring"], var.network.endpoints.interface)) == 0
+    error_message = "EC2 CloudWatch Agent용 VPC endpoint가 없습니다: ${join(", ", setsubtract(["logs", "monitoring"], var.network.endpoints.interface))}. 01-network의 interface_endpoints에 추가하세요."
+  }
   value = {
     # 01-network contract (VPC, edge/public 서브넷, DNS, prefix list 등)
     network = var.network
@@ -28,9 +34,17 @@ output "common_sg_id" {
   value = module.common_sg.securitygroup_id
 }
 
-output "common_sg_ingress_rules" {
-  description = "공통 SG에 들어간 인바운드 규칙 (기본값: 없음)"
-  value       = module.common_sg.securitygroup.ingress
+output "sg_rules" {
+  description = "CSV에서 읽어 적용한 SG 규칙 (src/sg_rules.csv)"
+  value = {
+    ingress = module.sg_ingress.rules
+    egress  = module.sg_egress.rules
+  }
+
+  precondition {
+    condition     = length(module.sg_rules_csv.errors) == 0
+    error_message = "ec2-common/src/sg_rules.csv 오류: ${join(" / ", module.sg_rules_csv.errors)}"
+  }
 }
 
 output "weekend_stop" {

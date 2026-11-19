@@ -76,6 +76,9 @@ peerings = {}
 prefix_lists = {
   # access_ctl = { max_entries = 5, entries = { "10.185.66.10/32" = "server-access-control" } }
   # admin      = { max_entries = 10, entries = { "10.185.66.0/24" = "admin-pc" } }
+  # corp       = { max_entries = 10, entries = { "10.0.0.0/8" = "corp-network" } }
+  # corp_proxy = { max_entries = 2, entries = { "10.185.1.10/32" = "corp-proxy" } }
+  # (deployment/ec2-*/src/sg_rules.example.csv 예제가 이 이름들을 씁니다)
 }
 
 # ── EKS 배치 (EKS를 쓸 때만) ──────────────────────────────────
@@ -88,9 +91,9 @@ manual_subnets = []
 
 # ── VPC endpoint ──────────────────────────────────────────────
 # enable_public = false면 서버가 쓰는 AWS 서비스 endpoint를 반드시 넣어야 합니다.
-#   EC2 + SSM : ssm, ssmmessages, ec2messages (+ s3, logs, kms 필요 시)
+#   EC2 (필수) : ssm, ssmmessages, ec2messages (접속), logs, monitoring (CloudWatch Agent 로그·지표) (+ s3, kms 필요 시)
 #   EKS       : ecr.api, ecr.dkr, sts, ec2, logs, elasticloadbalancing, autoscaling (+ s3)
-interface_endpoints = ["ssm", "ssmmessages", "ec2messages"]
+interface_endpoints = ["ssm", "ssmmessages", "ec2messages", "logs", "monitoring"]
 gateway_endpoints   = ["s3"]
 
 # ── DNS ───────────────────────────────────────────────────────

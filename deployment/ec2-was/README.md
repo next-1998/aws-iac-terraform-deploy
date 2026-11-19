@@ -8,8 +8,11 @@ WAS 서버를 만듭니다. 서브넷과 공통 SG는 `ec2-common`의 것을 쓰
 
 | 파일 | 리소스 |
 |---|---|
-| `sg.tf` | **개별 SG** (서비스 포트). ALB를 켜면 ALB → `app_port` 규칙 자동 추가 |
-| `iam.tf` | 이 서버 전용 IAM role (SSM 접속 정책 기본 포함) |
+| `sg.tf` | **개별 SG**(`app`)와 ALB SG(`alb`)의 규칙. 기본 규칙(ALB → app_port, VPC·gateway endpoint 아웃바운드, ALB 80/443)은 코드에, 사이트 추가 규칙은 `src/sg_rules.csv` |
+| `src/sg_rules.csv` | 협의한 SG 추가 규칙 (`sg` 열: `app`, `alb` / 대상 `sg:common`은 ec2-common 공통 SG). 형식: module repo `module/_sg_rules_csv/README.md` |
+| `src/sg_rules.example.csv` | 예제 (적용되지 않음). 복사해서 `sg_rules.csv`에 필요한 행만 옮겨 씁니다 |
+| `src/README.md` | **SG 규칙 가이드**: 규칙을 붙일 수 있는 SG, 코드 기본 규칙, CSV 형식, 협의 항목 |
+| `iam.tf` | 이 서버 전용 IAM role, instance profile. **필수 정책**(뺄 수 없음): SSM 접속(`AmazonSSMManagedInstanceCore`), CloudWatch Agent 지표·로그(`CloudWatchAgentServerPolicy`). 폐쇄망이면 01-network에 `logs`, `monitoring` endpoint 필요 |
 | `ec2.tf` | instance profile, EC2(공인 IP 없음), EBS. SG는 `[공통 SG, 개별 SG]` |
 | `alb.tf` | ALB, ALB SG, target group, listener, DNS 레코드, WAF 연결 (`enable_alb = true`일 때) |
 
