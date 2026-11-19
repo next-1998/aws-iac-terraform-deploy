@@ -23,11 +23,12 @@ locals {
 module "shared_common" {
   source = "../deployment/shared-common"
 
-  network            = local.network
-  enable_certificate = var.enable_certificate
-  enable_alarm_topic = length(var.alarm_emails) > 0
-  alarm_emails       = var.alarm_emails
-  common_tags        = var.common_tags
+  network              = local.network
+  enable_certificate   = var.enable_certificate
+  enable_alarm_topic   = length(var.alarm_emails) > 0
+  central_kms_key_arns = var.central_kms_key_arns
+  alarm_emails         = var.alarm_emails
+  common_tags          = var.common_tags
 }
 
 ############################################################
@@ -42,6 +43,8 @@ module "contract" {
     shared = {
       certificate_arn = module.shared_common.certificate_arn
       alarm_topic_arn = module.shared_common.alarm_topic_arn
+      # 다른 단계가 로그 그룹 암호화에 씀 (ec2-common 등)
+      logs_kms_key_arn = module.shared_common.kms_keys.key_arns.logs
     }
   }
 

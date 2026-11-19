@@ -64,3 +64,12 @@ variable "sg_rule_limit" {
   type        = number
   default     = 60
 }
+
+############################################################
+# 암호화
+############################################################
+variable "logs_kms_key_arn" {
+  description = "로그 그룹 암호화 CMK (02-shared의 logs 키). null이면 CloudWatch Logs 기본 암호화"
+  type        = string
+  default     = null
+}

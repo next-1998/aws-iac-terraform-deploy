@@ -1,6 +1,9 @@
 # 02-compute 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
 # 01-network, 02-shared가 남긴 Parameter Store 값은 아래 override_data로 대신합니다.
 mock_provider "aws" {
+  mock_data "aws_iam_policy_document" {
+    defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
+  }
   mock_resource "aws_lb" {
     defaults = { arn = "arn:aws:elasticloadbalancing:ap-northeast-2:111111111111:loadbalancer/app/mock/0123456789abcdef" }
   }
@@ -38,7 +41,7 @@ override_data {
 }
 override_data {
   target = data.aws_ssm_parameter.shared
-  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null}" }
+  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null,\"logs_kms_key_arn\":\"arn:aws:kms:ap-northeast-2:111111111111:key/logs-mock\"}" }
 }
 
 run "reads_network_and_builds_resources" {

@@ -38,6 +38,7 @@ module "ws_log" {
 
   name              = "/aws/lambda/${local.ws_name}"
   retention_in_days = var.weekend_stop.log_retention_days
+  kms_key_id        = var.logs_kms_key_arn
 
   common_tags   = local.ws_tags.common_tags
   resource_tags = local.ws_tags.resource_tags

@@ -4,7 +4,7 @@
 #   - ACM 인증서: <site>.<root_domain>, *.<site>.<root_domain> (용도별 ALB가 같이 씀)
 #   - SNS 알림 토픽 (선택): 리소스별 알람이 같은 곳으로 보냄
 #   주말 중지 Lambda는 대상 서비스의 -common에 둡니다 (ec2-common, rds-common).
-#   KMS 키는 기본적으로 각 리소스 <유형>-common이 만듭니다. 공용 키가 필요할 때만 여기에 추가합니다.
+#   KMS 키는 용도별로 분리합니다 (kms.tf). 여기에는 공용 서비스 키(logs, sns)만 두고, 리소스 데이터 키는 각 <유형>-common이 만듭니다 (예: ec2-common의 ec2).
 ############################################################
 
 locals {
@@ -73,6 +73,8 @@ module "alarm_topic" {
   count  = var.enable_alarm_topic ? 1 : 0
 
   name = "${local.site}-alarm"
+  # 알림 토픽 CMK (kms.tf: 중앙 키 또는 이 계정 키)
+  kms_master_key_id = local.kms_key_arns.sns
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags

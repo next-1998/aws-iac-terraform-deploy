@@ -4,6 +4,7 @@
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
+#     암호화 키 (CMK)        고객 보안팀          central_kms_key_arns (조직 중앙 CMK를 쓸지, 쓰면 용도별 키 ARN)
 #     SG 규칙 (접근 경로)    고객 보안팀          deployment/ec2-*/src/sg_rules.csv (포트, 출발지 prefix list)
 #     서버 사양·AMI          고객 (서비스 담당)   was/webide.ami, instance_type, ebs_volumes
 #     서비스 포트·헬스체크   고객 (서비스 담당)   app_port, health_check_path
@@ -56,4 +57,15 @@ ec2_weekend_stop = {
   schedule_enabled = false
   # stop_schedule  = "cron(0 21 ? * FRI *)"
   # start_schedule = "cron(0 7 ? * MON *)"
+}
+
+# ── 암호화 키 (CMK) ───────────────────────────────────────────
+# EC2 볼륨은 계정 EBS 기본 키(00-bootstrap의 ebs)로 암호화되므로 이 단계에서 만드는 키는 없습니다.
+# 같은 tfvars 값을 여러 단계가 같이 쓸 수 있도록 변수만 받습니다.
+# 조직 중앙 계정의 CMK를 쓰면 용도별로 키 ARN을 넣습니다 (넣은 용도는 키를 만들지 않음).
+#   - alias가 아니라 키 ARN이어야 합니다 (다른 계정 alias는 쓸 수 없음)
+#   - 중앙 키 정책에 이 계정과 서비스 사용 권한이 있어야 합니다 (중앙 계정 사전 요청)
+#   - 중앙 키 하나로 모든 용도를 쓰지 말고 용도별로 분리하세요
+central_kms_key_arns = {
+  # ebs = "arn:aws:kms:ap-northeast-2:<중앙 계정>:key/<키 ID>"   # 00-bootstrap에서 사용
 }

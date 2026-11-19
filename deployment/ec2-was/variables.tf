@@ -73,7 +73,7 @@ variable "ebs_volumes" {
 }
 
 variable "kms_key_id" {
-  description = "EBS 암호화 KMS 키. null이면 AWS 관리형 키"
+  description = "EBS 암호화 CMK. null이면 계정 EBS 기본 CMK (00-bootstrap의 ebs 키: 중앙 키 또는 이 계정 키). 서버별로 키를 따로 둘 때만 지정"
   type        = string
   default     = null
 }

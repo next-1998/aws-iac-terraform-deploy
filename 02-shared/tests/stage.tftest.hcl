@@ -1,5 +1,18 @@
 # 02-shared 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_iam_policy_document" {
+    defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
+  }
+  mock_data "aws_region" {
+    defaults = { name = "ap-northeast-2" }
+  }
+  mock_data "aws_partition" {
+    defaults = { partition = "aws" }
+  }
+  mock_data "aws_caller_identity" {
+    defaults = { account_id = "111111111111" }
+  }
+}
 
 override_data {
   target = data.aws_ssm_parameter.network["base"]
@@ -33,5 +46,28 @@ run "writes_shared_bundle" {
   assert {
     condition     = alltrue([for k, z in module.shared_common.validation_records : z == "ZPARENT"])
     error_message = "검증 레코드 존: ${jsonencode(module.shared_common.validation_records)}"
+  }
+}
+
+run "shared_cmk_local_by_default" {
+  command = plan
+  variables {
+    alarm_emails = ["ops@example.com"]
+  }
+  assert {
+    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ logs = "local", sns = "local" })
+    error_message = "공용 키: ${jsonencode(module.shared_common.kms_keys.source)}"
+  }
+}
+
+run "shared_cmk_central_logs" {
+  command = plan
+  variables {
+    alarm_emails         = ["ops@example.com"]
+    central_kms_key_arns = { logs = "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555" }
+  }
+  assert {
+    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ logs = "central", sns = "local" }) && module.shared_common.kms_keys.key_arns.logs == "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555"
+    error_message = "중앙 logs 키: ${jsonencode(module.shared_common.kms_keys.source)}"
   }
 }

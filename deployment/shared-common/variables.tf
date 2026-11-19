@@ -32,3 +32,15 @@ variable "alarm_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "central_kms_key_arns" {
+  description = "조직 중앙 CMK (용도 → 키 ARN). 이 폴더는 logs, sns만 읽음. 없는 용도는 이 계정에 CMK를 만듦"
+  type        = map(string)
+  default     = {}
+}
+
+variable "kms_key_administrators" {
+  description = "이 폴더에서 만드는 CMK의 관리자 (IAM role/user ARN). 비우면 계정 root 정책으로만 관리"
+  type        = list(string)
+  default     = []
+}

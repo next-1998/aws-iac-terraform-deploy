@@ -43,7 +43,7 @@ module "state_versioning" {
 module "state_encryption" {
   source      = "../../aws-iac-terraform-module/module/storage/aws-s3-workload/encryption"
   bucket      = module.state_bucket.id
-  kms_key_arn = var.state_kms_key_arn
+  kms_key_arn = local.kms_key_arns.tfstate
 }
 
 module "state_public_access_block" {
@@ -82,9 +82,10 @@ module "lock_table" {
   source = "../../aws-iac-terraform-module/module/database/aws-dynamodb-workload"
   count  = var.create_lock_table ? 1 : 0
 
-  name       = var.lock_table_name
-  hash_key   = "LockID"
-  attributes = { LockID = "S" }
+  name        = var.lock_table_name
+  hash_key    = "LockID"
+  attributes  = { LockID = "S" }
+  kms_key_arn = local.kms_key_arns.tfstate
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -203,9 +204,10 @@ module "parameters" {
         region     = local.region
         lock_table = var.create_lock_table ? module.lock_table[0].name : null
       }
-      ebs = {
-        kms_key_arn = module.ebs_kms_key.key_arn
-        kms_alias   = module.ebs_kms_alias.id
+      # 용도별 CMK (source: central = 중앙 계정 키, local = 이 계정 키)
+      kms = {
+        key_arns = local.kms_key_arns
+        source   = local.kms_key_source
       }
     },
     var.create_log_bucket ? {

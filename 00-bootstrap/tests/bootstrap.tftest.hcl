@@ -64,7 +64,50 @@ run "account_security_defaults" {
     error_message = "계정 S3 퍼블릭 차단 4개 모두 true여야 함: ${jsonencode(module.s3_account_public_access_block[0].settings)}"
   }
   assert {
-    condition     = toset(keys(module.parameters.names)) == toset(["state", "logs", "ebs"])
+    condition     = toset(keys(module.parameters.names)) == toset(["state", "logs", "kms"])
     error_message = "파라미터: ${jsonencode(keys(module.parameters.names))}"
   }
+}
+
+run "one_cmk_per_resource_by_default" {
+  command = plan
+  assert {
+    # 리소스별 키(ebs, s3)만 만들고, state 버킷·잠금 테이블은 s3 키를 같이 씀
+    condition     = jsonencode(local.kms_key_source) == jsonencode({ ebs = "local", s3 = "local", tfstate = "same-as-s3" }) && toset(keys(module.kms_key)) == toset(["ebs", "s3"])
+    error_message = "키: ${jsonencode(local.kms_key_source)}"
+  }
+}
+
+run "separate_tfstate_key_option" {
+  command = plan
+  variables {
+    separate_tfstate_key = true
+  }
+  assert {
+    condition     = toset(keys(module.kms_key)) == toset(["ebs", "s3", "tfstate"]) && local.kms_key_source.tfstate == "local"
+    error_message = "tfstate 분리: ${jsonencode(local.kms_key_source)}"
+  }
+}
+
+run "central_cmk_when_given" {
+  command = plan
+  variables {
+    central_kms_key_arns = {
+      s3      = "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555"
+      tfstate = "arn:aws:kms:ap-northeast-2:222222222222:key/66666666-2222-3333-4444-555555555555"
+    }
+  }
+  assert {
+    # s3, tfstate는 중앙 키 (옵션을 켜지 않아도 중앙 tfstate 키가 있으면 분리), ebs는 이 계정 키
+    condition     = toset(keys(module.kms_key)) == toset(["ebs"]) && local.kms_key_arns.tfstate == "arn:aws:kms:ap-northeast-2:222222222222:key/66666666-2222-3333-4444-555555555555" && local.kms_key_source.tfstate == "central"
+    error_message = "중앙 키 사용: ${jsonencode(local.kms_key_source)}"
+  }
+}
+
+run "reject_alias_as_central_key" {
+  command = plan
+  variables {
+    central_kms_key_arns = { s3 = "arn:aws:kms:ap-northeast-2:222222222222:alias/central-s3" }
+  }
+  expect_failures = [var.central_kms_key_arns]
 }

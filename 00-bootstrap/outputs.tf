@@ -22,7 +22,10 @@ output "backend_hcl_example" {
   EOT
 }
 
-output "ebs_kms_key_arn" {
-  description = "EBS 기본 CMK (이 리전의 새 EBS 볼륨 기본 키)"
-  value       = module.ebs_kms_key.key_arn
+output "kms_keys" {
+  description = "CMK (ebs: 이 리전 EBS 기본 키, s3: S3 버킷, tfstate: state 버킷·잠금 테이블이 쓰는 키. source: central / local / same-as-s3)"
+  value = {
+    key_arns = local.kms_key_arns
+    source   = local.kms_key_source
+  }
 }

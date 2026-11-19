@@ -48,6 +48,9 @@ module "ec2_common" {
 
   network = local.network
 
+  # 암호화: 로그 그룹은 02-shared의 logs 키. EC2 볼륨은 계정 EBS 기본 키(00-bootstrap ebs)
+  logs_kms_key_arn = try(local.shared.logs_kms_key_arn, null)
+
   enable_weekend_stop = var.ec2_weekend_stop.enabled
   weekend_stop = {
     schedule_enabled = var.ec2_weekend_stop.schedule_enabled

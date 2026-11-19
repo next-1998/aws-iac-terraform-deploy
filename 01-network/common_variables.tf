@@ -38,3 +38,24 @@ variable "central_log_bucket_arn" {
   type        = string
   default     = null
 }
+
+variable "central_kms_key_arns" {
+  description = <<-EOT
+    조직 중앙 계정의 CMK (용도 → 키 ARN). 넣은 용도는 키를 만들지 않고 중앙 키를 씀. 없는 용도는 이 계정에 CMK를 만듦
+      리소스별 키: ebs, s3 (00-bootstrap) / logs, sns (02-shared) / rds (추가 예정)
+      분리 옵션 키: tfstate (00-bootstrap separate_tfstate_key) / secrets, backup (추가 예정). 중앙 키를 넣으면 옵션과 관계없이 그 키를 씀
+    중앙 키 정책에 이 계정(과 서비스: logs, cloudwatch 등)의 사용 권한이 있어야 함 (중앙 계정 사전 요청)
+  EOT
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.central_kms_key_arns : contains(["ebs", "s3", "logs", "sns", "rds", "tfstate", "secrets", "backup"], k)])
+    error_message = "central_kms_key_arns의 키는 ebs, s3, logs, sns, rds, tfstate, secrets, backup 중 하나여야 합니다."
+  }
+  validation {
+    # 다른 계정 키는 alias로 쓸 수 없어서 키 ARN만 받음
+    condition     = alltrue([for k, v in var.central_kms_key_arns : can(regex("^arn:aws[a-z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/[0-9a-f-]+$", v))])
+    error_message = "central_kms_key_arns 값은 키 ARN(arn:aws:kms:<리전>:<계정>:key/<ID>)이어야 합니다. alias는 다른 계정에서 쓸 수 없습니다."
+  }
+}
