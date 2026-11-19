@@ -135,10 +135,11 @@ module "log_lifecycle" {
   bucket   = module.log_bucket[each.key].id
   lifecycle_rules = [{
     id = "log-retention"
-    transitions = [
-      { days = var.log_transition_ia_days, storage_class = "STANDARD_IA" },
-      { days = var.log_transition_glacier_days, storage_class = "GLACIER" },
-    ]
+    # 로그는 쌓아 두는 용도(조회는 CloudWatch)라 기본은 30일 후 Glacier로 바로. IA 단계는 지정할 때만
+    transitions = concat(
+      var.log_transition_ia_days == null ? [] : [{ days = var.log_transition_ia_days, storage_class = "STANDARD_IA" }],
+      [{ days = var.log_transition_glacier_days, storage_class = "GLACIER" }],
+    )
     expiration_days = var.log_retention_days
   }]
 }

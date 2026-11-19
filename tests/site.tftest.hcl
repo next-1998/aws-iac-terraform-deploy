@@ -669,3 +669,19 @@ run "reject_invalid_no" {
   }
   expect_failures = [output.sg_rules]
 }
+
+############################################################
+# CloudWatch Agent 로그 그룹: 미리 만들고 보관 14일
+############################################################
+run "agent_log_groups_precreated_14_days" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+  }
+  assert {
+    condition     = jsonencode(output.agent_log_groups) == jsonencode({ app = "/simple/ec2-was/app", security = "/simple/ec2-was/security", system = "/simple/ec2-was/system" })
+    error_message = "Agent 로그 그룹: ${jsonencode(output.agent_log_groups)}"
+  }
+}

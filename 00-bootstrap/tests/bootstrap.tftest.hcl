@@ -111,3 +111,44 @@ run "reject_alias_as_central_key" {
   }
   expect_failures = [var.central_kms_key_arns]
 }
+
+run "cloudwatch_logs_exported_to_s3" {
+  command = plan
+  assert {
+    condition     = length(module.cwlogs_firehose) == 1 && length(module.cwlogs_account_subscription) == 1 && module.cwlogs_error_log["this"].name == "/aws/kinesisfirehose/iac-cwlogs-to-s3"
+    error_message = "CloudWatch Logs → S3 구성이 없음"
+  }
+}
+
+run "cloudwatch_logs_export_off_without_bucket" {
+  command = plan
+  variables {
+    create_log_bucket = false
+  }
+  assert {
+    # 중앙 로그 버킷을 쓰는데 cloudwatch_logs_bucket_arn을 주지 않으면 내보내지 않음
+    condition     = length(module.cwlogs_firehose) == 0 && output.cloudwatch_logs_to_s3 == null
+    error_message = "버킷 없이 Firehose를 만들면 안 됨"
+  }
+}
+
+run "cloudwatch_logs_to_central_destination" {
+  command = plan
+  variables {
+    cloudwatch_logs_destination_arn = "arn:aws:logs:ap-northeast-2:333333333333:destination:central-cwlogs"
+  }
+  assert {
+    # 중앙 destination이면 이 계정 Firehose 없이 구독 필터만
+    condition     = length(module.cwlogs_firehose) == 0 && length(module.cwlogs_account_subscription) == 1 && output.cloudwatch_logs_to_s3.mode == "central"
+    error_message = "중앙 destination: ${jsonencode(output.cloudwatch_logs_to_s3)}"
+  }
+}
+
+run "log_bucket_lifecycle_default" {
+  command = plan
+  assert {
+    # 기본: 30일 후 Glacier로 바로 (IA 단계 없음), 365일 후 삭제
+    condition     = jsonencode(module.log_lifecycle["this"].rules[0].transitions) == jsonencode([{ days = 30, storage_class = "GLACIER" }]) && module.log_lifecycle["this"].rules[0].expiration_days == 365
+    error_message = "수명 주기: ${jsonencode(module.log_lifecycle["this"].rules)}"
+  }
+}

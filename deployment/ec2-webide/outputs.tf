@@ -58,3 +58,8 @@ output "sg_rules" {
     error_message = "${var.name}/src/sg_rules.csv 오류: ${join(" / ", module.sg_rules_csv.errors)}"
   }
 }
+
+output "agent_log_groups" {
+  description = "CloudWatch Agent 설정에 쓸 로그 그룹 이름 (이름 → 로그 그룹)"
+  value       = { for k, m in module.agent_log : k => m.name }
+}

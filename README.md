@@ -57,7 +57,7 @@ cd 02-compute  && terraform init -backend-config=backend.hcl && terraform apply 
 | 2 | 중앙 네트워크 계정 | TGW RAM 공유 **자동 수락**, attachment **자동 승인** | TGW 연결 시 |
 | 3 | 중앙 네트워크 계정 | 우리 attachment의 TGW 라우트 테이블 연결·전파, 사이트 대역 경로 | TGW 연결 시 |
 | 4 | 중앙 네트워크 계정 | 사내망에서 private 존을 조회하려면 Resolver inbound 설정 | 내부 도메인 사용 시 |
-| 5 | 중앙 로그 계정 | 버킷 정책에 이 계정의 Flow Logs, ELB 로그 전달 허용 (SSE-S3) | 중앙 로그 사용 시 |
+| 5 | 중앙 로그 계정 | 버킷 정책에 이 계정의 Flow Logs, ELB 로그 전달 허용 (SSE-S3). CloudWatch Logs는 중앙 destination 정책에 이 계정 구독 허용 (`cloudwatch_logs_destination_arn`) 또는 중앙 버킷 정책에 이 계정 Firehose role 쓰기 허용 | 중앙 로그 사용 시 |
 | 6 | 네트워크팀 | 새 routable 대역을 추가하면 TGW 라우트 추가 | 확장 시 |
 | 7 | 중앙 보안(KMS) 계정 | 중앙 CMK를 쓸 때: 용도별 키 ARN 전달, 키 정책에 이 계정 사용 권한 + 서비스 권한(CloudWatch Logs: `logs.<리전>.amazonaws.com`, 알림: `cloudwatch.amazonaws.com`, EBS ASG: AutoScaling 서비스 연결 역할) | `central_kms_key_arns` 사용 시 |
 

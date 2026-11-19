@@ -177,3 +177,27 @@ variable "sg_rule_limit" {
   type        = number
   default     = 60
 }
+
+############################################################
+# CloudWatch Agent 로그 그룹 (logs.tf)
+############################################################
+variable "agent_log_groups" {
+  description = "미리 만들 Agent 로그 그룹 (이름 → 설명). 이름은 /<site>/<stack>/<이름>. 서버에서 보낼 로그만 남기고 추가·삭제"
+  type        = map(string)
+  default = {
+    system   = "OS 로그 (/var/log/messages)"
+    security = "인증 로그 (/var/log/secure)"
+    app      = "애플리케이션 로그"
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.agent_log_groups : can(regex("^[a-z0-9][a-z0-9-]*$", k))])
+    error_message = "agent_log_groups 이름은 소문자, 숫자, '-'만 쓸 수 있습니다."
+  }
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch 로그 보관 기간 (일). 기본 14 (장기 보관은 S3)"
+  type        = number
+  default     = 14
+}

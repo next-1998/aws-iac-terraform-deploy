@@ -13,6 +13,7 @@
 #     WAF                    고객 보안팀          외부용 LB에 붙일 Web ACL (필요 시 main.tf에서 ec2-<용도>의 waf_acl_arn으로 넘김)
 #     주말 중지 대상·시간    고객 운영팀          ec2_weekend_stop, was/webide.weekend_stop_enable
 #     접근 로그              고객 보안팀          enable_alb_access_logs
+#     로그 최종 보관 기간    고객 보안팀          00-bootstrap log_retention_days (S3, 기본 365일. CloudWatch는 14일)
 ############################################################
 site        = "simple"
 environment = "dev"

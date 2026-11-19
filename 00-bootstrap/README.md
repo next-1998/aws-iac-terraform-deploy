@@ -6,7 +6,7 @@
 |---|---|---|
 | state 버킷 `iac-tfstate-<계정ID>-<리전>` | 생성 | 버전 관리, 암호화, 퍼블릭 차단, HTTPS만 허용, **삭제 보호** |
 | DynamoDB 잠금 테이블 | 만들지 않음 | Terraform 1.10 미만 환경이 있을 때만 `create_lock_table = true` |
-| 로그 버킷 `iac-logs-<계정ID>-<리전>` | 생성 | Flow Logs, ALB 접근 로그. SSE-S3, 30일 후 IA, 90일 후 Glacier, **365일 후 삭제** |
+| 로그 버킷 `iac-logs-<계정ID>-<리전>` | 생성 | Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것). SSE-S3, **30일 후 Glacier, 365일 후 삭제** (기본값, 최종 보관일은 고객 협의) |
 | Parameter Store | 생성 | `/iac/_account/00-bootstrap/state`, `/iac/_account/00-bootstrap/logs` |
 
 ## 실행
@@ -66,3 +66,22 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy).
 - 로그 버킷은 **SSE-S3 고정**입니다. ALB 접근 로그가 SSE-KMS를 지원하지 않기 때문입니다.
 - 중앙 키를 쓰면 키 ARN이어야 하고(alias 불가), 중앙 키 정책에 이 계정의 사용 권한이 있어야 합니다. 중앙 키를 비활성화·삭제하면 이 계정의 데이터도 읽을 수 없게 됩니다.
+
+## CloudWatch Logs 보관 (`cloudwatch_logs.tf`)
+
+| 위치 | 보관 | 설정 |
+|---|---|---|
+| CloudWatch Logs | **14일** | 로그 그룹 모듈 기본값, `cloudwatch_logs_retention_days` |
+| S3 로그 버킷 `<버킷>/cloudwatch-logs/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정** |
+
+```text
+모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose (iac-cwlogs-to-s3) ─→ S3 로그 버킷
+```
+
+- 계정 단위 구독 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 자동으로 포함됩니다.
+- Firehose 자신의 오류 로그 그룹(`/aws/kinesisfirehose/iac-cwlogs-to-s3`)은 대상에서 뺍니다 (순환 방지).
+- S3 파일은 CloudWatch Logs 형식(gzip JSON)입니다. Athena로 조회할 때 이 형식으로 테이블을 만듭니다.
+- 중앙 로그 계정을 쓰는 방법은 두 가지입니다.
+  - **B. 중앙 destination (추천)**: `cloudwatch_logs_destination_arn`에 중앙 계정 CloudWatch Logs destination ARN을 넣으면 이 계정에 Firehose를 만들지 않고 중앙으로 보냅니다. 중앙이 Firehose와 버킷을 운영하므로 서비스 계정이 보관 경로를 바꾸거나 지울 수 없습니다. 중앙 destination 정책에 이 계정(또는 조직) 구독 허용이 필요합니다.
+  - **A. 중앙 버킷만**: `create_log_bucket = false`, `cloudwatch_logs_bucket_arn` 지정. 이 계정 Firehose가 중앙 버킷에 씁니다. 중앙 버킷 정책에 이 계정 Firehose role 쓰기 허용이 필요합니다.
+- **CloudWatch Agent가 만드는 로그 그룹**은 Agent 설정의 `retention_in_days`로 14일을 지정해야 합니다 (지정하지 않으면 CloudWatch에 무기한 보관). Agent 설정 배포 방식과 같이 정합니다.

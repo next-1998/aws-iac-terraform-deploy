@@ -19,6 +19,9 @@ output "contract" {
 
     # 공통 SG (서버 접근용)
     common_sg_id = module.common_sg.securitygroup_id
+
+    # 로그 그룹 암호화 CMK (02-shared의 logs 키). ec2-<용도>가 Agent 로그 그룹에 씀
+    logs_kms_key_arn = var.logs_kms_key_arn
   }
 }
 

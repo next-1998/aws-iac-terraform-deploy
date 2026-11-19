@@ -79,21 +79,21 @@ variable "log_bucket_name" {
 }
 
 variable "log_retention_days" {
-  description = "로그 보관 기간 (일). 지나면 삭제"
+  description = "S3 로그 버킷 보관 기간 (일). 지나면 삭제. Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것) 공통. 기본 365일, 최종 보관일은 고객 협의 후 결정"
   type        = number
   default     = 365
 }
 
 variable "log_transition_ia_days" {
-  description = "Standard-IA로 옮기는 시점 (일)"
+  description = "Standard-IA로 옮기는 시점 (일). null(기본값)이면 IA 단계 없이 Glacier로 바로. 지정하면 30 이상, Glacier 시점보다 30일 이상 앞이어야 함"
   type        = number
-  default     = 30
+  default     = null
 }
 
 variable "log_transition_glacier_days" {
-  description = "Glacier로 옮기는 시점 (일)"
+  description = "Glacier(Flexible Retrieval)로 옮기는 시점 (일). 기본 30. Glacier는 최소 보관 90일, 꺼낼 때 시간·비용이 듦"
   type        = number
-  default     = 90
+  default     = 30
 }
 
 ############################################################
@@ -121,4 +121,36 @@ variable "separate_tfstate_key" {
   description = "state 버킷·잠금 테이블 전용 CMK를 따로 만듦 (분리 옵션). false면 s3 키를 같이 씀. 생성 후 바꾸면 state 버킷 암호화 키가 바뀜 (기존 객체는 재암호화되지 않음)"
   type        = bool
   default     = false
+}
+
+############################################################
+# CloudWatch Logs → S3 (cloudwatch_logs.tf)
+############################################################
+variable "cloudwatch_logs_to_s3" {
+  description = "계정의 모든 CloudWatch 로그 그룹을 S3 로그 버킷으로 내보냄 (장기 보관은 S3에서)"
+  type        = bool
+  default     = true
+}
+
+variable "cloudwatch_logs_bucket_arn" {
+  description = "CloudWatch 로그를 보낼 버킷 ARN. null이면 이 계정의 로그 버킷. create_log_bucket = false(중앙 로그 버킷)면 지정해야 내보냄"
+  type        = string
+  default     = null
+}
+
+variable "cloudwatch_logs_retention_days" {
+  description = "이 단계에서 만드는 로그 그룹의 CloudWatch 보관 기간 (일). 장기 보관은 S3(log_retention_days)"
+  type        = number
+  default     = 14
+}
+
+variable "cloudwatch_logs_destination_arn" {
+  description = "중앙 로그 계정의 CloudWatch Logs destination ARN (B 방식). 넣으면 이 계정에 Firehose를 만들지 않고 중앙으로 보냄. null이면 이 계정 Firehose → S3 (A 방식)"
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.cloudwatch_logs_destination_arn == null || can(regex("^arn:aws[a-z-]*:logs:[a-z0-9-]+:[0-9]{12}:destination:.+$", var.cloudwatch_logs_destination_arn))
+    error_message = "cloudwatch_logs_destination_arn은 arn:aws:logs:<리전>:<계정>:destination:<이름> 형식이어야 합니다."
+  }
 }

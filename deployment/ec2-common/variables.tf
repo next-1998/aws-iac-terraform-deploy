@@ -45,7 +45,7 @@ variable "weekend_stop" {
     start_schedule     = optional(string, "cron(0 7 ? * MON *)")
     timezone           = optional(string, "Asia/Seoul")
     dry_run            = optional(bool, false)
-    log_retention_days = optional(number, 365)
+    log_retention_days = optional(number, 14) # CloudWatch 보관 (장기 보관은 S3로 내보냄: 00-bootstrap)
   })
   default = {}
 }
