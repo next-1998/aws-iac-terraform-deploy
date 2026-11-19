@@ -41,55 +41,51 @@ module "acm" {
 
 # 키는 plan 시점에 정해지는 도메인 이름 (검증 값은 apply 후에 정해짐).
 # 와일드카드와 apex는 같은 검증 레코드를 쓰므로 allow_overwrite로 중복을 허용합니다.
-resource "aws_route53_record" "acm_validation" {
-  for_each = local.create_cert ? {
-    for o in module.acm[0].acm_certificate_domain_validation_options : o.domain_name => o
-  } : {}
+module "acm_validation_record" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-route53-workload/records"
+  count  = local.create_cert ? 1 : 0
 
-  zone_id         = local.validation_zone_id
-  name            = each.value.resource_record_name
-  type            = each.value.resource_record_type
-  ttl             = 300
-  records         = [each.value.resource_record_value]
-  allow_overwrite = true
+  zone_id = local.validation_zone_id
+  records = {
+    for o in module.acm[0].acm_certificate_domain_validation_options : o.domain_name => {
+      full_name       = o.resource_record_name
+      type            = o.resource_record_type
+      ttl             = 300
+      records         = [o.resource_record_value]
+      allow_overwrite = true
+    }
+  }
 }
 
 module "acm_validation" {
   source = "../../../aws-iac-terraform-module/module/security/aws-acm-workload/acm_validation"
   count  = local.create_cert ? 1 : 0
 
-  acm_validation          = { certificate_arn = module.acm[0].acm_certificate_arn }
-  validation_record_fqdns = [for r in aws_route53_record.acm_validation : r.fqdn]
+  certificate_arn         = module.acm[0].acm_certificate_arn
+  validation_record_fqdns = values(module.acm_validation_record[0].route53_record_fqdn)
 }
 
 ############################################################
 # SNS 알림 토픽 (선택)
 ############################################################
-module "tags" {
-  source = "../../../aws-iac-terraform-module/module/_tags"
+module "alarm_topic" {
+  source = "../../../aws-iac-terraform-module/module/monitor_log/aws-sns-workload/topic"
+  count  = var.enable_alarm_topic ? 1 : 0
+
+  name = "${local.site}-alarm"
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = local.site
   stack         = local.stack
-  key_target    = "site"
+  key_target    = "alarm"
   scope         = "shared"
-
-  resources = var.enable_alarm_topic ? {
-    alarm_topic = { type = "sns:topic", abbr = "sns", name = "${local.site}-alarm", target = "alarm" }
-  } : {}
 }
 
-resource "aws_sns_topic" "alarm" {
-  count             = var.enable_alarm_topic ? 1 : 0
-  name              = "${local.site}-alarm"
-  kms_master_key_id = "alias/aws/sns"
-  tags              = module.tags.tags["alarm_topic"]
-}
+module "alarm_subscription" {
+  source = "../../../aws-iac-terraform-module/module/monitor_log/aws-sns-workload/subscription"
+  count  = var.enable_alarm_topic ? 1 : 0
 
-resource "aws_sns_topic_subscription" "alarm_email" {
-  for_each  = var.enable_alarm_topic ? toset(var.alarm_emails) : toset([])
-  topic_arn = aws_sns_topic.alarm[0].arn
-  protocol  = "email"
-  endpoint  = each.value
+  topic_arn     = module.alarm_topic[0].arn
+  subscriptions = { for e in var.alarm_emails : e => { protocol = "email", endpoint = e } }
 }

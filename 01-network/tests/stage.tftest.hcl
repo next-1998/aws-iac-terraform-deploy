@@ -11,12 +11,12 @@ mock_provider "aws" {
 run "writes_contract_bundles" {
   command = plan
   assert {
-    condition     = toset(keys(aws_ssm_parameter.contract)) == toset(["base", "subnets", "routing", "endpoints", "dns"])
-    error_message = "묶음: ${jsonencode(keys(aws_ssm_parameter.contract))}"
+    condition     = toset(keys(module.contract.names)) == toset(["base", "subnets", "routing", "endpoints", "dns"])
+    error_message = "묶음: ${jsonencode(keys(module.contract.names))}"
   }
   assert {
-    condition     = aws_ssm_parameter.contract["base"].name == "/iac/simple/01-network/base" && aws_ssm_parameter.contract["base"].tier == "Intelligent-Tiering"
-    error_message = "경로: ${aws_ssm_parameter.contract["base"].name}"
+    condition     = module.contract.names["base"] == "/iac/simple/01-network/base" && module.contract.tiers["base"] == "Intelligent-Tiering"
+    error_message = "경로: ${module.contract.names["base"]}"
   }
 }
 

@@ -55,7 +55,7 @@ run "reads_network_and_builds_resources" {
     error_message = "network=${jsonencode(local.network.base)} log=${local.access_log_bucket}"
   }
   assert {
-    condition     = toset(keys(aws_ssm_parameter.contract)) == toset(["ec2", "shared"]) && aws_ssm_parameter.contract["ec2"].name == "/iac/simple/02-resource/ec2"
+    condition     = toset(keys(module.contract.names)) == toset(["ec2", "shared"]) && module.contract.names["ec2"] == "/iac/simple/02-resource/ec2"
     error_message = "02-resource 출력 경로가 다름"
   }
 }

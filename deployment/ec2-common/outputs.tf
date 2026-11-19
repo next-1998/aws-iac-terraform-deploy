@@ -13,13 +13,6 @@ output "contract" {
 
     # 공통 SG (서버 접근용)
     common_sg_id = module.common_sg.securitygroup_id
-
-    # 인스턴스가 만들어지기 전에 준비돼야 하는 라우팅 (생성 순서 고정용)
-    ready = {
-      internet = flatten([for k, m in module.rt_internet : m.route_ids])
-      corp     = flatten([for k, m in module.rt_corp : m.route_ids])
-      gateway  = [for k, a in aws_vpc_endpoint_route_table_association.gateway : a.id]
-    }
   }
 }
 
@@ -43,7 +36,12 @@ output "common_sg_ingress_rules" {
 output "weekend_stop" {
   description = "주말 중지 Lambda와 스케줄 상태 (켜지 않았으면 null)"
   value = var.enable_weekend_stop ? {
-    function_name = module.weekend_stop[0].function_name
-    schedules     = module.weekend_stop[0].schedules
+    function_name = module.ws_lambda["this"].function_name
+    schedules     = module.ws_schedule["this"].schedules
   } : null
+
+  precondition {
+    condition     = !var.enable_weekend_stop || contains(var.network.endpoints.interface, "ec2")
+    error_message = "주말 중지 Lambda는 VPC 안에서 실행되므로 01-network의 interface_endpoints에 \"ec2\"가 필요합니다."
+  }
 }

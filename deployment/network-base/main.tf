@@ -28,7 +28,7 @@ locals {
   # private NAT: internal 대역(100.64)을 쓰고 사내망 연결이 있을 때만
   create_private_nat = local.use_internal && (local.use_tgw || local.has_peering)
 
-  public_nat_ids  = var.enable_public ? { for az in local.layout_azs : az => aws_nat_gateway.public[local.nat_for_az[az]].id } : {}
+  public_nat_ids  = var.enable_public ? { for az in local.layout_azs : az => module.public_nat[local.nat_for_az[az]].vpc_nat.id } : {}
   private_nat_ids = local.create_private_nat ? { for az in local.layout_azs : az => module.private_nat[local.nat_for_az[az]].vpc_nat.id } : {}
 
   # peering 라우트 (라우트 테이블 키 × peering)
@@ -39,11 +39,10 @@ locals {
 # VPC
 ############################################################
 module "vpc" {
-  source = "../../../aws-iac-terraform-module/module/network/aws-vpc-workload"
+  source = "../../../aws-iac-terraform-module/module/network/aws-vpc-workload/vpc"
 
-  name               = var.vpc_name
-  vpc_primary_cidr   = local.primary_cidr
-  vpc_secondary_cidr = local.secondary_cidrs
+  name             = var.vpc_name
+  vpc_primary_cidr = local.primary_cidr
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -52,36 +51,26 @@ module "vpc" {
   key_target    = "base"
 }
 
-# 기본 SG 잠금: AWS가 VPC마다 자동으로 만드는 default SG의 규칙을 모두 비웁니다.
-# SG를 지정하지 않고 만든 리소스가 의도치 않게 통신되는 것을 막습니다 (CIS 권고).
-# 코드에 규칙을 넣고 apply하면 다시 바꿀 수 있습니다. 콘솔에서 바꾸면 다음 apply 때 되돌아갑니다.
-resource "aws_default_security_group" "this" {
+# 추가 대역 (routable 2번째 이후, internal 100.64.0.0/16)
+module "vpc_cidr" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-vpc-workload/cidr-association"
+
+  vpc_id      = module.vpc.vpc.id
+  cidr_blocks = local.secondary_cidrs
+}
+
+# 기본 SG 잠금: AWS가 VPC마다 자동으로 만드는 default SG의 규칙을 모두 비웁니다 (CIS 권고).
+module "default_sg" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-default-sg-workload"
+
+  name   = "${var.site}-default-sg-locked"
   vpc_id = module.vpc.vpc.id
-  tags   = module.tags.tags["default_sg"]
-}
-
-module "tags" {
-  source = "../../../aws-iac-terraform-module/module/_tags"
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = var.site
   stack         = local.stack
-  key_target    = "base"
-
-  resources = merge(
-    { default_sg = { type = "ec2:security-group", abbr = "sg", name = "${var.site}-default-sg-locked", target = "default" } },
-    { for az in local.nat_azs : "nat_eip_${az}" => {
-      type = "ec2:elastic-ip", abbr = "eip", name = "${var.site}-nat-${local.az_short[az]}-eip", target = "public_nat_${local.az_short[az]}"
-    } if var.enable_public },
-    { for az in local.nat_azs : "nat_${az}" => {
-      type = "ec2:natgateway", abbr = "nat", name = "${var.site}-public-${local.az_short[az]}-nat", target = "public_${local.az_short[az]}"
-    } if var.enable_public },
-    { for k, v in var.prefix_lists : "pl_${k}" => {
-      type = "ec2:prefix-list", abbr = "pl", name = "${var.site}-${replace(k, "_", "-")}-pl", target = k
-    } },
-    var.enable_flow_logs ? { flow_log = { type = "ec2:vpc-flow-log", abbr = "flowlog", name = "${var.site}-vpc-flow-log" } } : {},
-  )
+  key_target    = "default"
 }
 
 ############################################################
@@ -120,7 +109,7 @@ module "subnet" {
   stack         = local.stack
   key_target    = "${each.value.purpose}_${local.az_short[each.value.az]}"
 
-  depends_on = [module.vpc]
+  depends_on = [module.vpc_cidr] # secondary 대역 서브넷은 대역 연결 후에
 }
 
 locals {
@@ -149,23 +138,35 @@ module "igw" {
 }
 
 # NAT EIP: 외부에 알려준 출발지 IP라 바뀌면 협력사 화이트리스트가 깨집니다 → 삭제 보호.
-# 정말 지워야 하면 이 prevent_destroy를 해제한 뒤 진행합니다.
-resource "aws_eip" "nat" {
+# 정말 지워야 하면 prevent_destroy = false로 바꾼 뒤 진행합니다 (바꾸면 EIP가 다시 만들어짐).
+module "nat_eip" {
+  source   = "../../../aws-iac-terraform-module/module/network/aws-eip-workload"
   for_each = var.enable_public ? toset(local.nat_azs) : toset([])
-  domain   = "vpc"
-  tags     = module.tags.tags["nat_eip_${each.key}"]
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  name            = "${var.site}-nat-${local.az_short[each.key]}-eip"
+  prevent_destroy = true
+
+  common_tags   = var.common_tags
+  resource_tags = local.resource_tags
+  site          = var.site
+  stack         = local.stack
+  key_target    = "public_nat_${local.az_short[each.key]}"
 }
 
-resource "aws_nat_gateway" "public" {
-  for_each          = var.enable_public ? toset(local.nat_azs) : toset([])
-  allocation_id     = aws_eip.nat[each.key].id
-  subnet_id         = local.subnet_ids.public[each.key]
+module "public_nat" {
+  source   = "../../../aws-iac-terraform-module/module/network/aws-natgw-workload"
+  for_each = var.enable_public ? toset(local.nat_azs) : toset([])
+
+  name              = "${var.site}-public-${local.az_short[each.key]}-nat"
+  eip_id            = module.nat_eip[each.key].vpc_eip.id
+  vpc_subnet_id     = local.subnet_ids.public[each.key]
   connectivity_type = "public"
-  tags              = module.tags.tags["nat_${each.key}"]
+
+  common_tags   = var.common_tags
+  resource_tags = local.resource_tags
+  site          = var.site
+  stack         = local.stack
+  key_target    = "public_${local.az_short[each.key]}"
 
   depends_on = [module.igw]
 }
@@ -225,9 +226,8 @@ module "rt" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   for_each = local.route_tables
 
-  name          = "${var.site}-${each.value.purpose}-${local.az_short[each.value.az]}-rt"
-  vpc_id        = module.vpc.vpc.id
-  vpc_subnet_id = [local.subnet_ids[each.value.purpose][each.value.az]]
+  name   = "${var.site}-${each.value.purpose}-${local.az_short[each.value.az]}-rt"
+  vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -240,9 +240,8 @@ module "rt_public" {
   source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   count  = var.enable_public ? 1 : 0
 
-  name          = "${var.site}-public-rt"
-  vpc_id        = module.vpc.vpc.id
-  vpc_subnet_id = [for az in local.layout_azs : local.subnet_ids.public[az]]
+  name   = "${var.site}-public-rt"
+  vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -254,15 +253,37 @@ module "rt_public" {
 module "rt_vpce" {
   source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
 
-  name          = "${var.site}-vpce-rt"
-  vpc_id        = module.vpc.vpc.id
-  vpc_subnet_id = [for az in local.layout_azs : local.subnet_ids.vpce[az]]
+  name   = "${var.site}-vpce-rt"
+  vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = var.site
   stack         = local.stack
   key_target    = "vpce"
+}
+
+module "rt_association" {
+  source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/association"
+  for_each = local.route_tables
+
+  route_table_id = module.rt[each.key].vpc_rt.id
+  subnet_ids     = { (each.key) = local.subnet_ids[each.value.purpose][each.value.az] }
+}
+
+module "rt_public_association" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/association"
+  count  = var.enable_public ? 1 : 0
+
+  route_table_id = module.rt_public[0].vpc_rt.id
+  subnet_ids     = { for az in local.layout_azs : az => local.subnet_ids.public[az] }
+}
+
+module "rt_vpce_association" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/association"
+
+  route_table_id = module.rt_vpce.vpc_rt.id
+  subnet_ids     = { for az in local.layout_azs : az => local.subnet_ids.vpce[az] }
 }
 
 module "route_public_internet" {

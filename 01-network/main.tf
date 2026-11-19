@@ -55,12 +55,15 @@ module "network_base" {
 # 다음 단계로 넘길 값 (묶음별, Intelligent-Tiering: 4KB 이하는 Standard)
 #   규칙: 기존 키는 바꾸거나 지우지 않고 추가만 합니다.
 ############################################################
-resource "aws_ssm_parameter" "contract" {
-  for_each = module.network_base.contract
+module "contract" {
+  source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
 
-  name        = "/iac/${var.site}/01-network/${each.key}"
-  description = "01-network ${each.key} (02-resource, 03-eks가 읽음)"
-  type        = "String"
-  tier        = "Intelligent-Tiering"
-  value       = jsonencode(each.value)
+  path_prefix = "/iac/${var.site}/01-network"
+  description = "01-network 묶음 (02-resource, 03-eks가 읽음)"
+  parameters  = module.network_base.contract
+
+  common_tags = var.common_tags
+  site        = var.site
+  stack       = "01-network"
+  key_target  = "contract"
 }

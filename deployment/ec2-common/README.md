@@ -52,4 +52,4 @@ ec2_common_sg_ingress = [
 - **대상은 태그로 켜고 끕니다.** 서버마다 자기 태그 `WEEKEND_STOP_ENABLE = "true"`일 때만 대상입니다(`ec2-<용도>`의 `weekend_stop_enable`). 태그 하나 때문에 다른 서버까지 중지되던 기존 버그는 고쳤습니다.
 - IAM 권한도 태그가 `true`인 인스턴스만 중지·시작할 수 있게 제한합니다.
 - VPC 안에서 실행하므로 01-network `interface_endpoints`에 **`ec2`**가 있어야 합니다(없으면 plan에서 막힘).
-- Lambda 코드: module repo `module/ops/aws-weekendstop-workload` (RDS도 같은 코드를 씀. `rds-common`을 만들 때 연결)
+- Lambda 코드: 이 폴더의 `src/weekend_stop.py` (RDS용은 `rds-common`을 만들 때 그 폴더에 둠). 조합은 `weekend_stop.tf` (log group → role → SG → Lambda → scheduler)

@@ -29,6 +29,16 @@ output "alb_zone_id" {
 }
 
 output "alb_arn" {
+  # 검증: ALB는 AZ 2개 이상, 외부용 ALB는 01-network enable_public = true
+  precondition {
+    condition     = !var.enable_alb || length(local.alb_subnet_ids) >= 2
+    error_message = "ALB는 AZ 2개 이상이 필요합니다. 현재 사용 가능한 서브넷 ${length(local.alb_subnet_ids)}개 (01-network의 az_count를 2 이상으로 하거나 enable_alb = false)."
+  }
+  precondition {
+    condition     = !var.enable_alb || var.alb_internal || local.network.routing.has_public
+    error_message = "외부용 ALB(alb_internal = false)는 01-network의 enable_public = true가 필요합니다. public을 끈 사이트는 인터넷을 쓰지 않습니다."
+  }
+
   value = var.enable_alb ? module.alb[0].elb.arn : null
 }
 

@@ -1,5 +1,20 @@
 ############################################################
 # 01-network — 사이트: simple (예시 값. 실제 값으로 바꿔서 사용)
+#
+# [구축 전 협의 항목]  (★ = 처음에 정하면 이후 변경 어려움)
+#   항목                     협의 대상            값
+#   ★ VPC routable 대역      고객 네트워크팀      vpc_cidrs (AZ 수에 맞는 크기)
+#   ★ AZ 개수                고객 (가용성/비용)   az_count
+#   ★ 인터넷 사용 여부       고객 보안팀          enable_public (기본 폐쇄망)
+#     NAT 이중화             고객 (비용)          nat_per_az (enable_public일 때만)
+#     사내망 연결            중앙 네트워크 계정   tgw_id, corp_cidrs (+ RAM 수락·attachment 승인 사전 요청)
+#     VPC peering            상대 VPC 담당        peerings
+#     접근 허용 대역         고객 보안팀          prefix_lists (서버 접근제어, 관리자 PC 등)
+#   ★ EKS 사용·배치          고객 (서비스 계획)   eks_placement, eks_subnet
+#     사용할 AWS 서비스      고객 (폐쇄망 필수)   interface_endpoints, gateway_endpoints
+#     도메인                 고객 DNS 담당        root_domain, resolver_rule_id (+ Resolver inbound 사전 요청)
+#     로그 보관 위치         고객 보안팀          enable_flow_logs, central_log_bucket_arn
+#     비용·관리 태그         고객 (회계/운영)     common_tags
 ############################################################
 site        = "simple"
 environment = "dev"

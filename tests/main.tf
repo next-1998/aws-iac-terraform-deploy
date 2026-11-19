@@ -170,5 +170,5 @@ output "was_alb" { value = module.ec2_was.alb_arn != null }
 output "webide_alb" { value = module.ec2_webide.alb_arn == null }
 output "network_contract" { value = module.network_base.contract }
 output "ec2_common_contract" { value = module.ec2_common.contract }
-output "certificate_validation_records" { value = { for k, r in module.shared_common.validation_records : k => r.zone_id } }
+output "certificate_validation_records" { value = module.shared_common.validation_records }
 output "weekend_stop" { value = module.ec2_common.weekend_stop }

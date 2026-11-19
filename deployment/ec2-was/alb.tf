@@ -115,14 +115,16 @@ module "alb" {
 }
 
 # WAF (선택, 기본값 끔)
-resource "aws_wafv2_web_acl_association" "alb" {
-  count        = var.enable_alb && var.waf_acl_arn != null ? 1 : 0
+module "alb_waf" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/waf-association"
+  count  = var.enable_alb && var.waf_acl_arn != null ? 1 : 0
+
   resource_arn = module.alb[0].elb.arn
   web_acl_arn  = var.waf_acl_arn
 }
 
 module "alb_tg" {
-  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/lb-target"
+  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/target-group"
   count  = var.enable_alb ? 1 : 0
 
   vpc_id = local.base.vpc_id
@@ -136,8 +138,6 @@ module "alb_tg" {
       }
     }
   }
-  target_id   = module.ec2.ec2_instance.id
-  target_port = var.app_port
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -146,13 +146,25 @@ module "alb_tg" {
   key_target    = local.key
 }
 
-module "alb_listener" {
-  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/lb-listeners"
+module "alb_tg_attachment" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/target-attachment"
   count  = var.enable_alb ? 1 : 0
 
-  elb            = module.alb[0].elb
-  listeners      = local.alb_listeners
-  listener_rules = {}
+  attachments = {
+    app = {
+      target_group_arn = local.tg_arn
+      target_id        = module.ec2.ec2_instance.id
+      port             = var.app_port
+    }
+  }
+}
+
+module "alb_listener" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/listener"
+  count  = var.enable_alb ? 1 : 0
+
+  load_balancer_arn = module.alb[0].elb.arn
+  listeners         = local.alb_listeners
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -167,30 +179,15 @@ module "alb_record" {
 
   zone_id   = each.value
   zone_name = local.dns.zone_name
-  records = [{
-    name = var.alb_record_name
-    type = "A"
-    alias = {
-      name                   = module.alb[0].elb.dns_name
-      zone_id                = module.alb[0].elb.zone_id
-      evaluate_target_health = true
-    }
-  }]
-}
-
-resource "terraform_data" "alb_checks" {
-  count = var.enable_alb ? 1 : 0
-
-  lifecycle {
-    # ALB는 AWS 규칙상 서로 다른 AZ의 서브넷이 2개 이상 필요합니다.
-    precondition {
-      condition     = length(local.alb_subnet_ids) >= 2
-      error_message = "ALB는 AZ 2개 이상이 필요합니다. 현재 사용 가능한 서브넷 ${length(local.alb_subnet_ids)}개 (01-network의 az_count를 2 이상으로 하거나 enable_alb = false)."
-    }
-    # 외부용 ALB는 public 서브넷(IGW)이 있어야 합니다.
-    precondition {
-      condition     = var.alb_internal || local.network.routing.has_public
-      error_message = "외부용 ALB(alb_internal = false)는 01-network의 enable_public = true가 필요합니다. public을 끈 사이트는 인터넷을 쓰지 않습니다."
+  records = {
+    app = {
+      name = var.alb_record_name
+      type = "A"
+      alias = {
+        name                   = module.alb[0].elb.dns_name
+        zone_id                = module.alb[0].elb.zone_id
+        evaluate_target_health = true
+      }
     }
   }
 }

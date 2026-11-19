@@ -60,10 +60,12 @@ module "public_zone_delegation" {
 
   zone_id   = data.aws_route53_zone.parent[0].zone_id
   zone_name = var.root_domain
-  records = [{
-    name    = var.site
-    type    = "NS"
-    ttl     = 300
-    records = jsonencode(module.public_zone[0].route53_zone_name_servers[local.zone_name])
-  }]
+  records = {
+    ns = {
+      name    = var.site
+      type    = "NS"
+      ttl     = 300
+      records = module.public_zone[0].route53_zone_name_servers[local.zone_name]
+    }
+  }
 }

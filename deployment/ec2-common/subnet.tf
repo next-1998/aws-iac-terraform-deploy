@@ -29,9 +29,8 @@ module "rt" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   for_each = toset(local.azs)
 
-  name          = "${local.prefix}-${local.base.az_short[each.key]}-rt"
-  vpc_id        = local.base.vpc_id
-  vpc_subnet_id = [for k, s in local.all_subnets : module.subnet[k].vpc_subnet[0].id if s.az == each.key]
+  name   = "${local.prefix}-${local.base.az_short[each.key]}-rt"
+  vpc_id = local.base.vpc_id
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -72,18 +71,22 @@ module "rt_peering" {
   route            = { vpc_peering_connection_id = local.routing.peerings[each.value.peering].peering_connection_id }
 }
 
+module "rt_association" {
+  source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/association"
+  for_each = toset(local.azs)
+
+  route_table_id = module.rt[each.key].vpc_rt.id
+  subnet_ids     = { for k, s in local.all_subnets : k => module.subnet[k].vpc_subnet[0].id if s.az == each.key }
+}
+
 ############################################################
 # Gateway endpoint (S3, DynamoDB) 연결
 #   endpoint는 01-network가 만들었고, 여기서는 이 stack의 라우트 테이블만 연결합니다.
 ############################################################
-resource "aws_vpc_endpoint_route_table_association" "gateway" {
-  for_each = {
-    for pair in setproduct(keys(var.network.endpoints.gateway), local.azs) : "${pair[0]}_${pair[1]}" => {
-      endpoint_id = var.network.endpoints.gateway[pair[0]]
-      az          = pair[1]
-    }
-  }
+module "rt_gateway_endpoint" {
+  source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/endpoint-association"
+  for_each = toset(local.azs)
 
-  vpc_endpoint_id = each.value.endpoint_id
-  route_table_id  = module.rt[each.value.az].vpc_rt.id
+  route_table_id = module.rt[each.key].vpc_rt.id
+  endpoint_ids   = var.network.endpoints.gateway
 }

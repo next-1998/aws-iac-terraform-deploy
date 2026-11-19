@@ -1,13 +1,12 @@
 ############################################################
-# EC2 (instance profile 포함)
+# EC2 (2차 조합: 목적 리소스)
 ############################################################
 
 module "ec2" {
   source = "../../../aws-iac-terraform-module/module/computing/aws-instance-workload"
 
-  name         = local.prefix
-  profile_name = "${local.prefix}-profile"
-  role         = module.role.role
+  name                 = local.prefix
+  iam_instance_profile = module.instance_profile.name
 
   ami                    = var.ami
   instance_type          = var.instance_type
@@ -38,12 +37,4 @@ module "ec2" {
   site       = local.site
   stack      = var.name
   key_target = local.key
-
-  # ec2-common의 endpoint와 라우팅이 먼저 준비되도록
-  depends_on = [terraform_data.common_ready]
-}
-
-# ec2-common의 endpoint, 라우트가 만들어진 뒤에 인스턴스를 만들기 위한 순서 고정용
-resource "terraform_data" "common_ready" {
-  input = var.common.ready
 }

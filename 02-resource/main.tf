@@ -117,8 +117,12 @@ module "ec2_webide" {
 # 다음 단계(03-eks)로 넘길 값
 #   EKS API는 이 단계의 EC2에서만 접근을 허용하므로 EC2 SG 목록을 남깁니다.
 ############################################################
-resource "aws_ssm_parameter" "contract" {
-  for_each = {
+module "contract" {
+  source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
+
+  path_prefix = "/iac/${var.site}/02-resource"
+  description = "02-resource 묶음 (03-eks가 읽음)"
+  parameters = {
     ec2 = {
       common_sg_id = module.ec2_common.common_sg_id
       app_sg_ids = merge(
@@ -132,9 +136,8 @@ resource "aws_ssm_parameter" "contract" {
     }
   }
 
-  name        = "/iac/${var.site}/02-resource/${each.key}"
-  description = "02-resource ${each.key} (03-eks가 읽음)"
-  type        = "String"
-  tier        = "Intelligent-Tiering"
-  value       = jsonencode(each.value)
+  common_tags = var.common_tags
+  site        = var.site
+  stack       = "02-resource"
+  key_target  = "contract"
 }

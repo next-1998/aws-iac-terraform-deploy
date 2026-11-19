@@ -64,11 +64,12 @@ variable "enable_weekend_stop" {
 variable "weekend_stop" {
   description = "주말 중지 설정 (스케줄은 임시 값, 협의 후 변경)"
   type = object({
-    schedule_enabled = optional(bool, false)
-    stop_schedule    = optional(string, "cron(0 21 ? * FRI *)")
-    start_schedule   = optional(string, "cron(0 7 ? * MON *)")
-    timezone         = optional(string, "Asia/Seoul")
-    dry_run          = optional(bool, false)
+    schedule_enabled   = optional(bool, false)
+    stop_schedule      = optional(string, "cron(0 21 ? * FRI *)")
+    start_schedule     = optional(string, "cron(0 7 ? * MON *)")
+    timezone           = optional(string, "Asia/Seoul")
+    dry_run            = optional(bool, false)
+    log_retention_days = optional(number, 365)
   })
   default = {}
 }

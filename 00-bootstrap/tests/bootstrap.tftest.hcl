@@ -14,19 +14,19 @@ mock_provider "aws" {
 run "defaults" {
   command = plan
   assert {
-    condition     = aws_s3_bucket.state.bucket == "iac-tfstate-111111111111-ap-northeast-2"
-    error_message = "state bucket: ${aws_s3_bucket.state.bucket}"
+    condition     = module.state_bucket.bucket == "iac-tfstate-111111111111-ap-northeast-2"
+    error_message = "state bucket: ${module.state_bucket.bucket}"
   }
   assert {
-    condition     = aws_s3_bucket.logs[0].bucket == "iac-logs-111111111111-ap-northeast-2"
-    error_message = "log bucket: ${aws_s3_bucket.logs[0].bucket}"
+    condition     = module.log_bucket["this"].bucket == "iac-logs-111111111111-ap-northeast-2"
+    error_message = "log bucket: ${module.log_bucket["this"].bucket}"
   }
   assert {
-    condition     = length(aws_dynamodb_table.lock) == 0
+    condition     = length(module.lock_table) == 0
     error_message = "DynamoDB는 기본값에서 만들지 않아야 함"
   }
   assert {
-    condition     = one([for r in aws_s3_bucket_lifecycle_configuration.logs[0].rule : r.expiration[0].days]) == 365
+    condition     = one([for r in module.log_lifecycle["this"].rules : r.expiration_days]) == 365
     error_message = "로그 보관 기간 기본값은 365일"
   }
 }
@@ -38,7 +38,7 @@ run "with_lock_table_and_central_logs" {
     create_log_bucket = false
   }
   assert {
-    condition     = length(aws_dynamodb_table.lock) == 1 && length(aws_s3_bucket.logs) == 0
-    error_message = "lock=${length(aws_dynamodb_table.lock)} logs=${length(aws_s3_bucket.logs)}"
+    condition     = length(module.lock_table) == 1 && length(module.log_bucket) == 0
+    error_message = "lock=${length(module.lock_table)} logs=${length(module.log_bucket)}"
   }
 }

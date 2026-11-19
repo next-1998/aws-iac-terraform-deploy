@@ -10,5 +10,5 @@ output "nat_public_ips" {
 
 output "parameters" {
   description = "다음 단계가 읽는 Parameter Store 경로"
-  value       = [for k, p in aws_ssm_parameter.contract : p.name]
+  value       = values(module.contract.names)
 }

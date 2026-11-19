@@ -40,11 +40,11 @@ locals {
       igw_id          = var.enable_public ? module.igw[0].vpc_igw.id : null
       public_nat_ids  = local.public_nat_ids  # AZ → 그 AZ가 쓸 public NAT
       private_nat_ids = local.private_nat_ids # AZ → 그 AZ가 쓸 private NAT
-      nat_public_ips  = [for k, e in aws_eip.nat : e.public_ip]
+      nat_public_ips  = [for k, e in module.nat_eip : e.vpc_eip.public_ip]
       tgw_id          = var.tgw_id
       corp_cidrs      = var.corp_cidrs
       peerings        = var.peerings
-      prefix_list_ids = { for k, p in aws_ec2_managed_prefix_list.this : k => p.id }
+      prefix_list_ids = module.prefix_list.ids
     }
 
     endpoints = {
@@ -103,5 +103,5 @@ output "sizing" {
 
 output "default_security_group" {
   description = "잠근 기본 SG (규칙 없음)"
-  value       = aws_default_security_group.this
+  value       = module.default_sg.default_security_group
 }

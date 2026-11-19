@@ -262,7 +262,7 @@ run "reject_internet_alb_without_public" {
     enable_alb   = true
     alb_internal = false
   }
-  expect_failures = [terraform_data.alb_checks]
+  expect_failures = [output.alb_arn]
 }
 
 run "reject_alb_with_1_az" {
@@ -273,7 +273,7 @@ run "reject_alb_with_1_az" {
     ami        = "ami-0123456789abcdef0"
     enable_alb = true
   }
-  expect_failures = [terraform_data.alb_checks]
+  expect_failures = [output.alb_arn]
 }
 
 run "reject_korean_sg_description" {
@@ -297,7 +297,7 @@ run "reject_small_routable" {
     vpc_name  = "simple-vpc"
     vpc_cidrs = [{ cidr = "10.227.0.0/24", role = "routable" }] # AZ 2개면 /23 필요
   }
-  expect_failures = [terraform_data.checks]
+  expect_failures = [output.input_checks]
 }
 
 run "reject_eks_routable_too_small" {
@@ -309,7 +309,7 @@ run "reject_eks_routable_too_small" {
     vpc_cidrs     = [{ cidr = "10.227.0.0/23", role = "routable" }]
     eks_placement = "routable"
   }
-  expect_failures = [terraform_data.checks]
+  expect_failures = [output.input_checks]
 }
 
 run "reject_manual_outside_spare" {
@@ -321,7 +321,7 @@ run "reject_manual_outside_spare" {
     vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
     manual_subnets = [{ name = "bad", az = "ap-northeast-2a", cidr = "10.227.0.128/28", purpose = "ec2" }] # ec2 서브넷과 겹침
   }
-  expect_failures = [terraform_data.checks]
+  expect_failures = [output.input_checks]
 }
 
 run "reject_unknown_layout_version" {
@@ -333,7 +333,7 @@ run "reject_unknown_layout_version" {
     vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
     layout_version = "v9"
   }
-  expect_failures = [terraform_data.checks]
+  expect_failures = [output.input_checks]
 }
 
 run "reject_az_count_over_region" {
@@ -349,7 +349,7 @@ run "reject_az_count_over_region" {
     vpc_cidrs = [{ cidr = "10.227.0.0/22", role = "routable" }]
     az_count  = 3
   }
-  expect_failures = [terraform_data.checks]
+  expect_failures = [output.input_checks]
 }
 
 run "reject_wrong_internal_cidr" {
@@ -443,5 +443,5 @@ run "reject_weekend_stop_without_ec2_endpoint" {
     network             = run.layout_v1_2az.network_contract
     enable_weekend_stop = true
   }
-  expect_failures = [terraform_data.weekend_stop_checks]
+  expect_failures = [output.weekend_stop]
 }
