@@ -36,6 +36,11 @@ variable "central_kms_key_arns" {
     condition     = alltrue([for k, v in var.central_kms_key_arns : can(regex("^arn:aws[a-z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/[0-9a-f-]+$", v))])
     error_message = "central_kms_key_arns 값은 키 ARN(arn:aws:kms:<리전>:<계정>:key/<ID>)이어야 합니다. alias는 다른 계정에서 쓸 수 없습니다."
   }
+  validation {
+    # KMS 키는 쓰는 리소스와 같은 리전이어야 함 (다중 리전 키도 이 리전의 복제본 ARN을 넣음)
+    condition     = alltrue([for k, v in var.central_kms_key_arns : try(split(":", v)[3] == var.region, false)])
+    error_message = "central_kms_key_arns에 이 단계 리전(${var.region})이 아닌 키가 있습니다: ${join(", ", [for k, v in var.central_kms_key_arns : k if try(split(":", v)[3] != var.region, true)])}"
+  }
 }
 
 variable "tfstate_kms_key_administrators" {
@@ -82,18 +87,33 @@ variable "log_retention_days" {
   description = "S3 로그 버킷 보관 기간 (일). 지나면 삭제. Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것) 공통. 기본 365일, 최종 보관일은 고객 협의 후 결정"
   type        = number
   default     = 365
+
+  validation {
+    condition     = var.log_retention_days > var.log_transition_glacier_days
+    error_message = "log_retention_days(${var.log_retention_days})는 Glacier 전환 시점(log_transition_glacier_days = ${var.log_transition_glacier_days})보다 커야 합니다."
+  }
 }
 
 variable "log_transition_ia_days" {
   description = "Standard-IA로 옮기는 시점 (일). null(기본값)이면 IA 단계 없이 Glacier로 바로. 지정하면 30 이상, Glacier 시점보다 30일 이상 앞이어야 함"
   type        = number
   default     = null
+
+  validation {
+    condition     = var.log_transition_ia_days == null || try(var.log_transition_ia_days >= 30, false)
+    error_message = "log_transition_ia_days는 null(IA 단계 없음)이거나 30 이상이어야 합니다 (S3 규칙: 생성 후 30일이 지나야 IA로 전환 가능)."
+  }
 }
 
 variable "log_transition_glacier_days" {
   description = "Glacier(Flexible Retrieval)로 옮기는 시점 (일). 기본 30. Glacier는 최소 보관 90일, 꺼낼 때 시간·비용이 듦"
   type        = number
   default     = 30
+
+  validation {
+    condition     = var.log_transition_glacier_days >= 0 && (var.log_transition_ia_days == null || try(var.log_transition_glacier_days >= var.log_transition_ia_days + 30, false))
+    error_message = "log_transition_glacier_days는 0 이상이어야 하고, IA 단계를 쓰면 IA 전환 시점보다 30일 이상 뒤여야 합니다 (S3 규칙: IA에 30일 이상 머문 뒤 Glacier로 전환)."
+  }
 }
 
 ############################################################
@@ -130,6 +150,12 @@ variable "cloudwatch_logs_to_s3" {
   description = "계정의 모든 CloudWatch 로그 그룹을 S3 로그 버킷으로 내보냄 (장기 보관은 S3에서)"
   type        = bool
   default     = true
+
+  validation {
+    # 켰는데 보낼 곳(이 계정 로그 버킷, 버킷 ARN, 중앙 destination)이 하나도 없으면 조용히 꺼지지 않도록 막음
+    condition     = !var.cloudwatch_logs_to_s3 || var.create_log_bucket || var.cloudwatch_logs_bucket_arn != null || var.cloudwatch_logs_destination_arn != null
+    error_message = "cloudwatch_logs_to_s3 = true인데 보낼 곳이 없습니다. create_log_bucket = true, cloudwatch_logs_bucket_arn, cloudwatch_logs_destination_arn 중 하나를 지정하거나, 내보내지 않으려면 cloudwatch_logs_to_s3 = false로 명시하세요."
+  }
 }
 
 variable "cloudwatch_logs_bucket_arn" {
@@ -152,5 +178,10 @@ variable "cloudwatch_logs_destination_arn" {
   validation {
     condition     = var.cloudwatch_logs_destination_arn == null || can(regex("^arn:aws[a-z-]*:logs:[a-z0-9-]+:[0-9]{12}:destination:.+$", var.cloudwatch_logs_destination_arn))
     error_message = "cloudwatch_logs_destination_arn은 arn:aws:logs:<리전>:<계정>:destination:<이름> 형식이어야 합니다."
+  }
+  validation {
+    # CloudWatch Logs destination은 구독하는 로그 그룹과 같은 리전이어야 함 (AWS 규칙)
+    condition     = var.cloudwatch_logs_destination_arn == null || try(split(":", var.cloudwatch_logs_destination_arn)[3] == var.region, false)
+    error_message = "cloudwatch_logs_destination_arn의 리전이 이 단계의 리전(${var.region})과 다릅니다. destination은 로그 그룹과 같은 리전이어야 합니다."
   }
 }

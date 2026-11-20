@@ -6,9 +6,6 @@ mock_provider "aws" {
   mock_data "aws_region" {
     defaults = { name = "ap-northeast-2" }
   }
-  mock_data "aws_elb_service_account" {
-    defaults = { arn = "arn:aws:iam::600734575887:root" }
-  }
   mock_data "aws_iam_policy_document" {
     defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
   }
@@ -42,6 +39,8 @@ run "with_lock_table_and_central_logs" {
   variables {
     create_lock_table = true
     create_log_bucket = false
+    # 중앙 로그 계정을 쓰므로 CloudWatch 로그도 중앙 destination으로
+    cloudwatch_logs_destination_arn = "arn:aws:logs:ap-northeast-2:333333333333:destination:central-cwlogs"
   }
   assert {
     condition     = length(module.lock_table) == 1 && length(module.log_bucket) == 0
@@ -120,16 +119,79 @@ run "cloudwatch_logs_exported_to_s3" {
   }
 }
 
-run "cloudwatch_logs_export_off_without_bucket" {
+run "cloudwatch_logs_export_explicitly_off" {
   command = plan
   variables {
-    create_log_bucket = false
+    create_log_bucket     = false
+    cloudwatch_logs_to_s3 = false
   }
   assert {
-    # 중앙 로그 버킷을 쓰는데 cloudwatch_logs_bucket_arn을 주지 않으면 내보내지 않음
+    # 내보내지 않으려면 cloudwatch_logs_to_s3 = false로 명시
     condition     = length(module.cwlogs_firehose) == 0 && output.cloudwatch_logs_to_s3 == null
-    error_message = "버킷 없이 Firehose를 만들면 안 됨"
+    error_message = "명시적으로 끈 경우 Firehose를 만들면 안 됨"
   }
+}
+
+run "reject_cloudwatch_export_without_destination" {
+  command = plan
+  variables {
+    # 켜져 있는데(기본값) 보낼 곳이 없음 → 조용히 꺼지지 않고 plan에서 막힘
+    create_log_bucket = false
+  }
+  expect_failures = [var.cloudwatch_logs_to_s3]
+}
+
+run "reject_lifecycle_ia_too_early" {
+  command = plan
+  variables {
+    log_transition_ia_days = 10
+  }
+  expect_failures = [var.log_transition_ia_days]
+}
+
+run "reject_lifecycle_glacier_too_close_to_ia" {
+  command = plan
+  variables {
+    log_transition_ia_days      = 30
+    log_transition_glacier_days = 45
+  }
+  expect_failures = [var.log_transition_glacier_days]
+}
+
+run "reject_retention_not_after_glacier" {
+  command = plan
+  variables {
+    log_retention_days = 30
+  }
+  expect_failures = [var.log_retention_days]
+}
+
+run "lifecycle_with_ia_ok" {
+  command = plan
+  variables {
+    log_transition_ia_days      = 30
+    log_transition_glacier_days = 90
+  }
+  assert {
+    condition     = length(module.log_lifecycle["this"].rules[0].transitions) == 2
+    error_message = "IA + Glacier: ${jsonencode(module.log_lifecycle["this"].rules[0].transitions)}"
+  }
+}
+
+run "reject_central_key_other_region" {
+  command = plan
+  variables {
+    central_kms_key_arns = { s3 = "arn:aws:kms:us-east-1:222222222222:key/11111111-2222-3333-4444-555555555555" }
+  }
+  expect_failures = [var.central_kms_key_arns]
+}
+
+run "reject_destination_other_region" {
+  command = plan
+  variables {
+    cloudwatch_logs_destination_arn = "arn:aws:logs:us-east-1:333333333333:destination:central-cwlogs"
+  }
+  expect_failures = [var.cloudwatch_logs_destination_arn]
 }
 
 run "cloudwatch_logs_to_central_destination" {
@@ -150,5 +212,23 @@ run "log_bucket_lifecycle_default" {
     # 기본: 30일 후 Glacier로 바로 (IA 단계 없음), 365일 후 삭제
     condition     = jsonencode(module.log_lifecycle["this"].rules[0].transitions) == jsonencode([{ days = 30, storage_class = "GLACIER" }]) && module.log_lifecycle["this"].rules[0].expiration_days == 365
     error_message = "수명 주기: ${jsonencode(module.log_lifecycle["this"].rules)}"
+  }
+}
+
+run "elb_log_policy_restricted_to_own_load_balancers" {
+  command = plan
+  # 정책 JSON에 버킷 ARN이 들어가 plan 시점에 모르므로, 이 테스트에서만 버킷 ARN을 정해 둠
+  override_resource {
+    target          = module.log_bucket["this"].aws_s3_bucket.protected[0]
+    override_during = plan
+    values          = { arn = "arn:aws:s3:::iac-logs-111111111111-ap-northeast-2", id = "iac-logs-111111111111-ap-northeast-2", bucket = "iac-logs-111111111111-ap-northeast-2" }
+  }
+  assert {
+    # 예전 방식(리전 ELB 계정 주체)은 없고, 새 방식은 이 계정 로드밸런서로 출처 제한
+    condition = (
+      !strcontains(module.log_policy["this"].policy, "600734575887") &&
+      strcontains(module.log_policy["this"].policy, "arn:aws:elasticloadbalancing:ap-northeast-2:111111111111:loadbalancer/*")
+    )
+    error_message = "ELB 로그 정책: ${module.log_policy["this"].policy}"
   }
 }

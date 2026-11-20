@@ -1,6 +1,5 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
-data "aws_elb_service_account" "this" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
@@ -171,19 +170,18 @@ module "log_policy" {
       Condition = { StringEquals = { "aws:SourceAccount" = local.account_id } }
     },
     {
-      # 2022-08 이전 리전(서울 포함)은 리전별 ELB 계정이 로그를 씀
-      Sid       = "ElbLogsWriteLegacy"
-      Effect    = "Allow"
-      Principal = { AWS = data.aws_elb_service_account.this.arn }
-      Action    = "s3:PutObject"
-      Resource  = "{bucket_arn}/*/AWSLogs/${local.account_id}/*"
-    },
-    {
+      # ELB 접근 로그 (AWS 권장 방식: 서비스 주체 + 출처 조건)
+      #   리전별 ELB 계정을 주체로 쓰는 예전 방식(legacy)은 출처 조건을 걸 수 없어 쓰지 않습니다.
+      #   (다른 계정 ALB가 로그 prefix를 "x/AWSLogs/<이 계정>"으로 잡으면 이 경로에 쓸 수 있음 → 혼동된 대리자)
+      #   aws:SourceArn으로 이 계정·리전의 로드밸런서만 쓸 수 있게 제한합니다.
       Sid       = "ElbLogsWrite"
       Effect    = "Allow"
       Principal = { Service = "logdelivery.elasticloadbalancing.amazonaws.com" }
       Action    = "s3:PutObject"
       Resource  = "{bucket_arn}/*/AWSLogs/${local.account_id}/*"
+      Condition = {
+        ArnLike = { "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:elasticloadbalancing:${local.region}:${local.account_id}:loadbalancer/*" }
+      }
     },
   ]
 

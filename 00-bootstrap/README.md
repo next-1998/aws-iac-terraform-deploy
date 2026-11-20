@@ -23,11 +23,23 @@ terraform output backend_hcl_example
 ### state 옮기기 (선택)
 버킷이 만들어진 뒤 이 단계의 state도 버킷에 두려면, `versions.tf`에 `backend "s3" {}`를 추가하고 `terraform init -migrate-state -backend-config=backend.hcl`을 실행합니다. 경로는 `_account/00-bootstrap/terraform.tfstate`를 권장합니다.
 
+### 운영 체크리스트 (이 단계 state)
+이 단계는 state 버킷을 만드는 단계라 처음에는 state가 **로컬 파일**에 남습니다. 잃어버리면 리소스는 남아도 Terraform으로 다시 관리하려면 import가 필요합니다.
+
+- [ ] apply 직후 `terraform.tfstate`를 안전한 곳(접근 제한된 저장소)에 백업
+- [ ] 위 "state 옮기기"로 버킷(`_account/00-bootstrap/terraform.tfstate`)으로 이관
+- [ ] 이관 후 `terraform plan`이 "변경 없음"인지 확인
+- [ ] 확인 후 로컬 `terraform.tfstate`, `terraform.tfstate.backup` 삭제 (state에 민감 정보가 있을 수 있음)
+- [ ] 이관 여부를 사이트 구축 기록에 남김
+
 ## 중앙 로그 계정을 쓰는 경우
 `create_log_bucket = false`로 두고, 각 사이트 `01-network` tfvars에 `central_log_bucket_arn`을 적습니다. 중앙 계정에 다음을 요청합니다.
 1. 버킷 정책에 이 계정의 VPC Flow Logs 전달 허용 (`delivery.logs.amazonaws.com`, `aws:SourceAccount`)
 2. 버킷 정책에 이 리전의 ELB 로그 전달 허용 (ALB 접근 로그를 보낼 때)
 3. 버킷 암호화가 SSE-S3인지 확인 (ALB 접근 로그는 SSE-KMS 불가)
+
+### ELB 접근 로그 버킷 정책
+AWS 권장 방식(서비스 주체 `logdelivery.elasticloadbalancing.amazonaws.com` + `aws:SourceArn`으로 이 계정·리전 로드밸런서만 허용)만 씁니다. 리전별 ELB 계정을 주체로 쓰는 예전 방식(legacy)은 출처 조건을 걸 수 없어 넣지 않습니다 (다른 계정 ALB가 로그 prefix를 조작해 이 버킷에 쓸 수 있음). 처음 구축할 때 테스트 계정에서 ALB 접근 로그가 실제로 들어오는지 확인하세요.
 
 ## 삭제
 버킷에 `prevent_destroy`가 걸려 있어 `terraform destroy`가 막힙니다. 정말 지워야 할 때만 코드에서 해제합니다. 버킷을 지우면 **모든 사이트의 state**가 사라집니다.
