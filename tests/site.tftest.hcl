@@ -290,24 +290,26 @@ run "reject_alb_with_1_az" {
 
 run "reject_korean_sg_description" {
   command = plan
-  module { source = "../deployment/ec2-common" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    network      = run.layout_v1_2az.network_contract
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,cidr:10.185.66.0/24,서버 접근제어,\n"
+    sg_ids              = { common = "sg-common" }
+    prefix_list_ids     = { access_ctl = "pl-access", admin = "pl-admin" }
+    prefix_list_weights = { access_ctl = 5, admin = 5 }
+    csv                 = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,cidr:10.185.66.0/24,서버 접근제어,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "reject_bad_sg_csv_rows" {
   command = plan
-  module { source = "../deployment/ec2-was" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    common = run.layout_v1_2az.ec2_common_contract
-    ami    = "ami-0123456789abcdef0"
-    # 없는 SG 이름, 없는 prefix list, 0.0.0.0/0 인바운드, 중복 행
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ndb,1,ingress,tcp,1521,1521,cidr:10.0.0.0/24,x,\napp,1,ingress,tcp,80,80,pl:nope,x,\napp,2,ingress,tcp,443,443,cidr:0.0.0.0/0,x,\napp,3,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\napp,4,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\n"
+    sg_ids          = { app = "sg-app", alb = "sg-alb" }
+    source_sg_ids   = { common = "sg-common" }
+    prefix_list_ids = { access_ctl = "pl-access", admin = "pl-admin" }
+    csv             = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ndb,1,ingress,tcp,1521,1521,cidr:10.0.0.0/24,x,\napp,1,ingress,tcp,80,80,pl:nope,x,\napp,2,ingress,tcp,443,443,cidr:0.0.0.0/0,x,\napp,3,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\napp,4,egress,tcp,1521,1521,cidr:10.1.0.0/24,x,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "sg_csv_rules_applied" {
@@ -587,36 +589,42 @@ run "sg_example_csv_webide" {
 ############################################################
 run "reject_csv_rule_same_as_base" {
   command = plan
-  module { source = "../deployment/ec2-was" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    common = run.layout_v1_2az.ec2_common_contract
-    ami    = "ami-0123456789abcdef0"
-    # 기본 규칙(app 아웃바운드 VPC 전체)과 같음. description은 달라도 같은 규칙
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,egress,all,,,cidr:${run.layout_v1_2az.vpc_cidrs[0]},again,\n"
+    sg_ids          = { app = "sg-app", alb = "sg-alb" }
+    source_sg_ids   = { common = "sg-common" }
+    prefix_list_ids = { access_ctl = "pl-access", admin = "pl-admin" }
+    # 폴더가 넘기는 기본 규칙 서명 (app 아웃바운드 VPC 전체)과 같은 행
+    base_signatures = ["app|egress|-1|||cidr:10.227.0.0/23"]
+    csv             = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,egress,all,,,cidr:10.227.0.0/23,again,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "reject_csv_duplicate_with_different_notation" {
   command = plan
-  module { source = "../deployment/ec2-common" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    network      = run.layout_v1_2az.network_contract
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,TCP,022,22,pl:access_ctl,ssh again,\n"
+    sg_ids              = { common = "sg-common" }
+    prefix_list_ids     = { access_ctl = "pl-access", admin = "pl-admin" }
+    prefix_list_weights = { access_ctl = 5, admin = 5 }
+    csv                 = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,TCP,022,22,pl:access_ctl,ssh again,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "reject_sg_rule_limit" {
   command = plan
-  module { source = "../deployment/ec2-common" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    network = run.layout_v1_2az.network_contract
+    sg_ids              = { common = "sg-common" }
+    prefix_list_ids     = { access_ctl = "pl-access", admin = "pl-admin" }
+    prefix_list_weights = { access_ctl = 5, admin = 5 }
     # access_ctl(max 5) + admin(max 5) = 10 > 한도 8
-    sg_rule_limit = 8
-    sg_rules_csv  = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,tcp,22,22,pl:admin,ssh admin,\n"
+    rule_limit = 8
+    csv        = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,1,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,2,ingress,tcp,22,22,pl:admin,ssh admin,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "sg_rule_limit_counts_prefix_list_entries" {
@@ -652,22 +660,26 @@ run "sg_csv_key_is_no" {
 
 run "reject_duplicate_no" {
   command = plan
-  module { source = "../deployment/ec2-common" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    network      = run.layout_v1_2az.network_contract
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,3,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,3,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
+    sg_ids              = { common = "sg-common" }
+    prefix_list_ids     = { access_ctl = "pl-access", admin = "pl-admin" }
+    prefix_list_weights = { access_ctl = 5, admin = 5 }
+    csv                 = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,3,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,3,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 run "reject_invalid_no" {
   command = plan
-  module { source = "../deployment/ec2-common" }
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
   variables {
-    network      = run.layout_v1_2az.network_contract
-    sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,1.5,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
+    sg_ids              = { common = "sg-common" }
+    prefix_list_ids     = { access_ctl = "pl-access", admin = "pl-admin" }
+    prefix_list_weights = { access_ctl = 5, admin = 5 }
+    csv                 = "sg,no,direction,protocol,from_port,to_port,source,description,memo\ncommon,,ingress,tcp,22,22,pl:access_ctl,ssh,\ncommon,1.5,ingress,tcp,3389,3389,pl:access_ctl,rdp,\n"
   }
-  expect_failures = [output.sg_rules]
+  expect_failures = [output.ingress, output.egress]
 }
 
 ############################################################
@@ -683,5 +695,19 @@ run "agent_log_groups_precreated_14_days" {
   assert {
     condition     = jsonencode(output.agent_log_groups) == jsonencode({ app = "/simple/ec2-was/app", security = "/simple/ec2-was/security", system = "/simple/ec2-was/system" })
     error_message = "Agent 로그 그룹: ${jsonencode(output.agent_log_groups)}"
+  }
+}
+
+run "sg_base_rule_signature_format" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+  }
+  assert {
+    # 폴더의 기본 규칙 서명이 helper의 CSV 서명 형식과 같아야 중복 검사가 동작함
+    condition     = contains(output.sg_base_rules, "app|egress|-1|||cidr:${lower(run.layout_v1_2az.vpc_cidrs[0])}")
+    error_message = "기본 규칙 서명: ${jsonencode(output.sg_base_rules)}"
   }
 }

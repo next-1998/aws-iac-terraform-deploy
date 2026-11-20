@@ -52,14 +52,14 @@ output "sg_rules" {
     ingress = module.sg_ingress.rules
     egress  = module.sg_egress.rules
   }
-
-  precondition {
-    condition     = length(module.sg_rules_csv.errors) == 0
-    error_message = "${var.name}/src/sg_rules.csv 오류: ${join(" / ", module.sg_rules_csv.errors)}"
-  }
 }
 
 output "agent_log_groups" {
   description = "CloudWatch Agent 설정에 쓸 로그 그룹 이름 (이름 → 로그 그룹)"
   value       = { for k, m in module.agent_log : k => m.name }
+}
+
+output "sg_base_rules" {
+  description = "코드에 있는 기본 SG 규칙 (<sg>|<방향>|<프로토콜>|<from>|<to>|<대상>). CSV에 같은 규칙을 넣으면 plan에서 막힘"
+  value       = local.base_signatures
 }

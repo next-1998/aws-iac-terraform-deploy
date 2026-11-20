@@ -127,6 +127,7 @@ module "sg_rules_csv" {
   base_weights        = local.base_weights
   prefix_list_weights = local.pl_weights
   rule_limit          = var.sg_rule_limit
+  source_name         = "${var.name}/src/sg_rules.csv"
 
   csv             = local.sg_rules_csv
   sg_ids          = local.sg_ids

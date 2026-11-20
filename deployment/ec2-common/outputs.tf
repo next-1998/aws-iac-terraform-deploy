@@ -43,11 +43,6 @@ output "sg_rules" {
     ingress = module.sg_ingress.rules
     egress  = module.sg_egress.rules
   }
-
-  precondition {
-    condition     = length(module.sg_rules_csv.errors) == 0
-    error_message = "ec2-common/src/sg_rules.csv 오류: ${join(" / ", module.sg_rules_csv.errors)}"
-  }
 }
 
 output "weekend_stop" {

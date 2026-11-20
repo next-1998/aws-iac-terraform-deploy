@@ -32,6 +32,7 @@ locals {
 module "sg_rules_csv" {
   source = "../../../aws-iac-terraform-module/module/_sg_rules_csv"
 
+  source_name     = "ec2-common/src/sg_rules.csv"
   csv             = local.sg_rules_csv
   sg_ids          = local.sg_ids
   prefix_list_ids = local.routing.prefix_list_ids
