@@ -69,6 +69,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 terraform -chdir=01-network  init -backend=false && terraform -chdir=01-network  test
 terraform -chdir=02-shared   init -backend=false && terraform -chdir=02-shared   test
 terraform -chdir=02-compute  init -backend=false && terraform -chdir=02-compute  test
+bash tests/nested_checks.sh   # 참조하지 않는 자식 모듈 검사(입력 검사, ALB, SG CSV)도 plan을 막는지
 ```
 
 mock 테스트는 AWS 쪽 제한(권한, 한도, AZ별 지원 인스턴스)을 확인하지 못합니다. 고객사에 적용하기 전에 테스트 계정에서 실제 plan/apply를 권장합니다.
