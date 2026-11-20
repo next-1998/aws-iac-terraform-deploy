@@ -1,0 +1,6 @@
+sg,no,direction,protocol,from_port,to_port,source,description,memo
+app,1,ingress,tcp,8080,8080,pl:admin,direct app check from admin,관리자 직접 점검 (ALB 우회)
+app,2,egress,tcp,1521,1521,cidr:10.185.10.0/24,to legacy oracle db,기존 사내 Oracle DB (협의 필요)
+app,3,egress,tcp,443,443,pl:corp_proxy,to corp proxy,사내 프록시 경유 외부 API 호출
+app,4,egress,tcp,8080,8080,self,was session replication,WAS끼리 세션 복제
+alb,1,ingress,tcp,443,443,pl:corp,https from corp users,사내망 사용자 (내부용 ALB)

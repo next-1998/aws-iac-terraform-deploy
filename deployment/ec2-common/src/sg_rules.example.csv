@@ -1,0 +1,4 @@
+sg,no,direction,protocol,from_port,to_port,source,description,memo
+common,1,ingress,tcp,22,22,pl:access_ctl,ssh from server access control,서버 접근제어 솔루션에서 SSH (Linux)
+common,2,ingress,tcp,3389,3389,pl:access_ctl,rdp from server access control,서버 접근제어 솔루션에서 RDP (Windows 서버일 때만)
+common,3,ingress,icmp,-1,-1,pl:admin,ping from admin,관리자 PC에서 ping 점검

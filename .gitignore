@@ -1,0 +1,6 @@
+.terraform/
+.terraform.lock.hcl
+.build/
+*.tfplan
+tests/.nested_tmp/
+tests/.nested_hold/
