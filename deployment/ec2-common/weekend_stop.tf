@@ -36,7 +36,8 @@ module "ws_log" {
   source   = "../../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/loggroup"
   for_each = local.ws
 
-  name              = "/aws/lambda/${local.ws_name}"
+  # 로그 경로 규칙: /<VPC 이름>/lambda/<함수 이름>/function (Lambda logging_config로 이 로그 그룹을 씀)
+  name              = "/${local.base.vpc_name}/lambda/${local.ws_name}/function"
   retention_in_days = var.weekend_stop.log_retention_days
   kms_key_id        = var.logs_kms_key_arn
 

@@ -73,27 +73,43 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 |---|---|---|
 | `ebs` | `alias/iac/account/ebs` | 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키 |
 | `s3` | `alias/iac/account/s3` | S3 버킷. 기본은 state 버킷·DynamoDB 잠금 테이블도 이 키 |
+| `logs` | `alias/iac/account/logs` | CloudWatch 로그 그룹 (계정 전체: 서버 Agent 로그, Lambda 로그, Firehose 오류 로그). 키 정책에 CloudWatch Logs 서비스(이 계정 로그 그룹만) 허용. 다음 단계는 `/iac/_account/00-bootstrap/kms`의 `key_arns.logs`를 읽음 |
 | (분리 옵션) `tfstate` | `alias/iac/account/tfstate` | `separate_tfstate_key = true`일 때 state 버킷·잠금 테이블 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
 
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy).
 - 로그 버킷은 **SSE-S3 고정**입니다. ALB 접근 로그가 SSE-KMS를 지원하지 않기 때문입니다.
 - 중앙 키를 쓰면 키 ARN이어야 하고(alias 불가), 중앙 키 정책에 이 계정의 사용 권한이 있어야 합니다. 중앙 키를 비활성화·삭제하면 이 계정의 데이터도 읽을 수 없게 됩니다.
+- 로그는 계정 기본 설정이라 logs 키도 이 단계가 만듭니다. 중앙 로그 계정 키를 쓸 때도 이 단계의 `central_kms_key_arns.logs`에 넣습니다 (중앙 키 정책에 이 계정 로그 그룹용 CloudWatch Logs 서비스 허용 필요).
 
 ## CloudWatch Logs 보관 (`cloudwatch_logs.tf`)
 
 | 위치 | 보관 | 설정 |
 |---|---|---|
-| CloudWatch Logs | **14일** | 로그 그룹 모듈 기본값, `cloudwatch_logs_retention_days` |
-| S3 로그 버킷 `<버킷>/cloudwatch-logs/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정** |
+| CloudWatch Logs | **14일** | 로그 그룹 모듈 기본값 (각 단계 `log_retention_days`) |
+| S3 로그 버킷 `<버킷>/<로그 그룹 이름>/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정** |
 
 ```text
 모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose (iac-cwlogs-to-s3) ─→ S3 로그 버킷
 ```
 
+### 로그 경로 규칙 (모든 로그는 VPC 이름으로 시작)
+
+| 로그 | CloudWatch 로그 그룹 | S3 경로 |
+|---|---|---|
+| EC2 OS·인증 로그 | `/<VPC>/ec2/<서버 이름>/messages`, `/secure` | `<VPC>/ec2/<서버 이름>/messages/YYYY/MM/DD/` |
+| Lambda (주말 중지 등) | `/<VPC>/lambda/<함수 이름>/function` | `<VPC>/lambda/<함수 이름>/function/YYYY/MM/DD/` |
+| VPC Flow Logs | 없음 (S3로 바로) | `<VPC>/vpc/<VPC>/flow-logs/AWSLogs/…` |
+| ALB 접근 로그 | 없음 (S3로 바로) | `<VPC>/elb/<ALB 이름>/access-logs/AWSLogs/…` |
+
+- 규칙: `/<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>`. 새 로그 그룹도 이 규칙으로 만듭니다.
+- CloudWatch → S3 경로는 Firehose가 로그 그룹 이름을 읽어 정합니다 (동적 파티셔닝). 규칙을 지키면 S3도 자동으로 같은 구조가 됩니다.
+- Firehose 처리에 실패한 데이터만 `firehose-errors/`에 남습니다 (계정 단위라 VPC가 없음).
+
 - 계정 단위 구독 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 자동으로 포함됩니다.
-- Firehose 자신의 오류 로그 그룹(`/aws/kinesisfirehose/iac-cwlogs-to-s3`)은 대상에서 뺍니다 (순환 방지).
-- S3 파일은 CloudWatch Logs 형식(gzip JSON)입니다. Athena로 조회할 때 이 형식으로 테이블을 만듭니다.
+- VPC가 없는 계정 단위 로그 그룹은 만들지 않습니다. Firehose 전송 오류용 로그 그룹도 두지 않고, 실패 데이터는 S3 `firehose-errors/`와 Firehose 지표로 확인합니다.
+- S3 파일은 CloudWatch Logs 형식 JSON(레코드마다 한 줄)을 gzip으로 묶은 것입니다. Athena로 조회할 때 이 형식으로 테이블을 만듭니다.
 - 중앙 로그 계정을 쓰는 방법은 두 가지입니다.
   - **B. 중앙 destination (추천)**: `cloudwatch_logs_destination_arn`에 중앙 계정 CloudWatch Logs destination ARN을 넣으면 이 계정에 Firehose를 만들지 않고 중앙으로 보냅니다. 중앙이 Firehose와 버킷을 운영하므로 서비스 계정이 보관 경로를 바꾸거나 지울 수 없습니다. 중앙 destination 정책에 이 계정(또는 조직) 구독 허용이 필요합니다.
   - **A. 중앙 버킷만**: `create_log_bucket = false`, `cloudwatch_logs_bucket_arn` 지정. 이 계정 Firehose가 중앙 버킷에 씁니다. 중앙 버킷 정책에 이 계정 Firehose role 쓰기 허용이 필요합니다.
-- **CloudWatch Agent가 만드는 로그 그룹**은 Agent 설정의 `retention_in_days`로 14일을 지정해야 합니다 (지정하지 않으면 CloudWatch에 무기한 보관). Agent 설정 배포 방식과 같이 정합니다.
+- 로그 그룹은 Terraform이 미리 만듭니다 (14일, logs 키). CloudWatch Agent가 로그 그룹을 직접 만들지 않게 합니다 (만들면 무기한 보관). EC2 Agent 설정은 `deployment/ec2-<용도>/src/cwagent_setup.sh` 참고.
+- 새 계정에서 처음 apply할 때 계정 단위 구독 정책이 `firehose:PutRecord` 권한 오류로 실패할 수 있습니다 (방금 붙인 IAM 권한이 퍼지기 전에 AWS가 테스트 메시지를 보냄). 잠시 뒤 다시 apply하면 됩니다.

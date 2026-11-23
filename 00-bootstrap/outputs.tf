@@ -38,6 +38,6 @@ output "cloudwatch_logs_to_s3" {
     } : {
     mode        = "local"
     firehose    = module.cwlogs_firehose["this"].name
-    destination = "${local.cwlogs_bucket_arn}/cloudwatch-logs/"
+    destination = "${local.cwlogs_bucket_arn}/<로그 그룹 이름>/YYYY/MM/DD/"
   })
 }

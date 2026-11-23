@@ -84,10 +84,10 @@ module "alb" {
   enable_deletion_protection       = var.alb_deletion_protection
   drop_invalid_header_fields       = true
 
-  # 접근 로그: <버킷>/<site>/alb/<ALB 이름>/AWSLogs/...
+  # 접근 로그: <버킷>/<VPC 이름>/elb/<ALB 이름>/access-logs/AWSLogs/... (로그 경로 규칙)
   access_logs = var.access_log_bucket != null ? {
     bucket  = var.access_log_bucket
-    prefix  = "${local.site}/alb/${local.prefix}-alb"
+    prefix  = "${local.base.vpc_name}/elb/${local.prefix}-alb/access-logs"
     enabled = "true"
   } : {}
 

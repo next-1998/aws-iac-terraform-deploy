@@ -1,6 +1,6 @@
 ############################################################
 # VPC Flow Logs → S3
-#   경로: <bucket>/<site>/vpc-flow-logs/AWSLogs/<계정ID>/vpcflowlogs/<리전>/YYYY/MM/DD/HH/
+#   경로: <bucket>/<VPC 이름>/vpc/<VPC 이름>/flow-logs/AWSLogs/<계정ID>/vpcflowlogs/<리전>/YYYY/MM/DD/HH/
 #   버킷: 00-bootstrap 버킷 또는 중앙 로그 버킷 (01-network 단계 루트에서 결정해서 넘김)
 ############################################################
 module "flow_log" {
@@ -10,7 +10,8 @@ module "flow_log" {
   name       = "${var.site}-vpc-flow-log"
   vpc_id     = module.vpc.vpc.id
   bucket_arn = var.flow_log_bucket_arn
-  prefix     = "${var.site}/vpc-flow-logs"
+  # 로그 경로 규칙: <VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>
+  prefix = "${var.vpc_name}/vpc/${var.vpc_name}/flow-logs"
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags

@@ -41,11 +41,20 @@ override_data {
 }
 override_data {
   target = data.aws_ssm_parameter.shared
-  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null,\"logs_kms_key_arn\":\"arn:aws:kms:ap-northeast-2:111111111111:key/logs-mock\"}" }
+  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null}" }
+}
+override_data {
+  target = data.aws_ssm_parameter.bootstrap_kms
+  values = { insecure_value = "{\"key_arns\":{\"ebs\":\"arn:aws:kms:ap-northeast-2:111111111111:key/ebs-mock\",\"logs\":\"arn:aws:kms:ap-northeast-2:111111111111:key/logs-mock\",\"s3\":\"arn:aws:kms:ap-northeast-2:111111111111:key/s3-mock\"},\"source\":{}}" }
 }
 
 run "reads_network_and_builds_resources" {
   command = plan
+  assert {
+    # 로그 그룹 암호화 키는 00-bootstrap logs 키
+    condition     = module.ec2_common.contract.logs_kms_key_arn == "arn:aws:kms:ap-northeast-2:111111111111:key/logs-mock"
+    error_message = "logs 키: ${module.ec2_common.contract.logs_kms_key_arn}"
+  }
   assert {
     condition     = local.network.base.vpc_id == "vpc-1" && local.access_log_bucket == "iac-logs-111111111111-ap-northeast-2"
     error_message = "network=${jsonencode(local.network.base)} log=${local.access_log_bucket}"

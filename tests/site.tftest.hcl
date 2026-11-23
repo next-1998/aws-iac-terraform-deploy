@@ -693,8 +693,29 @@ run "agent_log_groups_precreated_14_days" {
     ami    = "ami-0123456789abcdef0"
   }
   assert {
-    condition     = jsonencode(output.agent_log_groups) == jsonencode({ app = "/simple/ec2-was/app", security = "/simple/ec2-was/security", system = "/simple/ec2-was/system" })
+    # 기본은 OS 로그(messages), 인증 로그(secure). 이름 규칙: /<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>
+    condition     = jsonencode(output.agent_log_groups) == jsonencode({ messages = "/simple-vpc/ec2/simple-ec2-was/messages", secure = "/simple-vpc/ec2/simple-ec2-was/secure" })
     error_message = "Agent 로그 그룹: ${jsonencode(output.agent_log_groups)}"
+  }
+  assert {
+    # Agent 설치·설정 SSM 연결이 서버마다 하나
+    condition     = keys(output.cloudwatch_agent) == ["simple-ec2-was-cwagent"]
+    error_message = "Agent SSM 연결: ${jsonencode(keys(output.cloudwatch_agent))}"
+  }
+}
+
+run "cloudwatch_agent_off_without_os_log_groups" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common           = run.layout_v1_2az.ec2_common_contract
+    ami              = "ami-0123456789abcdef0"
+    agent_log_groups = { app = "애플리케이션 로그" }
+  }
+  assert {
+    # messages, secure 로그 그룹이 없으면 Agent 기본 설정을 걸지 않음 (Agent가 로그 그룹을 만들지 않도록)
+    condition     = length(output.cloudwatch_agent) == 0 && keys(output.agent_log_groups) == ["app"]
+    error_message = "Agent SSM 연결: ${jsonencode(keys(output.cloudwatch_agent))}"
   }
 }
 

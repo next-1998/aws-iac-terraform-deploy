@@ -1,7 +1,7 @@
 ############################################################
 # 공용 CMK (용도별)
 #   central_kms_key_arns에 용도가 있으면 중앙 키를 쓰고, 없으면 이 계정에 만듭니다.
-#     logs : CloudWatch 로그 그룹 (Lambda, 서버 로그 등). 키 정책에 CloudWatch Logs 서비스 허용
+#     (logs 키는 계정 기본이라 00-bootstrap이 만듦: alias/iac/account/logs)
 #     sns  : 알림 토픽. 키 정책에 CloudWatch 알람(cloudwatch.amazonaws.com) 허용
 #   서비스마다 키 정책이 달라 키를 나눕니다. 중앙 키를 쓰면 같은 권한이 중앙 키 정책에 있어야 합니다.
 ############################################################
@@ -16,21 +16,6 @@ locals {
   partition  = data.aws_partition.current.partition
 
   kms_statements = {
-    logs = [{
-      sid     = "CloudWatchLogs"
-      actions = ["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"]
-      principals = [{
-        type        = "Service"
-        identifiers = ["logs.${local.region}.amazonaws.com"]
-      }]
-      resources = ["*"]
-      # 이 계정의 로그 그룹만
-      condition = [{
-        test     = "ArnLike"
-        variable = "kms:EncryptionContext:aws:logs:arn"
-        values   = ["arn:${local.partition}:logs:${local.region}:${local.account_id}:log-group:*"]
-      }]
-    }]
     sns = [{
       sid     = "CloudWatchAlarmsPublish"
       actions = ["kms:Decrypt", "kms:GenerateDataKey*"]
@@ -48,7 +33,7 @@ locals {
   }
 
   # 이 계정에 만들 키 (중앙 키가 없는 용도만). sns는 알림 토픽을 쓸 때만
-  kms_purposes = concat(["logs"], var.enable_alarm_topic ? ["sns"] : [])
+  kms_purposes = var.enable_alarm_topic ? ["sns"] : []
   local_keys   = toset([for k in local.kms_purposes : k if !contains(keys(var.central_kms_key_arns), k)])
 }
 

@@ -3,6 +3,8 @@
 #   central_kms_key_arns에 있으면 중앙 키를 쓰고, 없으면 이 계정에 만듭니다.
 #     ebs     : 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키로 암호화됨
 #     s3      : S3 버킷. 기본은 state 버킷·잠금 테이블도 이 키 (로그 버킷은 ALB 때문에 SSE-S3 고정)
+#     logs    : CloudWatch 로그 그룹 (계정 전체: 서버·Lambda 로그, Firehose 오류 로그 등). 키 정책에 CloudWatch Logs 서비스 허용
+#               로그는 계정 기본 설정이라 이 단계가 만듦. 중앙 로그 계정 키를 쓸 때도 여기(central_kms_key_arns.logs)에 넣음
 #   분리 옵션
 #     tfstate : separate_tfstate_key = true면 state 버킷·잠금 테이블 전용 키를 따로 만듦
 #               (state에 민감 정보가 있을 수 있어 S3 데이터 키와 권한을 나눌 때)
@@ -31,6 +33,11 @@ locals {
       admins      = var.kms_key_administrators
       asg         = false
     }
+    logs = {
+      description = "CloudWatch Logs log groups (account)"
+      admins      = var.kms_key_administrators
+      asg         = false
+    }
     tfstate = {
       description = "Terraform state bucket and lock table (separated)"
       admins      = var.tfstate_kms_key_administrators
@@ -39,11 +46,29 @@ locals {
   }
 
   # 이 계정에 만들 키: 중앙 키가 없는 리소스별 키 + (분리 옵션을 켰고 중앙 키가 없으면) tfstate
-  purposes   = concat(["ebs", "s3"], local.tfstate_separate ? ["tfstate"] : [])
+  purposes   = concat(["ebs", "s3", "logs"], local.tfstate_separate ? ["tfstate"] : [])
   local_keys = { for k in local.purposes : k => local.key_specs[k] if !contains(keys(local.central), k) }
 }
 
 data "aws_partition" "current" {}
+
+locals {
+  logs_key_statements = [{
+    sid     = "CloudWatchLogs"
+    actions = ["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"]
+    principals = [{
+      type        = "Service"
+      identifiers = ["logs.${local.region}.amazonaws.com"]
+    }]
+    resources = ["*"]
+    # 이 계정의 로그 그룹만
+    condition = [{
+      test     = "ArnLike"
+      variable = "kms:EncryptionContext:aws:logs:arn"
+      values   = ["arn:${data.aws_partition.current.partition}:logs:${local.region}:${local.account_id}:log-group:*"]
+    }]
+  }]
+}
 
 module "kms_key" {
   source   = "../../aws-iac-terraform-module/module/security/aws-kms-workload/key"
@@ -57,6 +82,8 @@ module "kms_key" {
 
   key_administrators                = each.value.admins
   key_service_roles_for_autoscaling = each.value.asg ? [local.asg_service_role] : []
+  # logs 키: CloudWatch Logs 서비스가 이 계정 로그 그룹을 암호화하도록 허용
+  key_statements = [for s in local.logs_key_statements : s if each.key == "logs"]
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -79,12 +106,15 @@ locals {
   kms_key_arns = {
     ebs = local.key_arn.ebs
     s3  = local.key_arn.s3
+    # CloudWatch 로그 그룹 (계정 전체, 다음 단계도 이 값을 씀)
+    logs = local.key_arn.logs
     # state 버킷·잠금 테이블이 실제로 쓰는 키 (분리하지 않으면 s3 키)
     tfstate = local.tfstate_separate ? local.key_arn.tfstate : local.key_arn.s3
   }
   kms_key_source = {
     ebs     = contains(keys(local.central), "ebs") ? "central" : "local"
     s3      = contains(keys(local.central), "s3") ? "central" : "local"
+    logs    = contains(keys(local.central), "logs") ? "central" : "local"
     tfstate = !local.tfstate_separate ? "same-as-s3" : (contains(keys(local.central), "tfstate") ? "central" : "local")
   }
 }

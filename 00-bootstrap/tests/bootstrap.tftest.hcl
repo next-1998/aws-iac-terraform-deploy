@@ -71,8 +71,8 @@ run "account_security_defaults" {
 run "one_cmk_per_resource_by_default" {
   command = plan
   assert {
-    # 리소스별 키(ebs, s3)만 만들고, state 버킷·잠금 테이블은 s3 키를 같이 씀
-    condition     = jsonencode(local.kms_key_source) == jsonencode({ ebs = "local", s3 = "local", tfstate = "same-as-s3" }) && toset(keys(module.kms_key)) == toset(["ebs", "s3"])
+    # 리소스별 키(ebs, s3, logs)만 만들고, state 버킷·잠금 테이블은 s3 키를 같이 씀
+    condition     = jsonencode(local.kms_key_source) == jsonencode({ ebs = "local", logs = "local", s3 = "local", tfstate = "same-as-s3" }) && toset(keys(module.kms_key)) == toset(["ebs", "s3", "logs"])
     error_message = "키: ${jsonencode(local.kms_key_source)}"
   }
 }
@@ -83,7 +83,7 @@ run "separate_tfstate_key_option" {
     separate_tfstate_key = true
   }
   assert {
-    condition     = toset(keys(module.kms_key)) == toset(["ebs", "s3", "tfstate"]) && local.kms_key_source.tfstate == "local"
+    condition     = toset(keys(module.kms_key)) == toset(["ebs", "s3", "logs", "tfstate"]) && local.kms_key_source.tfstate == "local"
     error_message = "tfstate 분리: ${jsonencode(local.kms_key_source)}"
   }
 }
@@ -94,11 +94,12 @@ run "central_cmk_when_given" {
     central_kms_key_arns = {
       s3      = "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555"
       tfstate = "arn:aws:kms:ap-northeast-2:222222222222:key/66666666-2222-3333-4444-555555555555"
+      logs    = "arn:aws:kms:ap-northeast-2:222222222222:key/77777777-2222-3333-4444-555555555555"
     }
   }
   assert {
-    # s3, tfstate는 중앙 키 (옵션을 켜지 않아도 중앙 tfstate 키가 있으면 분리), ebs는 이 계정 키
-    condition     = toset(keys(module.kms_key)) == toset(["ebs"]) && local.kms_key_arns.tfstate == "arn:aws:kms:ap-northeast-2:222222222222:key/66666666-2222-3333-4444-555555555555" && local.kms_key_source.tfstate == "central"
+    # s3, tfstate, logs는 중앙 키 (옵션을 켜지 않아도 중앙 tfstate 키가 있으면 분리), ebs는 이 계정 키
+    condition     = toset(keys(module.kms_key)) == toset(["ebs"]) && local.kms_key_arns.tfstate == "arn:aws:kms:ap-northeast-2:222222222222:key/66666666-2222-3333-4444-555555555555" && local.kms_key_source.tfstate == "central" && local.kms_key_arns.logs == "arn:aws:kms:ap-northeast-2:222222222222:key/77777777-2222-3333-4444-555555555555"
     error_message = "중앙 키 사용: ${jsonencode(local.kms_key_source)}"
   }
 }
@@ -114,8 +115,9 @@ run "reject_alias_as_central_key" {
 run "cloudwatch_logs_exported_to_s3" {
   command = plan
   assert {
-    condition     = length(module.cwlogs_firehose) == 1 && length(module.cwlogs_account_subscription) == 1 && module.cwlogs_error_log["this"].name == "/aws/kinesisfirehose/iac-cwlogs-to-s3"
-    error_message = "CloudWatch Logs → S3 구성이 없음"
+    # 로그 그룹 이름 경로로 저장 (계정 단위 Firehose 오류 로그 그룹은 만들지 않음: 로그는 모두 VPC 이름으로 시작)
+    condition     = length(module.cwlogs_firehose) == 1 && length(module.cwlogs_account_subscription) == 1 && output.cloudwatch_logs_to_s3.mode == "local"
+    error_message = "CloudWatch Logs → S3 구성: ${jsonencode(output.cloudwatch_logs_to_s3)}"
   }
 }
 

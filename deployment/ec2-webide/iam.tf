@@ -40,6 +40,26 @@ module "role_policy" {
     },
   )
 }
+# 로그 그룹은 Terraform이 미리 만든 것만 씀 (보안 기본값)
+#   CloudWatchAgentServerPolicy에는 로그 그룹 생성·보관 기간 변경 권한이 있어,
+#   설정이 어긋나면 Agent가 보관 기간 무기한·CMK 없는 로그 그룹을 만들 수 있음 → 명시적으로 거부
+module "role_policy_logs_guard" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role-policy"
+
+  role_name = module.role.name
+  policies = {
+    "${local.prefix}-logs-guard" = jsonencode({
+      Version = "2012-10-17"
+      Statement = [{
+        Sid      = "DenyLogGroupCreateAndRetentionChange"
+        Effect   = "Deny"
+        Action   = ["logs:CreateLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy"]
+        Resource = "*"
+      }]
+    })
+  }
+}
+
 
 module "instance_profile" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/instance-profile"

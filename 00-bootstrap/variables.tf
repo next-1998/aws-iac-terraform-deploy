@@ -22,8 +22,8 @@ variable "state_bucket_name" {
 variable "central_kms_key_arns" {
   description = <<-EOT
     조직 중앙 계정의 CMK (용도 → 키 ARN). 넣은 용도는 키를 만들지 않고 중앙 키를 씀. 없으면 이 계정에 CMK를 만듦
-      이 단계의 용도: ebs (계정 EBS 기본 키), s3 (S3 버킷), tfstate (state 버킷·잠금 테이블 전용 키, 분리 옵션)
-    다른 단계와 같은 변수 이름이라 tfvars 값을 같이 써도 됨 (이 단계는 위 두 용도만 읽음)
+      이 단계의 용도: ebs (계정 EBS 기본 키), s3 (S3 버킷), logs (CloudWatch 로그 그룹, 계정 전체), tfstate (state 버킷·잠금 테이블 전용 키, 분리 옵션)
+    다른 단계와 같은 변수 이름이라 tfvars 값을 같이 써도 됨 (이 단계는 위 용도만 읽음)
   EOT
   type        = map(string)
   default     = {}
@@ -162,12 +162,6 @@ variable "cloudwatch_logs_bucket_arn" {
   description = "CloudWatch 로그를 보낼 버킷 ARN. null이면 이 계정의 로그 버킷. create_log_bucket = false(중앙 로그 버킷)면 지정해야 내보냄"
   type        = string
   default     = null
-}
-
-variable "cloudwatch_logs_retention_days" {
-  description = "이 단계에서 만드는 로그 그룹의 CloudWatch 보관 기간 (일). 장기 보관은 S3(log_retention_days)"
-  type        = number
-  default     = 14
 }
 
 variable "cloudwatch_logs_destination_arn" {

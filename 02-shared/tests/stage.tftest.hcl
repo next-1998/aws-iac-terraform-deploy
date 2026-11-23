@@ -55,19 +55,28 @@ run "shared_cmk_local_by_default" {
     alarm_emails = ["ops@example.com"]
   }
   assert {
-    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ logs = "local", sns = "local" })
+    # logs 키는 00-bootstrap으로 옮김. 이 단계는 sns만
+    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ sns = "local" })
     error_message = "공용 키: ${jsonencode(module.shared_common.kms_keys.source)}"
   }
 }
 
-run "shared_cmk_central_logs" {
+run "shared_cmk_central_sns" {
   command = plan
   variables {
     alarm_emails         = ["ops@example.com"]
-    central_kms_key_arns = { logs = "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555" }
+    central_kms_key_arns = { sns = "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555" }
   }
   assert {
-    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ logs = "central", sns = "local" }) && module.shared_common.kms_keys.key_arns.logs == "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555"
-    error_message = "중앙 logs 키: ${jsonencode(module.shared_common.kms_keys.source)}"
+    condition     = jsonencode(module.shared_common.kms_keys.source) == jsonencode({ sns = "central" }) && module.shared_common.kms_keys.key_arns.sns == "arn:aws:kms:ap-northeast-2:222222222222:key/11111111-2222-3333-4444-555555555555"
+    error_message = "중앙 sns 키: ${jsonencode(module.shared_common.kms_keys.source)}"
+  }
+}
+
+run "no_alarm_topic_no_shared_key" {
+  command = plan
+  assert {
+    condition     = length(module.shared_common.kms_keys.key_arns) == 0
+    error_message = "알림 토픽이 없으면 공용 키를 만들지 않음: ${jsonencode(module.shared_common.kms_keys.key_arns)}"
   }
 }

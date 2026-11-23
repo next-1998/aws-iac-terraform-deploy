@@ -5,14 +5,18 @@
 #
 #   방식 (cloudwatch_logs_destination_arn으로 결정)
 #   A. 이 계정 Firehose (기본)
-#      모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose ─→ S3 <로그 버킷>/cloudwatch-logs/YYYY/MM/DD/
+#      모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose ─→ S3 <로그 버킷>/<로그 그룹 이름>/YYYY/MM/DD/
+#      로그 그룹 이름 규칙이 /<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름> 이므로
+#      S3도 <VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>/YYYY/MM/DD/ (Flow Logs, ELB 접근 로그와 같은 구조)
+#      Firehose가 CloudWatch Logs 데이터를 풀어(Decompression) 로그 그룹 이름을 뽑고(MetadataExtraction) 경로로 씀(동적 파티셔닝)
 #   B. 중앙 로그 계정 (destination ARN을 넣으면)
 #      모든 로그 그룹 ─(계정 단위 구독 필터)→ 중앙 계정 CloudWatch Logs destination ─→ (중앙이 운영) Firehose ─→ 중앙 버킷
 #      이 계정에는 Firehose를 만들지 않음. 서비스 계정이 보관 경로를 바꾸거나 지울 수 없음
 #      중앙 destination 정책에 이 계정(또는 조직)의 구독 허용이 필요 (중앙 계정 사전 요청)
 #   - 계정 단위 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 포함
-#   - A의 Firehose 오류 로그 그룹은 대상에서 뺌 (순환 방지)
-#   - S3에 저장되는 파일은 CloudWatch Logs 형식(gzip JSON)
+#   - 로그는 모두 VPC 이름으로 시작하므로 계정 단위(VPC 없음) Firehose 오류 로그 그룹은 만들지 않음
+#     전송·처리에 실패한 데이터는 S3 firehose-errors/ 에 남음 (Firehose 지표로도 확인)
+#   - S3에 저장되는 파일은 CloudWatch Logs 형식 JSON(레코드마다 한 줄)을 gzip으로 묶은 것
 ############################################################
 
 locals {
@@ -25,22 +29,7 @@ locals {
   # 구독 필터는 A, B 모두
   cwlogs_subscription = local.cwlogs_enabled ? { this = true } : {}
 
-  cwlogs_name      = "iac-cwlogs-to-s3"
-  cwlogs_error_log = "/aws/kinesisfirehose/${local.cwlogs_name}"
-}
-
-# Firehose 전송 오류 기록용 (구독 대상에서 제외)
-module "cwlogs_error_log" {
-  source   = "../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/loggroup"
-  for_each = local.cwlogs
-
-  name              = local.cwlogs_error_log
-  retention_in_days = var.cloudwatch_logs_retention_days
-
-  common_tags = var.common_tags
-  site        = local.tag.site
-  stack       = local.tag.stack
-  key_target  = "cwlogs_error"
+  cwlogs_name = "iac-cwlogs-to-s3"
 }
 
 # Firehose → S3 쓰기 role
@@ -76,14 +65,10 @@ module "cwlogs_firehose_policy" {
       Version = "2012-10-17"
       Statement = [
         {
-          Effect   = "Allow"
-          Action   = ["s3:AbortMultipartUpload", "s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads", "s3:PutObject"]
-          Resource = [local.cwlogs_bucket_arn, "${local.cwlogs_bucket_arn}/cloudwatch-logs/*", "${local.cwlogs_bucket_arn}/cloudwatch-logs-errors/*"]
-        },
-        {
-          Effect   = "Allow"
-          Action   = ["logs:PutLogEvents"]
-          Resource = "arn:${data.aws_partition.current.partition}:logs:${local.region}:${local.account_id}:log-group:${local.cwlogs_error_log}:*"
+          Effect = "Allow"
+          Action = ["s3:AbortMultipartUpload", "s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads", "s3:PutObject"]
+          # 경로가 로그 그룹 이름(<VPC 이름>/…)으로 정해지므로 버킷 전체. 로그 버킷 외에는 쓰지 못함
+          Resource = [local.cwlogs_bucket_arn, "${local.cwlogs_bucket_arn}/*"]
         },
       ]
     })
@@ -94,15 +79,29 @@ module "cwlogs_firehose" {
   source   = "../../aws-iac-terraform-module/module/monitor_log/aws-firehose-workload/delivery-stream"
   for_each = local.cwlogs
 
-  name                = local.cwlogs_name
-  role_arn            = module.cwlogs_firehose_role[each.key].arn
-  bucket_arn          = local.cwlogs_bucket_arn
-  prefix              = "cloudwatch-logs/!{timestamp:yyyy/MM/dd}/"
-  error_output_prefix = "cloudwatch-logs-errors/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/"
-  # S3는 보관 전용(조회는 CloudWatch)이라 크게 묶어 객체 수를 줄임 → PUT·수명 주기 전환 요청 비용 절감
-  buffering_size       = 128
-  buffering_interval   = 900
-  error_log_group_name = local.cwlogs_error_log
+  name       = local.cwlogs_name
+  role_arn   = module.cwlogs_firehose_role[each.key].arn
+  bucket_arn = local.cwlogs_bucket_arn
+  # <로그 그룹 이름(앞의 / 제외)>/YYYY/MM/DD/  예) iactest-vpc/ec2/iactest-ec2-was/messages/2026/11/23/
+  prefix               = "!{partitionKeyFromQuery:log_group}/!{timestamp:yyyy/MM/dd}/"
+  error_output_prefix  = "firehose-errors/${local.cwlogs_name}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/"
+  dynamic_partitioning = true
+  processors = [
+    # CloudWatch Logs가 보낸 gzip 데이터를 풂
+    { type = "Decompression", parameters = { CompressionFormat = "GZIP" } },
+    # 로그 그룹 이름 → 경로 (앞의 / 제거)
+    { type = "MetadataExtraction", parameters = {
+      MetadataExtractionQuery = "{log_group: (.logGroup | ltrimstr(\"/\"))}"
+      JsonParsingEngine       = "JQ-1.6"
+    } },
+    # 레코드마다 줄바꿈 (한 파일에 여러 JSON)
+    { type = "AppendDelimiterToRecord" },
+  ]
+  # 풀어서 처리했으므로 S3에는 다시 gzip으로 저장
+  compression_format = "GZIP"
+  # S3는 보관 전용(조회는 CloudWatch)이라 크게 묶어 객체 수를 줄임 → PUT·수명 주기 전환 요청 비용 절감 (동적 파티셔닝은 64MB 이상)
+  buffering_size     = 128
+  buffering_interval = 900
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -167,7 +166,7 @@ module "cwlogs_account_subscription" {
     FilterPattern  = ""
     Distribution   = "Random"
   })
-  selection_criteria = local.cwlogs_central ? null : "LogGroupName NOT IN [\"${local.cwlogs_error_log}\"]"
+  selection_criteria = null
 
   depends_on = [module.cwlogs_subscription_policy]
 }

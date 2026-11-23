@@ -182,12 +182,11 @@ variable "sg_rule_limit" {
 # CloudWatch Agent 로그 그룹 (logs.tf)
 ############################################################
 variable "agent_log_groups" {
-  description = "미리 만들 Agent 로그 그룹 (이름 → 설명). 이름은 /<site>/<stack>/<이름>. 서버에서 보낼 로그만 남기고 추가·삭제"
+  description = "미리 만들 Agent 로그 그룹 (이름 → 설명). 이름은 /<VPC 이름>/ec2/<서버 이름>/<이름>. messages, secure는 Agent 기본 설정이 씀. 그 밖의 이름은 껍데기만 만듦"
   type        = map(string)
   default = {
-    system   = "OS 로그 (/var/log/messages)"
-    security = "인증 로그 (/var/log/secure)"
-    app      = "애플리케이션 로그"
+    messages = "OS 로그 (RHEL계열 /var/log/messages, Debian계열 /var/log/syslog)"
+    secure   = "인증 로그 (RHEL계열 /var/log/secure, Debian계열 /var/log/auth.log)"
   }
 
   validation {
@@ -200,4 +199,16 @@ variable "log_retention_days" {
   description = "CloudWatch 로그 보관 기간 (일). 기본 14 (장기 보관은 S3)"
   type        = number
   default     = 14
+}
+
+variable "enable_cloudwatch_agent" {
+  description = "CloudWatch Agent 설치·설정 (SSM 연결로 src/cwagent_setup.sh 실행). agent_log_groups에 messages, secure가 있어야 동작"
+  type        = bool
+  default     = true
+}
+
+variable "cloudwatch_agent_schedule" {
+  description = "Agent 설정을 다시 적용할 주기 (예: rate(7 days)). null이면 만들 때와 서버·스크립트가 바뀔 때만 실행"
+  type        = string
+  default     = null
 }

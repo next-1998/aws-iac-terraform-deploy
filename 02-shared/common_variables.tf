@@ -42,7 +42,7 @@ variable "central_log_bucket_arn" {
 variable "central_kms_key_arns" {
   description = <<-EOT
     조직 중앙 계정의 CMK (용도 → 키 ARN). 넣은 용도는 키를 만들지 않고 중앙 키를 씀. 없는 용도는 이 계정에 CMK를 만듦
-      리소스별 키: ebs, s3 (00-bootstrap) / logs, sns (02-shared) / rds (추가 예정)
+      리소스별 키: ebs, s3, logs (00-bootstrap) / sns (02-shared) / rds (추가 예정)
       분리 옵션 키: tfstate (00-bootstrap separate_tfstate_key) / secrets, backup (추가 예정). 중앙 키를 넣으면 옵션과 관계없이 그 키를 씀
     중앙 키 정책에 이 계정(과 서비스: logs, cloudwatch 등)의 사용 권한이 있어야 함 (중앙 계정 사전 요청)
   EOT

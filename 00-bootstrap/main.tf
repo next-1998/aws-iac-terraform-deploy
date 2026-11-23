@@ -94,7 +94,8 @@ module "lock_table" {
 
 ############################################################
 # 로그 버킷 (선택, 기본값 생성)
-#   경로: <site>/vpc-flow-logs/…, <site>/alb/<ALB 이름>/…
+#   경로: 모두 <VPC 이름>으로 시작 (<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>/…)
+#     Flow Logs <VPC>/vpc/<VPC>/flow-logs/, ALB <VPC>/elb/<ALB 이름>/access-logs/, CloudWatch 로그 <로그 그룹 이름>/YYYY/MM/DD/
 #   암호화: SSE-S3 (ALB 접근 로그는 SSE-KMS를 지원하지 않음)
 ############################################################
 module "log_bucket" {

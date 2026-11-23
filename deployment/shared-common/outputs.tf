@@ -13,7 +13,7 @@ output "validation_records" {
 }
 
 output "kms_keys" {
-  description = "용도별 CMK (logs: CloudWatch 로그 그룹, sns: 알림 토픽). source: central = 중앙 키, local = 이 계정 키"
+  description = "용도별 CMK (sns: 알림 토픽. logs 키는 00-bootstrap). source: central = 중앙 키, local = 이 계정 키"
   value = {
     key_arns = local.kms_key_arns
     source   = local.kms_key_source

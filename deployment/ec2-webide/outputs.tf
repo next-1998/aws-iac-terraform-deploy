@@ -63,3 +63,8 @@ output "sg_base_rules" {
   description = "코드에 있는 기본 SG 규칙 (<sg>|<방향>|<프로토콜>|<from>|<to>|<대상>). CSV에 같은 규칙을 넣으면 plan에서 막힘"
   value       = local.base_signatures
 }
+
+output "cloudwatch_agent" {
+  description = "CloudWatch Agent 설정 (SSM 연결 이름 → ID). 비어 있으면 Agent 설정을 하지 않음"
+  value       = module.cwagent.association_ids
+}

@@ -23,6 +23,11 @@ data "aws_ssm_parameter" "shared" {
   name = "/iac/${var.site}/02-shared/shared"
 }
 
+# 00-bootstrap 계정 CMK (logs 키: 로그 그룹 암호화)
+data "aws_ssm_parameter" "bootstrap_kms" {
+  name = "/iac/_account/00-bootstrap/kms"
+}
+
 # String 파라미터라 insecure_value로 읽습니다 (value는 항상 sensitive)
 data "aws_ssm_parameter" "bootstrap_logs" {
   count = var.enable_alb_access_logs && var.central_log_bucket_arn == null ? 1 : 0
@@ -48,8 +53,8 @@ module "ec2_common" {
 
   network = local.network
 
-  # 암호화: 로그 그룹은 02-shared의 logs 키. EC2 볼륨은 계정 EBS 기본 키(00-bootstrap ebs)
-  logs_kms_key_arn = try(local.shared.logs_kms_key_arn, null)
+  # 암호화: 로그 그룹은 00-bootstrap의 logs 키(또는 중앙 키). EC2 볼륨은 계정 EBS 기본 키(00-bootstrap ebs)
+  logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
 
   enable_weekend_stop = var.ec2_weekend_stop.enabled
   weekend_stop = {

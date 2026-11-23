@@ -34,7 +34,7 @@ variable "alarm_emails" {
 }
 
 variable "central_kms_key_arns" {
-  description = "조직 중앙 CMK (용도 → 키 ARN). 이 폴더는 logs, sns만 읽음. 없는 용도는 이 계정에 CMK를 만듦"
+  description = "조직 중앙 CMK (용도 → 키 ARN). 이 폴더는 sns만 읽음. 없는 용도는 이 계정에 CMK를 만듦"
   type        = map(string)
   default     = {}
 }
