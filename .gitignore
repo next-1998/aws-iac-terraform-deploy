@@ -1,0 +1,10 @@
+.terraform/
+.terraform.lock.hcl
+.build/
+*.tfplan
+tests/.nested_tmp/
+tests/.nested_hold/
+
+# 테스트 계정 배포용 값 (커밋하지 않음)
+test.tfvars
+backend.hcl
