@@ -78,6 +78,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy).
 - 로그 버킷은 **SSE-S3 고정**입니다. ALB 접근 로그가 SSE-KMS를 지원하지 않기 때문입니다.
+- 로그 버킷은 **버전 관리**를 켭니다. 덮어쓰거나 지운 로그는 이전 버전으로 남고, `log_noncurrent_version_days`(기본 30일) 뒤 지웁니다.
 - 중앙 키를 쓰면 키 ARN이어야 하고(alias 불가), 중앙 키 정책에 이 계정의 사용 권한이 있어야 합니다. 중앙 키를 비활성화·삭제하면 이 계정의 데이터도 읽을 수 없게 됩니다.
 - 로그는 계정 기본 설정이라 logs 키도 이 단계가 만듭니다. 중앙 로그 계정 키를 쓸 때도 이 단계의 `central_kms_key_arns.logs`에 넣습니다 (중앙 키 정책에 이 계정 로그 그룹용 CloudWatch Logs 서비스 허용 필요).
 

@@ -234,3 +234,12 @@ run "elb_log_policy_restricted_to_own_load_balancers" {
     error_message = "ELB 로그 정책: ${module.log_policy["this"].policy}"
   }
 }
+
+run "log_bucket_versioning_with_noncurrent_cleanup" {
+  command = plan
+  assert {
+    # 로그 버킷 버전 관리 + 이전 버전 정리(기본 30일)
+    condition     = length(module.log_versioning) == 1 && module.log_lifecycle["this"].rules[0].noncurrent_days == 30
+    error_message = "로그 버킷 버전 관리/이전 버전 정리: ${jsonencode(module.log_lifecycle["this"].rules[0])}"
+  }
+}

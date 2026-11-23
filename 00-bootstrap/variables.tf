@@ -94,6 +94,17 @@ variable "log_retention_days" {
   }
 }
 
+variable "log_noncurrent_version_days" {
+  description = "로그 버킷 이전 버전(덮어쓰기·삭제로 남은 버전)을 지울 때까지 일수. 버전 관리는 항상 켜짐"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.log_noncurrent_version_days >= 1
+    error_message = "log_noncurrent_version_days는 1 이상이어야 합니다."
+  }
+}
+
 variable "log_transition_ia_days" {
   description = "Standard-IA로 옮기는 시점 (일). null(기본값)이면 IA 단계 없이 Glacier로 바로. 지정하면 30 이상, Glacier 시점보다 30일 이상 앞이어야 함"
   type        = number

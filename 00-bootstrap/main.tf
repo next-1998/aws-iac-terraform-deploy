@@ -97,6 +97,7 @@ module "lock_table" {
 #   경로: 모두 <VPC 이름>으로 시작 (<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>/…)
 #     Flow Logs <VPC>/vpc/<VPC>/flow-logs/, ALB <VPC>/elb/<ALB 이름>/access-logs/, CloudWatch 로그 <로그 그룹 이름>/YYYY/MM/DD/
 #   암호화: SSE-S3 (ALB 접근 로그는 SSE-KMS를 지원하지 않음)
+#   버전 관리: 로그를 덮어쓰거나 지워도 이전 버전이 남음 (이전 버전은 log_noncurrent_version_days 뒤 삭제)
 ############################################################
 module "log_bucket" {
   source   = "../../aws-iac-terraform-module/module/storage/aws-s3-workload/bucket"
@@ -109,6 +110,12 @@ module "log_bucket" {
   site        = local.tag.site
   stack       = local.tag.stack
   key_target  = "logs"
+}
+
+module "log_versioning" {
+  source   = "../../aws-iac-terraform-module/module/storage/aws-s3-workload/versioning"
+  for_each = local.logs
+  bucket   = module.log_bucket[each.key].id
 }
 
 module "log_encryption" {
@@ -141,6 +148,8 @@ module "log_lifecycle" {
       [{ days = var.log_transition_glacier_days, storage_class = "GLACIER" }],
     )
     expiration_days = var.log_retention_days
+    # 버전 관리로 남는 이전 버전(덮어쓰기·삭제된 로그) 정리
+    noncurrent_days = var.log_noncurrent_version_days
   }]
 }
 
