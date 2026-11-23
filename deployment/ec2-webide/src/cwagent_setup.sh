@@ -1,7 +1,7 @@
 #!/bin/bash
 # CloudWatch Agent: OS 로그(messages, secure) -> 미리 만든 로그 그룹
 #   SSM 연결(AWS-RunShellScript, root)이 실행. 여러 번 실행해도 결과가 같음
-#   LOG_PREFIX(예: /simple/ec2-was)는 Terraform이 이 스크립트 앞에 넣음
+#   MSG_GROUP, SEC_GROUP(로그 그룹 이름, 예: /simple-vpc/ec2/simple-ec2-was/messages)은 Terraform이 이 스크립트 앞에 넣음
 #   OS 계열   messages            secure
 #   RHEL계열  /var/log/messages   /var/log/secure     (RHEL, Rocky, Alma, CentOS, Amazon Linux)
 #   Debian계열 /var/log/syslog    /var/log/auth.log   (Ubuntu, Debian)
@@ -9,7 +9,7 @@
 #   2) Agent가 없으면 설치 (OS 저장소 -> 없으면 AWS 리전 S3 배포본, S3 게이트웨이 endpoint 경유)
 #   3) 설정을 쓰고 적용
 set -euo pipefail
-: "${LOG_PREFIX:?LOG_PREFIX가 없습니다}"
+: "${MSG_GROUP:?MSG_GROUP이 없습니다}" "${SEC_GROUP:?SEC_GROUP이 없습니다}"
 
 . /etc/os-release
 case " ${ID} ${ID_LIKE:-} " in
@@ -58,8 +58,8 @@ cat > "$CFG" <<EOF
     "logs_collected": {
       "files": {
         "collect_list": [
-          { "file_path": "${MSG}", "log_group_name": "${LOG_PREFIX}/messages", "log_stream_name": "{instance_id}" },
-          { "file_path": "${SEC}", "log_group_name": "${LOG_PREFIX}/secure", "log_stream_name": "{instance_id}" }
+          { "file_path": "${MSG}", "log_group_name": "${MSG_GROUP}", "log_stream_name": "{instance_id}" },
+          { "file_path": "${SEC}", "log_group_name": "${SEC_GROUP}", "log_stream_name": "{instance_id}" }
         ]
       }
     }

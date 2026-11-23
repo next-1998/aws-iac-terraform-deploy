@@ -77,8 +77,8 @@ module "kms_key" {
   key_name                = "iac-account-${each.key}"
   description             = each.value.description
   enable_key_rotation     = true
-  deletion_window_in_days = 30
-  prevent_destroy         = true
+  deletion_window_in_days = local.protect.kms_keys ? 30 : 7
+  prevent_destroy         = local.protect.kms_keys
 
   key_administrators                = each.value.admins
   key_service_roles_for_autoscaling = each.value.asg ? [local.asg_service_role] : []

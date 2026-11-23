@@ -27,7 +27,7 @@ module "agent_log" {
 #   스크립트가 OS 계열(RHEL / Debian)을 확인하고, rsyslog·Agent가 없으면 설치한 뒤
 #   OS 로그 -> <prefix>/messages, 인증 로그 -> <prefix>/secure 로 보내도록 설정합니다.
 #   서버가 교체되거나 스크립트가 바뀌면 다시 실행됩니다 (서버 재생성 불필요).
-#   로그 그룹을 먼저 만든 뒤 실행 (Agent가 무기한 보관 로그 그룹을 만들지 않도록)
+#   로그 그룹 이름을 로그 그룹 모듈 출력에서 받으므로 로그 그룹이 생긴 뒤에 실행됨 (depends_on 없이 값 참조로 순서 결정)
 ############################################################
 locals {
   # 로그 그룹 이름 앞부분 (/<VPC 이름>/ec2/<서버 이름>)
@@ -44,13 +44,12 @@ module "cwagent" {
       instance_ids = [module.ec2.ec2_instance.id]
       parameters = {
         commands = join("\n", [
-          "LOG_PREFIX='${local.log_prefix}'",
+          "MSG_GROUP='${module.agent_log["messages"].name}'",
+          "SEC_GROUP='${module.agent_log["secure"].name}'",
           file("${path.module}/src/cwagent_setup.sh"),
         ])
       }
       schedule_expression = var.cloudwatch_agent_schedule
     }
   } : {}
-
-  depends_on = [module.agent_log]
 }

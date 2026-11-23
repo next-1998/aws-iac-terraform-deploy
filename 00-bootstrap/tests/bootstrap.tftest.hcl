@@ -221,7 +221,7 @@ run "elb_log_policy_restricted_to_own_load_balancers" {
   command = plan
   # 정책 JSON에 버킷 ARN이 들어가 plan 시점에 모르므로, 이 테스트에서만 버킷 ARN을 정해 둠
   override_resource {
-    target          = module.log_bucket["this"].aws_s3_bucket.protected[0]
+    target          = module.log_bucket["this"].aws_s3_bucket.this[0]
     override_during = plan
     values          = { arn = "arn:aws:s3:::iac-logs-111111111111-ap-northeast-2", id = "iac-logs-111111111111-ap-northeast-2", bucket = "iac-logs-111111111111-ap-northeast-2" }
   }
@@ -241,5 +241,18 @@ run "log_bucket_versioning_with_noncurrent_cleanup" {
     # 로그 버킷 버전 관리 + 이전 버전 정리(기본 30일)
     condition     = length(module.log_versioning) == 1 && module.log_lifecycle["this"].rules[0].noncurrent_days == 30
     error_message = "로그 버킷 버전 관리/이전 버전 정리: ${jsonencode(module.log_lifecycle["this"].rules[0])}"
+  }
+}
+
+run "operation_mode_enable_and_item_override" {
+  command = plan
+  variables {
+    operation_mode      = "enable"
+    deletion_protection = { kms_keys = false }
+  }
+  assert {
+    # 운영 모드: 버킷은 보호, 항목 선택으로 KMS만 삭제 가능
+    condition     = local.protect.buckets && !local.protect.kms_keys && length(module.kms_key) == 3
+    error_message = "보호 선택: ${jsonencode(local.protect)}"
   }
 }

@@ -264,3 +264,9 @@ variable "flow_log_bucket_arn" {
   type        = string
   default     = null
 }
+
+variable "protect_nat_eip" {
+  description = "NAT EIP 삭제 보호 (단계 루트 operation_mode / deletion_protection.nat_eip)"
+  type        = bool
+  default     = false
+}

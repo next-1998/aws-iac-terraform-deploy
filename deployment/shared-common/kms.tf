@@ -44,8 +44,8 @@ module "kms_key" {
   key_name                = "${local.site}-${each.key}"
   description             = "${local.site} ${each.key} encryption"
   enable_key_rotation     = true
-  deletion_window_in_days = 30
-  prevent_destroy         = true
+  deletion_window_in_days = var.protect_kms_keys ? 30 : 7
+  prevent_destroy         = var.protect_kms_keys
 
   key_administrators = var.kms_key_administrators
   key_statements     = local.kms_statements[each.key]

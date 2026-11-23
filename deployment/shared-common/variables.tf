@@ -44,3 +44,9 @@ variable "kms_key_administrators" {
   type        = list(string)
   default     = []
 }
+
+variable "protect_kms_keys" {
+  description = "KMS 키 삭제 보호 (단계 루트 operation_mode / deletion_protection.kms_keys). true면 삭제 불가, 대기 30일"
+  type        = bool
+  default     = false
+}

@@ -16,6 +16,8 @@ module "ec2" {
   volume_size = var.root_volume_size
   encrypted   = true
   kms_key_id  = var.kms_key_id
+  # 보호(운영): 서버를 지워도 볼륨은 남김 / 테스트(보호 끔): 서버와 같이 삭제
+  root_delete_on_termination = !var.protect_volumes
   ebs_block_device = {
     ebs_block_device = [for v in var.ebs_volumes : {
       device_name           = v.device_name
@@ -23,7 +25,7 @@ module "ec2" {
       volume_type           = v.volume_type
       encrypted             = true
       kms_key_id            = var.kms_key_id
-      delete_on_termination = false
+      delete_on_termination = !var.protect_volumes
     }]
   }
 

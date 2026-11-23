@@ -138,13 +138,13 @@ module "igw" {
 }
 
 # NAT EIP: 외부에 알려준 출발지 IP라 바뀌면 협력사 화이트리스트가 깨집니다 → 삭제 보호.
-# 정말 지워야 하면 prevent_destroy = false로 바꾼 뒤 진행합니다 (바꾸면 EIP가 다시 만들어짐).
+# 보호 여부는 단계 루트의 operation_mode / deletion_protection.nat_eip (처음 배포할 때 정함. 바꾸면 EIP가 다시 만들어짐).
 module "nat_eip" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-eip-workload"
   for_each = var.enable_public ? toset(local.nat_azs) : toset([])
 
   name            = "${var.site}-nat-${local.az_short[each.key]}-eip"
-  prevent_destroy = true
+  prevent_destroy = var.protect_nat_eip
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags

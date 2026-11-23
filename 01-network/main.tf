@@ -49,6 +49,7 @@ module "network_base" {
 
   enable_flow_logs    = var.enable_flow_logs
   flow_log_bucket_arn = local.log_bucket_arn
+  protect_nat_eip     = local.protect.nat_eip
 }
 
 ############################################################

@@ -148,7 +148,7 @@ variable "alb_record_name" {
 }
 
 variable "alb_deletion_protection" {
-  description = "ALB 삭제 보호"
+  description = "ALB 삭제 보호 (단계 루트 operation_mode / deletion_protection.alb)"
   type        = bool
   default     = false
 }
@@ -211,4 +211,10 @@ variable "cloudwatch_agent_schedule" {
   description = "Agent 설정을 다시 적용할 주기 (예: rate(7 days)). null이면 만들 때와 서버·스크립트가 바뀔 때만 실행"
   type        = string
   default     = null
+}
+
+variable "protect_volumes" {
+  description = "서버 삭제 후 EBS 볼륨 유지 (단계 루트 operation_mode / deletion_protection.ec2_volumes). false면 서버와 같이 삭제"
+  type        = bool
+  default     = false
 }

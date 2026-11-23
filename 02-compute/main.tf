@@ -71,6 +71,9 @@ module "ec2_was" {
   source = "../deployment/ec2-was"
   count  = var.was.enabled ? 1 : 0
 
+  protect_volumes         = local.protect.ec2_volumes
+  alb_deletion_protection = local.protect.alb
+
   common              = module.ec2_common.contract
   ami                 = var.was.ami
   instance_type       = var.was.instance_type
@@ -92,6 +95,9 @@ module "ec2_was" {
 module "ec2_webide" {
   source = "../deployment/ec2-webide"
   count  = var.webide.enabled ? 1 : 0
+
+  protect_volumes         = local.protect.ec2_volumes
+  alb_deletion_protection = local.protect.alb
 
   common              = module.ec2_common.contract
   ami                 = var.webide.ami

@@ -28,6 +28,7 @@ module "shared_common" {
   enable_alarm_topic   = length(var.alarm_emails) > 0
   central_kms_key_arns = var.central_kms_key_arns
   alarm_emails         = var.alarm_emails
+  protect_kms_keys     = local.protect.kms_keys
   common_tags          = var.common_tags
 }
 

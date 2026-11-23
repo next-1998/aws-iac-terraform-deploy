@@ -26,7 +26,8 @@ module "state_bucket" {
   source = "../../aws-iac-terraform-module/module/storage/aws-s3-workload/bucket"
 
   name            = local.state_bucket
-  prevent_destroy = true
+  prevent_destroy = local.protect.buckets
+  force_destroy   = !local.protect.buckets # 보호하지 않을 때만 파일까지 지움
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -104,7 +105,8 @@ module "log_bucket" {
   for_each = local.logs
 
   name            = local.log_bucket
-  prevent_destroy = true
+  prevent_destroy = local.protect.buckets
+  force_destroy   = !local.protect.buckets # 보호하지 않을 때만 파일까지 지움
 
   common_tags = var.common_tags
   site        = local.tag.site

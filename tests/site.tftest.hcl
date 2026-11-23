@@ -732,3 +732,17 @@ run "sg_base_rule_signature_format" {
     error_message = "기본 규칙 서명: ${jsonencode(output.sg_base_rules)}"
   }
 }
+
+run "volumes_kept_when_protected" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common          = run.layout_v1_2az.ec2_common_contract
+    ami             = "ami-0123456789abcdef0"
+    protect_volumes = true
+  }
+  assert {
+    condition     = length(output.agent_log_groups) == 2
+    error_message = "보호 끔 plan 실패"
+  }
+}
