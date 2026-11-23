@@ -108,6 +108,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 - Firehose 처리에 실패한 데이터만 `firehose-errors/`에 남습니다 (계정 단위라 VPC가 없음).
 
 - 계정 단위 구독 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 자동으로 포함됩니다.
+- **구독(실제 전송)은 선택**입니다: `enable_log_subscription = true`일 때만 계정 구독 정책을 만듭니다(기본 false = 준비만). 새 계정은 첫 apply를 false로 하고 다음 apply에서 true로 켭니다. 정책을 만들 때 AWS가 테스트 메시지로 권한을 검증하는데, 방금 만든 IAM 권한은 반영에 시간이 걸려 바로 켜면 실패할 수 있기 때문입니다.
 - VPC가 없는 계정 단위 로그 그룹은 만들지 않습니다. Firehose 전송 오류용 로그 그룹도 두지 않고, 실패 데이터는 S3 `firehose-errors/`와 Firehose 지표로 확인합니다.
 - S3 파일은 CloudWatch Logs 형식 JSON(레코드마다 한 줄)을 gzip으로 묶은 것입니다. Athena로 조회할 때 이 형식으로 테이블을 만듭니다.
 - 중앙 로그 계정을 쓰는 방법은 두 가지입니다.

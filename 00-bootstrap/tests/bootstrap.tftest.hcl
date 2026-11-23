@@ -112,8 +112,20 @@ run "reject_alias_as_central_key" {
   expect_failures = [var.central_kms_key_arns]
 }
 
+run "log_subscription_off_by_default" {
+  command = plan
+  assert {
+    # 기본: Firehose 등 준비만, 계정 구독 정책은 없음 (선택)
+    condition     = length(module.cwlogs_firehose) == 1 && length(module.cwlogs_account_subscription) == 0 && !output.cloudwatch_logs_to_s3.subscription
+    error_message = "기본 구독: ${jsonencode(output.cloudwatch_logs_to_s3)}"
+  }
+}
+
 run "cloudwatch_logs_exported_to_s3" {
   command = plan
+  variables {
+    enable_log_subscription = true
+  }
   assert {
     # 로그 그룹 이름 경로로 저장 (계정 단위 Firehose 오류 로그 그룹은 만들지 않음: 로그는 모두 VPC 이름으로 시작)
     condition     = length(module.cwlogs_firehose) == 1 && length(module.cwlogs_account_subscription) == 1 && output.cloudwatch_logs_to_s3.mode == "local"
@@ -200,6 +212,7 @@ run "cloudwatch_logs_to_central_destination" {
   command = plan
   variables {
     cloudwatch_logs_destination_arn = "arn:aws:logs:ap-northeast-2:333333333333:destination:central-cwlogs"
+    enable_log_subscription         = true
   }
   assert {
     # 중앙 destination이면 이 계정 Firehose 없이 구독 필터만

@@ -33,11 +33,13 @@ output "kms_keys" {
 output "cloudwatch_logs_to_s3" {
   description = "CloudWatch Logs 내보내기 (mode: local = 이 계정 Firehose, central = 중앙 destination. null이면 꺼짐)"
   value = !local.cwlogs_enabled ? null : (local.cwlogs_central ? {
-    mode        = "central"
-    destination = var.cloudwatch_logs_destination_arn
+    mode         = "central"
+    destination  = var.cloudwatch_logs_destination_arn
+    subscription = var.enable_log_subscription
     } : {
-    mode        = "local"
-    firehose    = module.cwlogs_firehose["this"].name
-    destination = "${local.cwlogs_bucket_arn}/<로그 그룹 이름>/YYYY/MM/DD/"
+    mode         = "local"
+    firehose     = module.cwlogs_firehose["this"].name
+    subscription = var.enable_log_subscription
+    destination  = "${local.cwlogs_bucket_arn}/<로그 그룹 이름>/YYYY/MM/DD/"
   })
 }

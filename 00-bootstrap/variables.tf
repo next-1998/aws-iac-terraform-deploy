@@ -169,6 +169,18 @@ variable "cloudwatch_logs_to_s3" {
   }
 }
 
+variable "enable_log_subscription" {
+  description = <<-EOT
+    계정 구독 정책(모든 로그 그룹 → S3/중앙 destination 전송) 사용 여부. 기본 false (선택)
+      false : 내보내기 준비(역할·권한·Firehose)만 만들고 실제 전송은 하지 않음
+      true  : 이 계정·리전의 모든 로그 그룹을 내보냄 (나중에 생기는 로그 그룹 포함)
+    새 계정은 첫 apply를 false로 하고, 다음 apply에서 true로 켭니다.
+    (정책을 만들 때 AWS가 테스트 메시지로 권한을 검증하는데, 방금 만든 IAM 권한은 반영에 시간이 걸려 바로 켜면 실패할 수 있음)
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "cloudwatch_logs_bucket_arn" {
   description = "CloudWatch 로그를 보낼 버킷 ARN. null이면 이 계정의 로그 버킷. create_log_bucket = false(중앙 로그 버킷)면 지정해야 내보냄"
   type        = string
