@@ -4,4 +4,3 @@ key          = "<site>/01-network/terraform.tfstate"
 region       = "ap-northeast-2"
 encrypt      = true
 use_lockfile = true
-# dynamodb_table = "iac-tfstate-lock"   # Terraform 1.10 미만 환경이 있을 때만

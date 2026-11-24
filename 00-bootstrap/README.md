@@ -5,7 +5,6 @@
 | 리소스 | 기본 | 설명 |
 |---|---|---|
 | state 버킷 `iac-tfstate-<계정ID>-<리전>` | 생성 | 버전 관리, 암호화, 퍼블릭 차단, HTTPS만 허용, **삭제 보호** |
-| DynamoDB 잠금 테이블 | 만들지 않음 | Terraform 1.10 미만 환경이 있을 때만 `create_lock_table = true` |
 | 로그 버킷 `iac-logs-<계정ID>-<리전>` | 생성 | Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것). SSE-S3, **30일 후 Glacier, 365일 후 삭제** (기본값, 최종 보관일은 고객 협의) |
 | Parameter Store | 생성 | `/iac/_account/00-bootstrap/state`, `/iac/_account/00-bootstrap/logs` |
 
@@ -72,9 +71,9 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 | 키 | 이 계정에 만들 때 | 쓰는 곳 |
 |---|---|---|
 | `ebs` | `alias/iac/account/ebs` | 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키 |
-| `s3` | `alias/iac/account/s3` | S3 버킷. 기본은 state 버킷·DynamoDB 잠금 테이블도 이 키 |
+| `s3` | `alias/iac/account/s3` | S3 버킷. 기본은 state 버킷도 이 키 |
 | `logs` | `alias/iac/account/logs` | CloudWatch 로그 그룹 (계정 전체: 서버 Agent 로그, Lambda 로그, Firehose 오류 로그). 키 정책에 CloudWatch Logs 서비스(이 계정 로그 그룹만) 허용. 다음 단계는 `/iac/_account/00-bootstrap/kms`의 `key_arns.logs`를 읽음 |
-| (분리 옵션) `tfstate` | `alias/iac/account/tfstate` | `separate_tfstate_key = true`일 때 state 버킷·잠금 테이블 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
+| (분리 옵션) `tfstate` | `alias/iac/account/tfstate` | `separate_tfstate_key = true`일 때 state 버킷 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
 
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy). 삭제 보호는 `operation_mode = "enable"`(운영)일 때만 켜집니다. 그 외(기본 null)는 삭제 가능(버킷은 파일까지, KMS 대기 7일)이고, 항목별로는 `deletion_protection`에서 고릅니다. **처음 배포할 때 정하고 바꾸지 않습니다** (바꾸면 버킷·키가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다.
 - 지우는 순서: 02-compute → 02-shared → 01-network → 00-bootstrap (02-* 단계가 01-network 값을 읽으므로 01-network를 먼저 지우면 02-shared 삭제가 실패함)

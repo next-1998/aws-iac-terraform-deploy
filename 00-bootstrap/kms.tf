@@ -2,11 +2,11 @@
 # 계정 단위 CMK (리소스별로 하나)
 #   central_kms_key_arns에 있으면 중앙 키를 쓰고, 없으면 이 계정에 만듭니다.
 #     ebs     : 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키로 암호화됨
-#     s3      : S3 버킷. 기본은 state 버킷·잠금 테이블도 이 키 (로그 버킷은 ALB 때문에 SSE-S3 고정)
+#     s3      : S3 버킷. 기본은 state 버킷도 이 키 (로그 버킷은 ALB 때문에 SSE-S3 고정)
 #     logs    : CloudWatch 로그 그룹 (계정 전체: 서버·Lambda 로그, Firehose 오류 로그 등). 키 정책에 CloudWatch Logs 서비스 허용
 #               로그는 계정 기본 설정이라 이 단계가 만듦. 중앙 로그 계정 키를 쓸 때도 여기(central_kms_key_arns.logs)에 넣음
 #   분리 옵션
-#     tfstate : separate_tfstate_key = true면 state 버킷·잠금 테이블 전용 키를 따로 만듦
+#     tfstate : separate_tfstate_key = true면 state 버킷 전용 키를 따로 만듦
 #               (state에 민감 정보가 있을 수 있어 S3 데이터 키와 권한을 나눌 때)
 #               central_kms_key_arns.tfstate가 있으면 옵션과 관계없이 그 키를 씀
 #   여기서 만든 키는 지우면 그 키로 암호화한 데이터를 읽을 수 없으므로 삭제 보호합니다.
@@ -108,7 +108,7 @@ locals {
     s3  = local.key_arn.s3
     # CloudWatch 로그 그룹 (계정 전체, 다음 단계도 이 값을 씀)
     logs = local.key_arn.logs
-    # state 버킷·잠금 테이블이 실제로 쓰는 키 (분리하지 않으면 s3 키)
+    # state 버킷이 실제로 쓰는 키 (분리하지 않으면 s3 키)
     tfstate = local.tfstate_separate ? local.key_arn.tfstate : local.key_arn.s3
   }
   kms_key_source = {

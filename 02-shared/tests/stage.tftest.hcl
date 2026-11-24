@@ -4,7 +4,7 @@ mock_provider "aws" {
     defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
   }
   mock_data "aws_region" {
-    defaults = { name = "ap-northeast-2" }
+    defaults = { region = "ap-northeast-2" }
   }
   mock_data "aws_partition" {
     defaults = { partition = "aws" }

@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.10" # S3 자체 잠금(use_lockfile)
+  required_version = ">= 1.17" # 최신 버전 기준 (tf1.17-aws6 브랜치)
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.100.0"
+      version = "6.74.0"
     }
   }
 

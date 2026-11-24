@@ -6,12 +6,12 @@
 # 만든 뒤 이 state도 버킷으로 옮기려면 README의 "state 옮기기"를 참고하세요.
 ############################################################
 terraform {
-  required_version = ">= 1.10" # S3 자체 잠금(use_lockfile) 지원 버전
+  required_version = ">= 1.17" # 최신 버전 기준 (tf1.17-aws6 브랜치)
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.100.0"
+      version = "6.74.0"
     }
   }
 }

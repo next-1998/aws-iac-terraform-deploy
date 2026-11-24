@@ -16,7 +16,7 @@ data "aws_region" "current" {}
 # gateway endpoint(S3, DynamoDB)의 AWS 관리형 prefix list
 data "aws_prefix_list" "gateway" {
   for_each = toset(keys(var.common.network.endpoints.gateway))
-  name     = "com.amazonaws.${data.aws_region.current.name}.${each.key}"
+  name     = "com.amazonaws.${data.aws_region.current.region}.${each.key}"
 }
 
 module "sg" {

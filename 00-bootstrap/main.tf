@@ -3,7 +3,7 @@ data "aws_region" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
-  region     = data.aws_region.current.name
+  region     = data.aws_region.current.region
 
   state_bucket = coalesce(var.state_bucket_name, "iac-tfstate-${local.account_id}-${local.region}")
   log_bucket   = coalesce(var.log_bucket_name, "iac-logs-${local.account_id}-${local.region}")
@@ -73,24 +73,6 @@ module "state_policy" {
   bucket_arn = module.state_bucket.arn
 
   depends_on = [module.state_public_access_block]
-}
-
-############################################################
-# DynamoDB 잠금 테이블 (선택)
-############################################################
-module "lock_table" {
-  source = "../../aws-iac-terraform-module/module/database/aws-dynamodb-workload"
-  count  = var.create_lock_table ? 1 : 0
-
-  name        = var.lock_table_name
-  hash_key    = "LockID"
-  attributes  = { LockID = "S" }
-  kms_key_arn = local.kms_key_arns.tfstate
-
-  common_tags = var.common_tags
-  site        = local.tag.site
-  stack       = local.tag.stack
-  key_target  = "tfstate"
 }
 
 ############################################################
@@ -211,9 +193,8 @@ module "parameters" {
   parameters = merge(
     {
       state = {
-        bucket     = module.state_bucket.id
-        region     = local.region
-        lock_table = var.create_lock_table ? module.lock_table[0].name : null
+        bucket = module.state_bucket.id
+        region = local.region
       }
       # 용도별 CMK (source: central = 중앙 계정 키, local = 이 계정 키)
       kms = {

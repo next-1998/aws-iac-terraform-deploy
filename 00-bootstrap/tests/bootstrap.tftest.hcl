@@ -4,7 +4,7 @@ mock_provider "aws" {
     defaults = { account_id = "111111111111" }
   }
   mock_data "aws_region" {
-    defaults = { name = "ap-northeast-2" }
+    defaults = { region = "ap-northeast-2" }
   }
   mock_data "aws_iam_policy_document" {
     defaults = { json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}" }
@@ -25,26 +25,21 @@ run "defaults" {
     error_message = "log bucket: ${module.log_bucket["this"].bucket}"
   }
   assert {
-    condition     = length(module.lock_table) == 0
-    error_message = "DynamoDB는 기본값에서 만들지 않아야 함"
-  }
-  assert {
     condition     = one([for r in module.log_lifecycle["this"].rules : r.expiration_days]) == 365
     error_message = "로그 보관 기간 기본값은 365일"
   }
 }
 
-run "with_lock_table_and_central_logs" {
+run "central_logs_without_local_log_bucket" {
   command = plan
   variables {
-    create_lock_table = true
     create_log_bucket = false
     # 중앙 로그 계정을 쓰므로 CloudWatch 로그도 중앙 destination으로
     cloudwatch_logs_destination_arn = "arn:aws:logs:ap-northeast-2:333333333333:destination:central-cwlogs"
   }
   assert {
-    condition     = length(module.lock_table) == 1 && length(module.log_bucket) == 0
-    error_message = "lock=${length(module.lock_table)} logs=${length(module.log_bucket)}"
+    condition     = length(module.log_bucket) == 0
+    error_message = "logs=${length(module.log_bucket)}"
   }
 }
 
@@ -71,7 +66,7 @@ run "account_security_defaults" {
 run "one_cmk_per_resource_by_default" {
   command = plan
   assert {
-    # 리소스별 키(ebs, s3, logs)만 만들고, state 버킷·잠금 테이블은 s3 키를 같이 씀
+    # 리소스별 키(ebs, s3, logs)만 만들고, state 버킷은 s3 키를 같이 씀
     condition     = jsonencode(local.kms_key_source) == jsonencode({ ebs = "local", logs = "local", s3 = "local", tfstate = "same-as-s3" }) && toset(keys(module.kms_key)) == toset(["ebs", "s3", "logs"])
     error_message = "키: ${jsonencode(local.kms_key_source)}"
   }

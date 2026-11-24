@@ -2,10 +2,6 @@ output "state_bucket" {
   value = module.state_bucket.id
 }
 
-output "lock_table" {
-  value = var.create_lock_table ? module.lock_table[0].name : null
-}
-
 output "log_bucket_arn" {
   value = var.create_log_bucket ? module.log_bucket["this"].arn : null
 }
@@ -17,13 +13,12 @@ output "backend_hcl_example" {
     key          = "<site>/<단계>/terraform.tfstate"
     region       = "${local.region}"
     encrypt      = true
-    use_lockfile = true%{if var.create_lock_table}
-    dynamodb_table = "${module.lock_table[0].name}"%{endif}
+    use_lockfile = true
   EOT
 }
 
 output "kms_keys" {
-  description = "CMK (ebs: 이 리전 EBS 기본 키, s3: S3 버킷, tfstate: state 버킷·잠금 테이블이 쓰는 키. source: central / local / same-as-s3)"
+  description = "CMK (ebs: 이 리전 EBS 기본 키, s3: S3 버킷, tfstate: state 버킷이 쓰는 키. source: central / local / same-as-s3)"
   value = {
     key_arns = local.kms_key_arns
     source   = local.kms_key_source

@@ -22,7 +22,7 @@ variable "state_bucket_name" {
 variable "central_kms_key_arns" {
   description = <<-EOT
     조직 중앙 계정의 CMK (용도 → 키 ARN). 넣은 용도는 키를 만들지 않고 중앙 키를 씀. 없으면 이 계정에 CMK를 만듦
-      이 단계의 용도: ebs (계정 EBS 기본 키), s3 (S3 버킷), logs (CloudWatch 로그 그룹, 계정 전체), tfstate (state 버킷·잠금 테이블 전용 키, 분리 옵션)
+      이 단계의 용도: ebs (계정 EBS 기본 키), s3 (S3 버킷), logs (CloudWatch 로그 그룹, 계정 전체), tfstate (state 버킷 전용 키, 분리 옵션)
     다른 단계와 같은 변수 이름이라 tfvars 값을 같이 써도 됨 (이 단계는 위 용도만 읽음)
   EOT
   type        = map(string)
@@ -47,23 +47,6 @@ variable "tfstate_kms_key_administrators" {
   description = "tfstate 전용 CMK 관리자 (separate_tfstate_key = true일 때) (IAM role/user ARN). 비우면 계정 root 정책으로만 관리. state에는 민감 정보가 있을 수 있어 최소 인원만"
   type        = list(string)
   default     = []
-}
-
-############################################################
-# 잠금
-#   Terraform 1.10 이상은 S3 자체 잠금(backend의 use_lockfile = true)을 씁니다.
-#   1.10 미만을 쓰는 실행 환경이 있을 때만 DynamoDB 잠금 테이블을 만듭니다.
-############################################################
-variable "create_lock_table" {
-  description = "DynamoDB 잠금 테이블 생성 여부 (Terraform 1.10 미만 환경이 있을 때만)"
-  type        = bool
-  default     = false
-}
-
-variable "lock_table_name" {
-  description = "DynamoDB 잠금 테이블 이름"
-  type        = string
-  default     = "iac-tfstate-lock"
 }
 
 ############################################################
@@ -149,7 +132,7 @@ variable "manage_s3_account_public_access_block" {
 }
 
 variable "separate_tfstate_key" {
-  description = "state 버킷·잠금 테이블 전용 CMK를 따로 만듦 (분리 옵션). false면 s3 키를 같이 씀. 생성 후 바꾸면 state 버킷 암호화 키가 바뀜 (기존 객체는 재암호화되지 않음)"
+  description = "state 버킷 전용 CMK를 따로 만듦 (분리 옵션). false면 s3 키를 같이 씀. 생성 후 바꾸면 state 버킷 암호화 키가 바뀜 (기존 객체는 재암호화되지 않음)"
   type        = bool
   default     = false
 }
