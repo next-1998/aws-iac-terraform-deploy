@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["firehose:PutRecord", "firehose:PutRecordBatch"],
+      "Resource": "arn:${partition}:firehose:${region}:${account_id}:deliverystream/${firehose_name}"
+    }
+  ]
+}

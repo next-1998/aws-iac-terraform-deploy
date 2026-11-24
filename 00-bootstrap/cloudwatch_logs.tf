@@ -34,6 +34,14 @@ locals {
   cwlogs_subscription = local.cwlogs_enabled && var.enable_log_subscription ? { this = true } : {}
 
   cwlogs_name = "iac-cwlogs-to-s3"
+
+  # policies/*.json.tftpl 에 넣는 값
+  cwlogs_policy_vars = {
+    partition     = data.aws_partition.current.partition
+    region        = local.region
+    account_id    = local.account_id
+    firehose_name = local.cwlogs_name
+  }
 }
 
 # Firehose → S3 쓰기 role
@@ -41,17 +49,9 @@ module "cwlogs_firehose_role" {
   source   = "../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.cwlogs
 
-  name        = "${local.cwlogs_name}-firehose-role"
-  description = "Firehose writes CloudWatch Logs to S3"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "firehose.amazonaws.com" }
-      Condition = { StringEquals = { "sts:ExternalId" = local.account_id } }
-    }]
-  })
+  name               = "${local.cwlogs_name}-firehose-role"
+  description        = "Firehose writes CloudWatch Logs to S3"
+  assume_role_policy = templatefile("${path.module}/policies/cwlogs-firehose-trust.json.tftpl", local.cwlogs_policy_vars)
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -64,18 +64,9 @@ module "cwlogs_firehose_policy" {
   for_each = local.cwlogs
 
   role_name = module.cwlogs_firehose_role[each.key].name
+  # 경로가 로그 그룹 이름(<VPC 이름>/…)으로 정해지므로 버킷 전체. 로그 버킷 외에는 쓰지 못함
   policies = {
-    "${local.cwlogs_name}-s3" = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Effect = "Allow"
-          Action = ["s3:AbortMultipartUpload", "s3:GetBucketLocation", "s3:ListBucket", "s3:ListBucketMultipartUploads", "s3:PutObject"]
-          # 경로가 로그 그룹 이름(<VPC 이름>/…)으로 정해지므로 버킷 전체. 로그 버킷 외에는 쓰지 못함
-          Resource = [local.cwlogs_bucket_arn, "${local.cwlogs_bucket_arn}/*"]
-        },
-      ]
-    })
+    "${local.cwlogs_name}-s3" = templatefile("${path.module}/policies/cwlogs-firehose-s3.json.tftpl", { bucket_arn = local.cwlogs_bucket_arn })
   }
 }
 
@@ -113,7 +104,7 @@ module "cwlogs_firehose" {
   key_target  = "cwlogs"
 
   # 권한이 붙은 뒤에 만들어야 생성 시 S3 쓰기 검사가 실패하지 않음
-  depends_on = [module.cwlogs_firehose_policy]
+  depends_on = [module.cwlogs_subscription_role]
 }
 
 # CloudWatch Logs → Firehose 전달 role
@@ -121,17 +112,9 @@ module "cwlogs_subscription_role" {
   source   = "../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.cwlogs
 
-  name        = "${local.cwlogs_name}-logs-role"
-  description = "CloudWatch Logs sends all log groups to Firehose"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "logs.amazonaws.com" }
-      Condition = { StringLike = { "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:logs:${local.region}:${local.account_id}:*" } }
-    }]
-  })
+  name               = "${local.cwlogs_name}-logs-role"
+  description        = "CloudWatch Logs sends all log groups to Firehose"
+  assume_role_policy = templatefile("${path.module}/policies/cwlogs-subscription-trust.json.tftpl", local.cwlogs_policy_vars)
 
   common_tags = var.common_tags
   site        = local.tag.site
@@ -144,15 +127,14 @@ module "cwlogs_subscription_policy" {
   for_each = local.cwlogs
 
   role_name = module.cwlogs_subscription_role[each.key].name
+  # Firehose ARN을 이름으로 조립 (Firehose 모듈을 참조하지 않음)
+  #   → 권한이 역할과 함께 먼저 붙고, Firehose를 만드는 동안 IAM 반영 시간을 벎
   policies = {
-    "${local.cwlogs_name}-firehose" = jsonencode({
-      Version   = "2012-10-17"
-      Statement = [{ Effect = "Allow", Action = ["firehose:PutRecord", "firehose:PutRecordBatch"], Resource = module.cwlogs_firehose[each.key].arn }]
-    })
+    "${local.cwlogs_name}-firehose" = templatefile("${path.module}/policies/cwlogs-subscription-firehose.json.tftpl", local.cwlogs_policy_vars)
   }
 }
 
-# 계정의 모든 로그 그룹 → A: 이 계정 Firehose (오류 로그 그룹 제외) / B: 중앙 destination
+# 계정의 모든 로그 그룹 → A: 이 계정 Firehose / B: 중앙 destination
 #   B(다른 계정 destination)는 destination 정책으로 허용되므로 RoleArn을 쓰지 않음
 module "cwlogs_account_subscription" {
   source   = "../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/log-account-policy"

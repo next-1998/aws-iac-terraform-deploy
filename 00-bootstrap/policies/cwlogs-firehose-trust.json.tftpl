@@ -1,0 +1,13 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Principal": { "Service": "firehose.amazonaws.com" },
+      "Condition": {
+        "StringEquals": { "sts:ExternalId": "${account_id}" }
+      }
+    }
+  ]
+}

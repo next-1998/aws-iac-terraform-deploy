@@ -1,0 +1,13 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Principal": { "Service": "logs.amazonaws.com" },
+      "Condition": {
+        "StringLike": { "aws:SourceArn": "arn:${partition}:logs:${region}:${account_id}:*" }
+      }
+    }
+  ]
+}

@@ -53,12 +53,9 @@ module "ws_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.ws
 
-  name        = "${local.ws_name}-role"
-  description = "weekend stop lambda"
-  assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
-    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { Service = "lambda.amazonaws.com" } }]
-  })
+  name               = "${local.ws_name}-role"
+  description        = "weekend stop lambda"
+  assume_role_policy = templatefile("${path.module}/policies/weekend-stop-lambda-trust.json.tftpl", {})
 
   common_tags   = local.ws_tags.common_tags
   resource_tags = local.ws_tags.resource_tags
@@ -81,18 +78,7 @@ module "ws_role_target" {
 
   role_name = module.ws_role[each.key].name
   policies = {
-    "${local.ws_name}-target" = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        { Effect = "Allow", Action = ["ec2:DescribeInstances"], Resource = "*" },
-        {
-          Effect    = "Allow"
-          Action    = ["ec2:StopInstances", "ec2:StartInstances"]
-          Resource  = "*"
-          Condition = { StringEqualsIgnoreCase = { "aws:ResourceTag/${local.ws_tag}" = "true" } }
-        },
-      ]
-    })
+    "${local.ws_name}-target" = templatefile("${path.module}/policies/weekend-stop-target.json.tftpl", { tag_key = local.ws_tag })
   }
 }
 
@@ -163,12 +149,9 @@ module "ws_scheduler_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.ws
 
-  name        = "${local.ws_name}-scheduler-role"
-  description = "weekend stop scheduler"
-  assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
-    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Principal = { Service = "scheduler.amazonaws.com" } }]
-  })
+  name               = "${local.ws_name}-scheduler-role"
+  description        = "weekend stop scheduler"
+  assume_role_policy = templatefile("${path.module}/policies/weekend-stop-scheduler-trust.json.tftpl", {})
 
   common_tags   = local.ws_tags.common_tags
   resource_tags = local.ws_tags.resource_tags
@@ -183,10 +166,7 @@ module "ws_scheduler_invoke" {
 
   role_name = module.ws_scheduler_role[each.key].name
   policies = {
-    "${local.ws_name}-invoke" = jsonencode({
-      Version   = "2012-10-17"
-      Statement = [{ Effect = "Allow", Action = "lambda:InvokeFunction", Resource = module.ws_lambda[each.key].arn }]
-    })
+    "${local.ws_name}-invoke" = templatefile("${path.module}/policies/weekend-stop-invoke.json.tftpl", { lambda_arn = module.ws_lambda[each.key].arn })
   }
 }
 

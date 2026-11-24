@@ -7,16 +7,9 @@ data "aws_partition" "current" {}
 module "role" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
 
-  name        = "${local.prefix}-role"
-  description = "EC2 role for ${local.prefix}"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "ec2.amazonaws.com" }
-    }]
-  })
+  name               = "${local.prefix}-role"
+  description        = "EC2 role for ${local.prefix}"
+  assume_role_policy = templatefile("${path.module}/policies/ec2-trust.json.tftpl", {})
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
@@ -48,15 +41,7 @@ module "role_policy_logs_guard" {
 
   role_name = module.role.name
   policies = {
-    "${local.prefix}-logs-guard" = jsonencode({
-      Version = "2012-10-17"
-      Statement = [{
-        Sid      = "DenyLogGroupCreateAndRetentionChange"
-        Effect   = "Deny"
-        Action   = ["logs:CreateLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy"]
-        Resource = "*"
-      }]
-    })
+    "${local.prefix}-logs-guard" = templatefile("${path.module}/policies/logs-guard.json.tftpl", {})
   }
 }
 
