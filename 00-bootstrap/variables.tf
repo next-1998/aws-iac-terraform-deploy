@@ -203,8 +203,8 @@ variable "deletion_protection" {
     buckets     = optional(bool) # state·로그 버킷 (00-bootstrap)
     kms_keys    = optional(bool) # KMS 키 (00-bootstrap, 02-shared)
     nat_eip     = optional(bool) # NAT EIP (01-network)
-    alb         = optional(bool) # ALB 삭제 보호 (02-compute)
-    ec2_volumes = optional(bool) # 서버 삭제 후 EBS 볼륨 유지 (02-compute)
+    alb         = optional(bool) # ALB 삭제 보호 (03-compute)
+    ec2_volumes = optional(bool) # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
   })
   default = {}
 }

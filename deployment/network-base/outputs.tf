@@ -1,5 +1,5 @@
 ############################################################
-# contract: 다음 단계(02-*, 03-eks)가 받는 값
+# contract: 다음 단계(02-shared, 03-*, 04-eks)가 받는 값
 #   01-network 단계 루트가 묶음(bundle)별로 Parameter Store에 씁니다.
 #     /iac/<site>/01-network/base, subnets, routing, endpoints, dns
 #   규칙: 기존 키의 이름을 바꾸거나 지우지 않습니다 (다음 단계가 깨짐). 추가만 합니다.

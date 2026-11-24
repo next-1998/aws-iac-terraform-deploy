@@ -1,10 +1,10 @@
 ############################################################
-# 02-compute
+# 03-compute
 #   EC2 유형 전체를 만듭니다 (state 하나).
 #   - ec2-common : EC2 서브넷, 라우트, 공통 SG, 주말 중지 (1차 조합)
 #   - ec2-was, ec2-webide : 서버, 개별 SG, IAM, ALB (2차 조합, 용도별)
 #   읽는 값: /iac/<site>/01-network/*, /iac/<site>/02-shared/shared (인증서)
-#   결과는 /iac/<site>/02-compute/ec2 에 남깁니다 (03-eks가 읽음).
+#   결과는 /iac/<site>/03-compute/ec2 에 남깁니다 (04-eks가 읽음).
 ############################################################
 
 locals {
@@ -118,14 +118,14 @@ module "ec2_webide" {
 }
 
 ############################################################
-# 다음 단계(03-eks)로 넘길 값 (/iac/<site>/02-compute/ec2)
+# 다음 단계(04-eks)로 넘길 값 (/iac/<site>/03-compute/ec2)
 #   EKS API는 EC2에서만 접근을 허용하므로 EC2 SG 목록을 남깁니다.
 ############################################################
 module "contract" {
   source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
 
-  path_prefix = "/iac/${var.site}/02-compute"
-  description = "02-compute 묶음 (03-eks가 읽음)"
+  path_prefix = "/iac/${var.site}/03-compute"
+  description = "03-compute 묶음 (04-eks가 읽음)"
   parameters = {
     ec2 = {
       common_sg_id = module.ec2_common.common_sg_id
@@ -138,6 +138,6 @@ module "contract" {
 
   common_tags = var.common_tags
   site        = var.site
-  stack       = "02-compute"
+  stack       = "03-compute"
   key_target  = "contract"
 }

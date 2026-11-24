@@ -76,7 +76,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 | (분리 옵션) `tfstate` | `alias/iac/account/tfstate` | `separate_tfstate_key = true`일 때 state 버킷 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
 
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy). 삭제 보호는 `operation_mode = "enable"`(운영)일 때만 켜집니다. 그 외(기본 null)는 삭제 가능(버킷은 파일까지, KMS 대기 7일)이고, 항목별로는 `deletion_protection`에서 고릅니다. **처음 배포할 때 정하고 바꾸지 않습니다** (바꾸면 버킷·키가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다.
-- 지우는 순서: 02-compute → 02-shared → 01-network → 00-bootstrap (02-* 단계가 01-network 값을 읽으므로 01-network를 먼저 지우면 02-shared 삭제가 실패함)
+- 지우는 순서: 03-compute → 02-shared → 01-network → 00-bootstrap (02 이후 단계가 01-network 값을 읽으므로 01-network를 먼저 지우면 02-shared 삭제가 실패함)
 - 로그 버킷은 **SSE-S3 고정**입니다. ALB 접근 로그가 SSE-KMS를 지원하지 않기 때문입니다.
 - 로그 버킷은 **버전 관리**를 켭니다. 덮어쓰거나 지운 로그는 이전 버전으로 남고, `log_noncurrent_version_days`(기본 30일) 뒤 지웁니다.
 - 중앙 키를 쓰면 키 ARN이어야 하고(alias 불가), 중앙 키 정책에 이 계정의 사용 권한이 있어야 합니다. 중앙 키를 비활성화·삭제하면 이 계정의 데이터도 읽을 수 없게 됩니다.

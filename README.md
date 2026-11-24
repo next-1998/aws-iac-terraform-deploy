@@ -15,13 +15,16 @@ workspace/
 | `00-bootstrap` | **계정·리전당 1회** | state 버킷(S3 자체 잠금), 로그 버킷, **보안 기본값**(EBS CMK 기본 암호화, S3 계정 퍼블릭 차단, IMDSv2) | 구현 |
 | `01-network` | 사이트 | VPC, 공통 서브넷(edge/vpce/transit/public), NAT, VPC endpoint, DNS, prefix list, Flow Logs, 기존 TGW/peering 연결 | 구현 |
 | `02-shared` | 사이트 | 여러 유형이 같이 쓰는 것: 사이트 인증서, 알림 토픽 (`shared-common`) | 구현 |
-| `02-compute` | 사이트 | EC2 유형: `ec2-common` + 용도별 (`ec2-was`, `ec2-webide` …) | 구현 |
-| `02-database` | 사이트 | DB 유형: `rds-common` + 용도별 | 예정 (README에 설계) |
-| `03-eks` | 사이트 | EKS | 예정 (README에 설계) |
-| `04-pod` | 사이트 | 애드온, Helm, 워크로드 | 예정 |
+| `03-compute` | 사이트 | EC2 유형: `ec2-common` + 용도별 (`ec2-was`, `ec2-webide` …) | 구현 |
+| `03-database` | 사이트 | DB 유형: `rds-common` + 용도별 | 예정 (README에 설계) |
+| `04-eks` | 사이트 | EKS | 예정 (README에 설계) |
+| `05-pod` | 사이트 | 애드온, Helm, 워크로드 | 예정 |
 
 - 단계마다 state가 따로 있고(`<site>/<단계>/terraform.tfstate`), 값은 **Parameter Store**로 넘깁니다.
-- 02 단계는 **유형별로 나눕니다** (`02-compute`, `02-database` …). 유형마다 state가 하나이고, 유형끼리는 서로 영향을 주지 않습니다.
+- **번호 규칙: 같은 번호는 서로 의존하지 않아 병렬로 apply해도 되는 단계**입니다. 앞 번호 단계의 값을 읽는 단계는 번호를 하나 올립니다.
+  - `02-shared`는 01-network를 읽고, 03 단계들이 02-shared를 읽으므로 단독 번호입니다.
+  - 03 단계는 **유형별로 나눕니다** (`03-compute`, `03-database` …). 유형마다 state가 하나이고, 유형끼리는 서로 영향을 주지 않습니다.
+  - `04-eks`는 03-compute의 EC2 SG를 읽고, `05-pod`는 04-eks를 읽습니다.
 - 조합 코드는 `deployment/`에 있고 단계 폴더가 호출합니다.
   - 1차 조합 `<유형>-common`: 리소스를 만들 때 필요한 것 (서브넷, 공통 SG, IAM, Lambda …)
   - 2차 조합 `<유형>-<용도>`: 만들려는 목적 리소스 (서버, 개별 SG, ALB …)
@@ -32,7 +35,7 @@ Parameter Store
 /iac/_account/00-bootstrap/state | logs | ebs
 /iac/<site>/01-network/base | subnets | routing | endpoints | dns
 /iac/<site>/02-shared/shared
-/iac/<site>/02-compute/ec2
+/iac/<site>/03-compute/ec2
 ```
 
 ## 배포 순서
@@ -41,13 +44,13 @@ Parameter Store
 # 0. 계정당 한 번
 cd 00-bootstrap && terraform init && terraform apply
 
-# 1~2. 사이트마다 (backend.hcl.example을 backend.hcl로 복사해 값 입력)
+# 1~3. 사이트마다 (backend.hcl.example을 backend.hcl로 복사해 값 입력)
 cd 01-network  && terraform init -backend-config=backend.hcl && terraform apply
 cd 02-shared   && terraform init -backend-config=backend.hcl && terraform apply
-cd 02-compute  && terraform init -backend-config=backend.hcl && terraform apply   # 02-database도 같은 방식
+cd 03-compute  && terraform init -backend-config=backend.hcl && terraform apply   # 03-database도 같은 방식
 ```
 
-**삭제는 반대 순서**(04 → 03 → 02-compute·02-database → 02-shared → 01)입니다. 01을 먼저 지우면 Parameter Store 값이 사라져 다음 단계를 정리할 수 없습니다.
+**삭제는 번호의 반대 순서**(05 → 04 → 03-compute·03-database → 02-shared → 01 → 00)입니다. 01을 먼저 지우면 Parameter Store 값이 사라져 다음 단계를 정리할 수 없습니다.
 
 ## 사전 요청 사항 (이 코드 밖의 작업)
 
@@ -68,7 +71,7 @@ terraform -chdir=tests       init && terraform -chdir=tests       test   # 조�
 terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 terraform -chdir=01-network  init -backend=false && terraform -chdir=01-network  test
 terraform -chdir=02-shared   init -backend=false && terraform -chdir=02-shared   test
-terraform -chdir=02-compute  init -backend=false && terraform -chdir=02-compute  test
+terraform -chdir=03-compute  init -backend=false && terraform -chdir=03-compute  test
 bash tests/nested_checks.sh   # 참조하지 않는 자식 모듈 검사(입력 검사, ALB, SG CSV)도 plan을 막는지
 ```
 

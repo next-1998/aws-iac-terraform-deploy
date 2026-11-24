@@ -159,7 +159,7 @@ variable "prefix_lists" {
 }
 
 ############################################################
-# EKS 배치 (서브넷은 03-eks의 eks-common이 만듭니다. 여기서는 CIDR만 계산)
+# EKS 배치 (서브넷은 04-eks의 eks-common이 만듭니다. 여기서는 CIDR만 계산)
 ############################################################
 variable "eks_placement" {
   description = "EKS 서브넷 위치. null(EKS 없음) / routable / internal"

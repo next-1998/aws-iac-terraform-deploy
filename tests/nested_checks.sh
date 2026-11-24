@@ -5,7 +5,7 @@
 # 확인하는 것
 #   deployment 폴더의 output precondition(network-base input_checks, ec2-<용도> alb_arn,
 #   SG CSV helper ingress/egress)이 "루트에서 그 출력을 참조하지 않아도" plan을 막는지.
-#   운영 루트(01-network, 02-compute)는 이 출력을 참조하지 않으므로, 같은 조건에서 확인합니다.
+#   운영 루트(01-network, 03-compute)는 이 출력을 참조하지 않으므로, 같은 조건에서 확인합니다.
 #
 # 왜 스크립트인지
 #   terraform test의 expect_failures는 루트 모듈의 객체만 가리킬 수 있어

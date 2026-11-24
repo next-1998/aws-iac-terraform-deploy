@@ -1,4 +1,4 @@
-# 02-compute 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
+# 03-compute 단계 루트 검사 (plan만, mock provider). terraform.tfvars 값을 사용합니다.
 # 01-network, 02-shared가 남긴 Parameter Store 값은 아래 override_data로 대신합니다.
 mock_provider "aws" {
   mock_data "aws_iam_policy_document" {
@@ -60,8 +60,8 @@ run "reads_network_and_builds_resources" {
     error_message = "network=${jsonencode(local.network.base)} log=${local.access_log_bucket}"
   }
   assert {
-    condition     = keys(module.contract.names) == ["ec2"] && module.contract.names["ec2"] == "/iac/simple/02-compute/ec2"
-    error_message = "02-compute 출력 경로가 다름: ${jsonencode(module.contract.names)}"
+    condition     = keys(module.contract.names) == ["ec2"] && module.contract.names["ec2"] == "/iac/simple/03-compute/ec2"
+    error_message = "03-compute 출력 경로가 다름: ${jsonencode(module.contract.names)}"
   }
 }
 

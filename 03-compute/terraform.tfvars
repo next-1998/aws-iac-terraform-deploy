@@ -1,5 +1,5 @@
 ############################################################
-# 02-compute — 사이트: simple (예시 값. 실제 값으로 바꿔서 사용)
+# 03-compute — 사이트: simple (예시 값. 실제 값으로 바꿔서 사용)
 # 01-network, 02-shared를 먼저 apply해야 합니다 (Parameter Store 값을 읽음).
 #
 # [구축 전 협의 항목]
@@ -82,6 +82,6 @@ deletion_protection = {
   # buckets     = true # state·로그 버킷 (00-bootstrap)
   # kms_keys    = true # KMS 키 (00-bootstrap, 02-shared)
   # nat_eip     = true # NAT EIP (01-network)
-  # alb         = true # ALB 삭제 보호 (02-compute)
-  # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (02-compute)
+  # alb         = true # ALB 삭제 보호 (03-compute)
+  # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
 }

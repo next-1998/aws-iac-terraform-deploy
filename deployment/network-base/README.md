@@ -55,7 +55,7 @@ ec2, db, eks 서브넷은 **만들지 않습니다.** CIDR만 계산해서 contr
 
 ## EKS
 
-CIDR만 계산합니다(서브넷은 03-eks).
+CIDR만 계산합니다(서브넷은 04-eks).
 - `routable`: AZ 블록 뒤쪽 절반 앞에 `eks_subnet`(기본 /23) 크기. AZ 블록이 /22 이상이어야 함
 - `internal`: 100.64.0.0/16을 AZ별 균등 분배 (AZ 2개 /17). 100.64 대역을 자동으로 VPC에 연결
 

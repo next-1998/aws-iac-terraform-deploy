@@ -1,9 +1,9 @@
 ############################################################
 # 02-shared
-#   여러 유형(02-compute, 02-database …)이 같이 쓰는 리소스만 만듭니다.
+#   여러 유형(03-compute, 03-database …)이 같이 쓰는 리소스만 만듭니다.
 #   - 사이트 ACM 인증서 (<site>.<root_domain>, *.<site>.<root_domain>)
 #   - SNS 알림 토픽 (alarm_emails가 있을 때)
-#   결과는 /iac/<site>/02-shared/shared 에 남깁니다. 02-compute 등이 읽으므로 먼저 apply합니다.
+#   결과는 /iac/<site>/02-shared/shared 에 남깁니다. 03-compute 등이 읽으므로 먼저 apply합니다.
 ############################################################
 
 locals {
@@ -39,7 +39,7 @@ module "contract" {
   source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
 
   path_prefix = "/iac/${var.site}/02-shared"
-  description = "02-shared 묶음 (02-compute, 02-database가 읽음)"
+  description = "02-shared 묶음 (03-compute, 03-database가 읽음)"
   parameters = {
     shared = {
       certificate_arn = module.shared_common.certificate_arn

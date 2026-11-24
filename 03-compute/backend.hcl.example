@@ -1,6 +1,6 @@
 # 00-bootstrap 실행 후 `terraform output backend_hcl_example` 값을 참고해 backend.hcl로 복사합니다.
 bucket       = "iac-tfstate-<계정ID>-<리전>"
-key          = "<site>/02-compute/terraform.tfstate"
+key          = "<site>/03-compute/terraform.tfstate"
 region       = "ap-northeast-2"
 encrypt      = true
 use_lockfile = true

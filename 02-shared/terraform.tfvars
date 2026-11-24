@@ -41,6 +41,6 @@ deletion_protection = {
   # buckets     = true # state·로그 버킷 (00-bootstrap)
   # kms_keys    = true # KMS 키 (00-bootstrap, 02-shared)
   # nat_eip     = true # NAT EIP (01-network)
-  # alb         = true # ALB 삭제 보호 (02-compute)
-  # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (02-compute)
+  # alb         = true # ALB 삭제 보호 (03-compute)
+  # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
 }
