@@ -103,8 +103,9 @@ module "cwlogs_firehose" {
   stack       = local.tag.stack
   key_target  = "cwlogs"
 
-  # 권한이 붙은 뒤에 만들어야 생성 시 S3 쓰기 검사가 실패하지 않음
-  depends_on = [module.cwlogs_subscription_role]
+  # S3 쓰기 권한이 붙은 뒤에 만들어야 생성 시 S3 쓰기 검사가 실패하지 않음
+  # 로그 전달 역할도 먼저 만들어 둠 (구독 정책 생성 전 IAM 반영 시간 확보)
+  depends_on = [module.cwlogs_firehose_policy, module.cwlogs_subscription_role]
 }
 
 # CloudWatch Logs → Firehose 전달 role
