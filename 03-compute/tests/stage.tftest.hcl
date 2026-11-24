@@ -75,3 +75,11 @@ run "central_log_bucket_for_alb" {
     error_message = "log=${local.access_log_bucket}"
   }
 }
+
+run "reject_placeholder_ami" {
+  command = plan
+  variables {
+    was = { ami = "__AMI__" }
+  }
+  expect_failures = [var.was]
+}

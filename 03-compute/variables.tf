@@ -17,7 +17,7 @@ variable "was" {
     ami                 = string
     instance_type       = optional(string, "t3.micro")
     root_volume_size    = optional(number, 30)
-    ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3") })), [])
+    ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3"), mount_point = optional(string), fs_type = optional(string, "xfs"), mount_options = optional(string, "defaults,nofail") })), [])
     weekend_stop_enable = optional(bool, false)
     enable_alb          = optional(bool, true)
     alb_internal        = optional(bool, true)
@@ -25,6 +25,11 @@ variable "was" {
     app_port            = optional(number, 8080)
     health_check_path   = optional(string, "/")
   })
+
+  validation {
+    condition     = can(regex("^ami-[0-9a-f]{8,17}$", var.was.ami))
+    error_message = "was.ami는 AMI ID(ami-로 시작) 형식이어야 합니다. 커스텀 이미지는 이 계정·리전에 공유된 AMI ID를 넣습니다."
+  }
 }
 
 # ── ec2-webide ────────────────────────────────────────────────
@@ -35,7 +40,7 @@ variable "webide" {
     ami                 = string
     instance_type       = optional(string, "t3.medium")
     root_volume_size    = optional(number, 30)
-    ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3") })), [])
+    ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3"), mount_point = optional(string), fs_type = optional(string, "xfs"), mount_options = optional(string, "defaults,nofail") })), [])
     weekend_stop_enable = optional(bool, false)
     enable_alb          = optional(bool, false)
     alb_internal        = optional(bool, true)
@@ -43,6 +48,11 @@ variable "webide" {
     app_port            = optional(number, 80)
     health_check_path   = optional(string, "/")
   })
+
+  validation {
+    condition     = can(regex("^ami-[0-9a-f]{8,17}$", var.webide.ami))
+    error_message = "webide.ami는 AMI ID(ami-로 시작) 형식이어야 합니다. 커스텀 이미지는 이 계정·리전에 공유된 AMI ID를 넣습니다."
+  }
 }
 
 # ── EC2 주말 중지 (협의 후 적용) ───────────────────────────────

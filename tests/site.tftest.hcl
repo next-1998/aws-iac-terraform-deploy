@@ -740,9 +740,55 @@ run "volumes_kept_when_protected" {
     common          = run.layout_v1_2az.ec2_common_contract
     ami             = "ami-0123456789abcdef0"
     protect_volumes = true
+    ebs_volumes     = [{ device_name = "/dev/sdf", volume_size = 50, mount_point = "/data" }, { device_name = "/dev/sdg", volume_size = 100 }]
   }
   assert {
-    condition     = length(output.agent_log_groups) == 2
-    error_message = "보호 끔 plan 실패"
+    # EC2는 루트만, 데이터 볼륨은 따로 만들어 붙임 (볼륨마다 볼륨 + 연결)
+    condition     = length(module.data_volume) == 2 && length(module.data_volume_attachment) == 2 && length(output.agent_log_groups) == 2
+    error_message = "데이터 볼륨: ${length(module.data_volume)}개, 연결 ${length(module.data_volume_attachment)}개"
   }
+  assert {
+    # mount_point가 있는 볼륨만 마운트 대상 → 마운트용 SSM 연결 1개, 붙이기만 하는 볼륨은 대상 아님
+    condition     = length(output.volume_mount) == 1 && keys(local.mount_volumes) == ["/dev/sdf"]
+    error_message = "마운트 대상: ${jsonencode(keys(local.mount_volumes))}"
+  }
+}
+
+run "no_mount_without_mount_point" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common      = run.layout_v1_2az.ec2_common_contract
+    ami         = "ami-0123456789abcdef0"
+    ebs_volumes = [{ device_name = "/dev/sdf", volume_size = 50 }]
+  }
+  assert {
+    condition     = length(output.volume_mount) == 0 && length(module.data_volume) == 1
+    error_message = "mount_point가 없으면 마운트 SSM 연결을 만들지 않아야 함"
+  }
+}
+
+run "reject_system_mount_point" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common      = run.layout_v1_2az.ec2_common_contract
+    ami         = "ami-0123456789abcdef0"
+    ebs_volumes = [{ device_name = "/dev/sdf", volume_size = 50, mount_point = "/var" }]
+  }
+  expect_failures = [var.ebs_volumes]
+}
+
+run "reject_duplicate_mount_point" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+    ebs_volumes = [
+      { device_name = "/dev/sdf", volume_size = 50, mount_point = "/data" },
+      { device_name = "/dev/sdg", volume_size = 50, mount_point = "/data/" },
+    ]
+  }
+  expect_failures = [var.ebs_volumes]
 }

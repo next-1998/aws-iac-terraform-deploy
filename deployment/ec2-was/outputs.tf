@@ -68,3 +68,13 @@ output "cloudwatch_agent" {
   description = "CloudWatch Agent 설정 (SSM 연결 이름 → ID). 비어 있으면 Agent 설정을 하지 않음"
   value       = module.cwagent.association_ids
 }
+
+output "data_volumes" {
+  description = "데이터 볼륨 (장치 이름 → 볼륨 ID, 마운트 경로)"
+  value       = { for k, v in local.data_volumes : k => { volume_id = module.data_volume[k].id, mount_point = v.mount_point } }
+}
+
+output "volume_mount" {
+  description = "데이터 볼륨 마운트 (SSM 연결 이름 → ID). 비어 있으면 마운트할 볼륨 없음"
+  value       = module.volume_mount.association_ids
+}

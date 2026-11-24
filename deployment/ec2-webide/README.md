@@ -13,7 +13,8 @@ Web IDE 서버를 만듭니다. 서브넷과 공통 SG는 `ec2-common`의 것을
 | `src/sg_rules.example.csv` | 예제 (적용되지 않음). 복사해서 `sg_rules.csv`에 필요한 행만 옮겨 씁니다 |
 | `src/README.md` | **SG 규칙 가이드**: 규칙을 붙일 수 있는 SG, 코드 기본 규칙, CSV 형식, 협의 항목 |
 | `iam.tf` | 이 서버 전용 IAM role, instance profile. **필수 정책**(뺄 수 없음): SSM 접속(`AmazonSSMManagedInstanceCore`), CloudWatch Agent 지표·로그(`CloudWatchAgentServerPolicy`). 로그 그룹 생성·보관 기간 변경은 **거부**(Terraform이 미리 만든 로그 그룹만 씀). 폐쇄망이면 01-network에 `logs`, `monitoring` endpoint 필요 |
-| `ec2.tf` | instance profile, EC2(공인 IP 없음), EBS. SG는 `[공통 SG, 개별 SG]` |
+| `ec2.tf` | EC2(공인 IP 없음, **루트 볼륨만**). SG는 `[공통 SG, 개별 SG]`. AMI·이미지에 포함된 볼륨은 배포 후 바뀌어도 Terraform이 손대지 않음(서버 교체 없음) |
+| `volumes.tf` | **데이터 볼륨**(`ebs_volumes`): 서버를 만든 뒤 따로 만들어 붙임. 크기는 tfvars로만 늘림(서버 교체 없음). `mount_point`가 있으면 SSM 연결로 `src/mount_volumes.sh` 실행(디렉터리 확인·생성, 처음만 포맷, 마운트, fstab, 증설 시 확장) |
 | `alb.tf` | ALB, ALB SG, target group, listener, DNS 레코드, WAF 연결 (`enable_alb = true`일 때) |
 
 ## ALB

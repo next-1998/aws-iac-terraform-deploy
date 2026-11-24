@@ -63,13 +63,48 @@ variable "root_volume_size" {
 }
 
 variable "ebs_volumes" {
-  description = "추가 EBS 볼륨. 예: [{ device_name = \"/dev/xvdb\", volume_size = 20 }]"
+  description = <<-EOT
+    데이터 볼륨 (서버 생성 후 따로 만들어 붙임, volumes.tf). 크기는 늘리기만 가능
+      device_name   : 장치 이름 (예: /dev/sdf). 바꾸면 볼륨이 다시 만들어짐
+      mount_point   : 마운트 경로. null이면 붙이기만 함. 있으면 SSM으로 포맷(처음만)·마운트·fstab 등록 (src/mount_volumes.sh)
+      fs_type       : xfs(기본) | ext4
+      mount_options : fstab 옵션 (기본 defaults,nofail)
+    예: [{ device_name = "/dev/sdf", volume_size = 100, mount_point = "/data" }]
+  EOT
   type = list(object({
-    device_name = string
-    volume_size = number
-    volume_type = optional(string, "gp3")
+    device_name   = string
+    volume_size   = number
+    volume_type   = optional(string, "gp3")
+    mount_point   = optional(string)
+    fs_type       = optional(string, "xfs")
+    mount_options = optional(string, "defaults,nofail")
   }))
   default = []
+
+  validation {
+    condition     = length(distinct([for v in var.ebs_volumes : v.device_name])) == length(var.ebs_volumes)
+    error_message = "ebs_volumes에 같은 device_name이 두 번 있습니다."
+  }
+  validation {
+    # 마운트 경로: 절대 경로, 허용 문자만 (스크립트 입력 구분자 '|'·따옴표 방지), 시스템 경로 금지
+    condition = alltrue([for v in var.ebs_volumes : v.mount_point == null || (
+      can(regex("^/[A-Za-z0-9._/-]+$", v.mount_point)) &&
+      !contains(["/", "/bin", "/boot", "/dev", "/etc", "/lib", "/lib64", "/proc", "/root", "/run", "/sbin", "/sys", "/usr", "/var", "/tmp", "/home"], trimsuffix(v.mount_point, "/"))
+    )])
+    error_message = "mount_point는 /로 시작하는 경로(영문, 숫자, . _ - /)여야 하고 /, /boot, /etc, /usr, /var, /tmp, /home 같은 시스템 경로는 쓸 수 없습니다 (그 아래 하위 경로는 가능, 예: /var/app)."
+  }
+  validation {
+    condition     = length(distinct(compact([for v in var.ebs_volumes : v.mount_point == null ? null : trimsuffix(v.mount_point, "/")]))) == length(compact([for v in var.ebs_volumes : v.mount_point == null ? null : trimsuffix(v.mount_point, "/")]))
+    error_message = "ebs_volumes에 같은 mount_point가 두 번 있습니다."
+  }
+  validation {
+    condition     = alltrue([for v in var.ebs_volumes : contains(["xfs", "ext4"], v.fs_type)])
+    error_message = "fs_type은 xfs 또는 ext4여야 합니다."
+  }
+  validation {
+    condition     = alltrue([for v in var.ebs_volumes : can(regex("^[a-z0-9_,=.-]+$", v.mount_options))])
+    error_message = "mount_options는 fstab 옵션 형식(예: defaults,nofail,noatime)이어야 합니다."
+  }
 }
 
 variable "kms_key_id" {
