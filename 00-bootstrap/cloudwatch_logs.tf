@@ -14,8 +14,8 @@
 #      이 계정에는 Firehose를 만들지 않음. 서비스 계정이 보관 경로를 바꾸거나 지울 수 없음
 #      중앙 destination 정책에 이 계정(또는 조직)의 구독 허용이 필요 (중앙 계정 사전 요청)
 #   - 구독(실제 전송)은 enable_log_subscription = true일 때만. 쓰지 않는 환경은 false(기본)
-#     정책을 만들 때 AWS가 역할로 테스트 메시지를 보내 검증하므로, 역할·권한을 만든 직후 켜면 IAM 반영 전이라 실패할 수 있음
-#     → 새 계정은 첫 apply 후 다음 apply에서 켬
+#     정책을 만들 때 AWS가 역할로 테스트 메시지를 보내 검증하므로 PutRecord 권한이 먼저 퍼져 있어야 함
+#     → 권한을 역할과 함께 맨 먼저 붙이고(Firehose ARN은 이름으로 조립), Firehose를 만드는 동안 반영 시간을 벎. apply 한 번이면 됨
 #   - 계정 단위 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 포함
 #   - 로그는 모두 VPC 이름으로 시작하므로 계정 단위(VPC 없음) Firehose 오류 로그 그룹은 만들지 않음
 #     전송·처리에 실패한 데이터는 S3 firehose-errors/ 에 남음 (Firehose 지표로도 확인)
@@ -30,7 +30,6 @@ locals {
   # A(이 계정 Firehose)일 때만 만드는 것들
   cwlogs = local.cwlogs_enabled && !local.cwlogs_central ? { this = true } : {}
   # 계정 구독 정책(A, B 모두)은 enable_log_subscription을 켰을 때만 (선택)
-  #   새 계정: 첫 apply는 끈 채로(역할·권한·Firehose만 준비) → 다음 apply에서 켬 (IAM 권한 반영 시간 확보)
   cwlogs_subscription = local.cwlogs_enabled && var.enable_log_subscription ? { this = true } : {}
 
   cwlogs_name = "iac-cwlogs-to-s3"

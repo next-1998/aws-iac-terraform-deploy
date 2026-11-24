@@ -107,11 +107,12 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 - Firehose 처리에 실패한 데이터만 `firehose-errors/`에 남습니다 (계정 단위라 VPC가 없음).
 
 - 계정 단위 구독 필터라 로그 그룹을 하나씩 등록하지 않아도 되고, 나중에 생기는 로그 그룹도 자동으로 포함됩니다.
-- **구독(실제 전송)은 선택**입니다: `enable_log_subscription = true`일 때만 계정 구독 정책을 만듭니다(기본 false = 준비만). 새 계정은 첫 apply를 false로 하고 다음 apply에서 true로 켭니다. 정책을 만들 때 AWS가 테스트 메시지로 권한을 검증하는데, 방금 만든 IAM 권한은 반영에 시간이 걸려 바로 켜면 실패할 수 있기 때문입니다.
+- **구독(실제 전송)은 선택**입니다: `enable_log_subscription = true`일 때만 계정 구독 정책을 만듭니다(기본 false = 준비만). 처음 배포할 때부터 true로 apply 한 번이면 됩니다.
 - VPC가 없는 계정 단위 로그 그룹은 만들지 않습니다. Firehose 전송 오류용 로그 그룹도 두지 않고, 실패 데이터는 S3 `firehose-errors/`와 Firehose 지표로 확인합니다.
 - S3 파일은 CloudWatch Logs 형식 JSON(레코드마다 한 줄)을 gzip으로 묶은 것입니다. Athena로 조회할 때 이 형식으로 테이블을 만듭니다.
 - 중앙 로그 계정을 쓰는 방법은 두 가지입니다.
   - **B. 중앙 destination (추천)**: `cloudwatch_logs_destination_arn`에 중앙 계정 CloudWatch Logs destination ARN을 넣으면 이 계정에 Firehose를 만들지 않고 중앙으로 보냅니다. 중앙이 Firehose와 버킷을 운영하므로 서비스 계정이 보관 경로를 바꾸거나 지울 수 없습니다. 중앙 destination 정책에 이 계정(또는 조직) 구독 허용이 필요합니다.
   - **A. 중앙 버킷만**: `create_log_bucket = false`, `cloudwatch_logs_bucket_arn` 지정. 이 계정 Firehose가 중앙 버킷에 씁니다. 중앙 버킷 정책에 이 계정 Firehose role 쓰기 허용이 필요합니다.
 - 로그 그룹은 Terraform이 미리 만듭니다 (14일, logs 키). CloudWatch Agent가 로그 그룹을 직접 만들지 않게 합니다 (만들면 무기한 보관). EC2 Agent 설정은 `deployment/ec2-<용도>/src/cwagent_setup.sh` 참고.
-- 새 계정에서 처음 apply할 때 계정 단위 구독 정책이 `firehose:PutRecord` 권한 오류로 실패할 수 있습니다 (방금 붙인 IAM 권한이 퍼지기 전에 AWS가 테스트 메시지를 보냄). 잠시 뒤 다시 apply하면 됩니다.
+- 계정 단위 구독 정책을 만들 때 AWS가 테스트 메시지로 `firehose:PutRecord` 권한을 검증합니다. 방금 붙인 IAM 권한은 퍼지는 데 시간이 걸리므로, 이 권한을 역할과 함께 맨 먼저 붙이고(Firehose ARN은 이름으로 조립) Firehose를 만드는 동안(약 20~30초) 반영 시간을 법니다. 그래도 `firehose:PutRecord` 권한 오류가 나면 잠시 뒤 다시 apply하면 됩니다.
+- destroy 직후 바로 다시 apply하면 S3 계정 퍼블릭 차단이 "찾을 수 없음"으로 20분 대기 후 실패할 수 있습니다 (계정 단위 S3 설정 삭제가 늦게 반영되어 새 설정을 덮어씀). 다시 apply하면 됩니다. 반복 테스트는 destroy 후 몇 분 두고 apply합니다.
