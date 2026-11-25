@@ -253,3 +253,12 @@ variable "protect_volumes" {
   type        = bool
   default     = false
 }
+
+variable "peer_sg_ids" {
+  description = <<-EOF2
+    같은 단계(03-compute)의 다른 용도 SG (이름 → ID). sg_rules.csv에서 sg:<용도>.<sg>로 참조 (예: sg:webide.app, sg:was.alb)
+    03-compute가 넘겨 줌. ID는 apply 전까지 몰라도 됨 (이름으로 참조하므로 처음 배포에도 한 번에 적용)
+  EOF2
+  type        = map(string)
+  default     = {}
+}

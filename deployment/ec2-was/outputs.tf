@@ -78,3 +78,8 @@ output "volume_mount" {
   description = "데이터 볼륨 마운트 (SSM 연결 이름 → ID). 비어 있으면 마운트할 볼륨 없음"
   value       = module.volume_mount.association_ids
 }
+
+output "sg_ids" {
+  description = "이 용도에서 만든 SG (sg_rules.csv의 sg 이름 → ID: app, alb). 03-compute가 다른 용도에 <용도>.<이름>으로 넘김"
+  value       = local.sg_ids
+}

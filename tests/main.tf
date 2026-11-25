@@ -72,6 +72,11 @@ variable "was_enable_alb" {
   default = true
 }
 
+variable "was_sg_rules_csv" {
+  type    = string
+  default = null
+}
+
 variable "was_alb_internal" {
   type    = bool
   default = true
@@ -128,6 +133,8 @@ module "ec2_was" {
   access_log_bucket   = "iac-logs-111111111111-ap-northeast-2"
   weekend_stop_enable = true
   ebs_volumes         = [{ device_name = "/dev/xvdb", volume_size = 20 }]
+  sg_rules_csv        = var.was_sg_rules_csv
+  peer_sg_ids         = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "was.") }
 }
 
 module "ec2_webide" {
@@ -135,6 +142,15 @@ module "ec2_webide" {
   common       = module.ec2_common.contract
   ami          = "ami-0123456789abcdef0"
   sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,ingress,tcp,80,80,pl:access_ctl,web ide,웹 IDE 접속\n"
+  peer_sg_ids  = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "webide.") }
+}
+
+# 같은 단계 SG 이름표 (03-compute와 같은 방식)
+locals {
+  purpose_sg_ids = merge(
+    { for k, v in module.ec2_was.sg_ids : "was.${k}" => v },
+    { for k, v in module.ec2_webide.sg_ids : "webide.${k}" => v },
+  )
 }
 
 locals {
@@ -172,6 +188,8 @@ output "ec2_rts" { value = module.ec2_common.route_table_ids }
 output "common_sg_id" { value = module.ec2_common.common_sg_id }
 output "common_sg_rules" { value = module.ec2_common.sg_rules }
 output "webide_sg_rules" { value = module.ec2_webide.sg_rules }
+output "was_sg_rules" { value = module.ec2_was.sg_rules }
+output "purpose_sg_ids" { value = local.purpose_sg_ids }
 output "was_sgs" { value = module.ec2_was.security_group_ids }
 output "was_alb" { value = module.ec2_was.alb_arn != null }
 output "webide_alb" { value = module.ec2_webide.alb_arn == null }

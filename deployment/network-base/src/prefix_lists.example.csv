@@ -1,0 +1,6 @@
+list,no,cidr,description,max_entries,memo
+access_ctl,1,10.185.66.10/32,server-access-control,5,서버 접근제어 솔루션
+admin,1,10.185.66.0/24,admin-pc,10,관리자 PC 대역
+admin,2,10.185.67.0/24,admin-pc-2,,같은 목록은 max_entries를 한 행에만 넣어도 됨
+corp,1,10.0.0.0/8,corp-network,10,사내망
+corp_proxy,1,10.185.1.10/32,corp-proxy,2,사내 프록시

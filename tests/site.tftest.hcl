@@ -792,3 +792,81 @@ run "reject_duplicate_mount_point" {
   }
   expect_failures = [var.ebs_volumes]
 }
+
+############################################################
+# prefix list CSV (deployment/network-base/src/prefix_lists.csv → module/_prefix_lists_csv)
+############################################################
+run "prefix_lists_csv_parse" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_prefix_lists_csv" }
+  variables {
+    # BOM + Windows 줄바꿈, max_entries는 한 행에만 / 비우면 기본 10, 빈 행 무시
+    csv = "﻿list,no,cidr,description,max_entries,memo\r\naccess_ctl,1,10.185.66.10/32,server-access-control,5,접근제어\r\nadmin,1,10.185.66.0/24,admin-pc,,관리자\r\nadmin,2,10.185.67.0/24,admin-pc-2,,\r\n,,,,,\r\n"
+  }
+  assert {
+    condition = (
+      output.prefix_lists.access_ctl.max_entries == 5 &&
+      output.prefix_lists.admin.max_entries == 10 &&
+      output.prefix_lists.admin.entries["10.185.67.0/24"] == "admin-pc-2" &&
+      length(output.prefix_lists.admin.entries) == 2 && output.row_count == 3
+    )
+    error_message = "prefix list CSV 해석: ${jsonencode(output.prefix_lists)}"
+  }
+}
+
+run "reject_prefix_lists_csv_errors" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_prefix_lists_csv" }
+  variables {
+    # 잘못된 cidr, 순번 중복, 한글 description, max_entries 불일치
+    csv = "list,no,cidr,description,max_entries,memo\nadmin,1,10.185.66.0/33,admin-pc,5,\nadmin,1,10.185.67.0/24,관리자,4,\n"
+  }
+  expect_failures = [output.prefix_lists]
+}
+
+run "reject_prefix_lists_tfvars_and_csv" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_prefix_lists_csv" }
+  variables {
+    csv                = "list,no,cidr,description,max_entries,memo\nadmin,1,10.185.66.0/24,admin-pc,5,\n"
+    other_source_count = 1
+  }
+  expect_failures = [output.prefix_lists]
+}
+
+run "network_base_reads_prefix_lists_csv" {
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site             = "simple"
+    vpc_name         = "simple-vpc"
+    vpc_cidrs        = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    enable_flow_logs = false
+    prefix_lists_csv = "list,no,cidr,description,max_entries,memo\ncorp,1,10.0.0.0/8,corp-network,10,사내망\n"
+  }
+  assert {
+    condition     = jsonencode(keys(local.prefix_lists)) == jsonencode(["corp"]) && local.prefix_lists.corp.max_entries == 10
+    error_message = "network-base prefix list: ${jsonencode(local.prefix_lists)}"
+  }
+}
+
+############################################################
+# 같은 단계 다른 용도 SG 참조 (sg:<용도>.<sg>)
+############################################################
+run "same_stage_sg_reference_by_name" {
+  command = apply
+  variables {
+    was_enable_alb   = true
+    was_sg_rules_csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,ingress,tcp,8080,8080,sg:webide.app,from webide,웹 IDE 서버 → WAS\n"
+  }
+  assert {
+    # was 규칙의 출발지 = webide의 app SG (ID를 몰라도 이름으로 한 번에 적용)
+    condition     = length([for k, r in output.was_sg_rules.ingress : r if r.referenced_security_group_id == output.purpose_sg_ids["webide.app"] && r.from_port == 8080]) == 1
+    error_message = "was 규칙: ${jsonencode(output.was_sg_rules.ingress)} / 이름표: ${jsonencode(output.purpose_sg_ids)}"
+  }
+  assert {
+    # 이름표: was(app, alb), webide(app, ALB 없음)
+    condition     = toset(keys(output.purpose_sg_ids)) == toset(["was.app", "was.alb", "webide.app"])
+    error_message = "이름표: ${jsonencode(keys(output.purpose_sg_ids))}"
+  }
+}

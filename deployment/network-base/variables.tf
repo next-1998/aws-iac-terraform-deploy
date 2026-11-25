@@ -141,7 +141,7 @@ variable "peerings" {
 #   description은 영문만 (AWS 제한)
 ############################################################
 variable "prefix_lists" {
-  description = "prefix list. 예: { access_ctl = { max_entries = 5, entries = { \"10.0.0.10/32\" = \"server-access-control\" } } }"
+  description = "prefix list (tfvars로 넣을 때. 보통은 src/prefix_lists.csv 사용, 둘 다 넣으면 plan에서 막힘). 예: { access_ctl = { max_entries = 5, entries = { \"10.0.0.10/32\" = \"server-access-control\" } } }"
   type = map(object({
     max_entries = number
     entries     = map(string)
@@ -269,4 +269,10 @@ variable "protect_nat_eip" {
   description = "NAT EIP 삭제 보호 (단계 루트 operation_mode / deletion_protection.nat_eip)"
   type        = bool
   default     = false
+}
+
+variable "prefix_lists_csv" {
+  description = "prefix list CSV 내용 (테스트용). null이면 src/prefix_lists.csv를 읽음"
+  type        = string
+  default     = null
 }

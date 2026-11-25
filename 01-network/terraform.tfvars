@@ -72,7 +72,10 @@ corp_cidrs = [
 peerings = {}
 
 # ── prefix list (필요한 것만 추가, description은 영문) ────────
-# SG 규칙에서 IP 대신 이름으로 참조합니다. max_entries만큼 SG 규칙 한도를 씁니다.
+# SG 규칙에서 IP 대신 이름으로 참조합니다 (sg_rules.csv의 source = pl:<이름>). max_entries만큼 SG 규칙 한도를 씁니다.
+# 기본은 CSV로 넣습니다: deployment/network-base/src/prefix_lists.csv (예제: src/prefix_lists.example.csv)
+#   열: list,no,cidr,description,max_entries,memo  (no = 목록별 순번, max_entries는 목록의 한 행에만 넣어도 됨, 비우면 10)
+# CSV 대신 여기(tfvars)에 넣어도 됩니다. 둘 다 넣으면 plan에서 막힙니다 (둘 중 하나만).
 prefix_lists = {
   # access_ctl = { max_entries = 5, entries = { "10.185.66.10/32" = "server-access-control" } }
   # admin      = { max_entries = 10, entries = { "10.185.66.0/24" = "admin-pc" } }

@@ -60,7 +60,8 @@ alb,1,ingress,tcp,443,443,pl:corp,https from corp users,사내망 사용자
 | `cidr:<CIDR>` | IP 대역 | `cidr:10.185.10.0/24` |
 | `sg:app`, `sg:alb` | 이 폴더의 SG | `sg:alb` |
 | `sg:common` | ec2-common의 공통 SG | `sg:common` |
-| `sg:sg-xxxx` | 다른 SG ID (다른 폴더·계정의 SG) | `sg:sg-0123abcd` |
+| `sg:<용도>.<sg>` | **같은 단계(03-compute)의 다른 용도 SG**. ID를 몰라도 이름으로 참조 (처음 배포에도 한 번에 적용). 켜지지 않은 용도를 참조하면 plan에서 막힘 | `sg:webide.app`, `sg:was.alb` |
+| `sg:sg-xxxx` | 우리 코드 밖의 SG ID (기존 레거시 DB, 다른 계정 등). 다른 단계의 SG는 아직 이름 참조 없음 → ID | `sg:sg-0123abcd` |
 | `self` | 같은 SG끼리 (예: WAS끼리 세션 복제) | `self` |
 
 - 열 순서는 바꿔도 되지만 **필수 열 이름은 정확히** 같아야 합니다 (대소문자, 공백 주의).

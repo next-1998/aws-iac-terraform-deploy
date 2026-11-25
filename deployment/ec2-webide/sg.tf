@@ -129,9 +129,10 @@ module "sg_rules_csv" {
   rule_limit          = var.sg_rule_limit
   source_name         = "${var.name}/src/sg_rules.csv"
 
-  csv             = local.sg_rules_csv
-  sg_ids          = local.sg_ids
-  source_sg_ids   = { common = var.common.common_sg_id }
+  csv    = local.sg_rules_csv
+  sg_ids = local.sg_ids
+  # sg:<이름>으로 참조할 수 있는 다른 SG: 공통 SG + 같은 단계 다른 용도 SG(<용도>.<sg>, 03-compute가 넘김)
+  source_sg_ids   = merge(var.peer_sg_ids, { common = var.common.common_sg_id })
   prefix_list_ids = local.routing.prefix_list_ids
 }
 

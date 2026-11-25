@@ -67,6 +67,18 @@ module "ec2_common" {
   common_tags = var.common_tags
 }
 
+############################################################
+# 같은 단계 SG 이름표: <용도>.<sg> → ID (sg_rules.csv의 sg:<용도>.<sg>)
+#   SG는 규칙과 따로 먼저 만들어지므로 용도끼리 서로 참조해도 순환이 생기지 않음
+#   켜지지 않은 용도는 이름표에 없음 → 참조하면 plan에서 막힘
+############################################################
+locals {
+  purpose_sg_ids = merge(
+    var.was.enabled ? { for k, v in module.ec2_was[0].sg_ids : "was.${k}" => v } : {},
+    var.webide.enabled ? { for k, v in module.ec2_webide[0].sg_ids : "webide.${k}" => v } : {},
+  )
+}
+
 module "ec2_was" {
   source = "../deployment/ec2-was"
   count  = var.was.enabled ? 1 : 0
@@ -88,6 +100,9 @@ module "ec2_was" {
   access_log_bucket   = local.access_log_bucket
   app_port            = var.was.app_port
   health_check_path   = var.was.health_check_path
+
+  # 같은 단계 다른 용도 SG (sg_rules.csv에서 sg:webide.app 등으로 참조)
+  peer_sg_ids = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "was.") }
 
   common_tags = var.common_tags
 }
@@ -114,6 +129,9 @@ module "ec2_webide" {
   app_port            = var.webide.app_port
   health_check_path   = var.webide.health_check_path
 
+  # 같은 단계 다른 용도 SG (sg_rules.csv에서 sg:was.app 등으로 참조)
+  peer_sg_ids = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "webide.") }
+
   common_tags = var.common_tags
 }
 
@@ -129,6 +147,8 @@ module "contract" {
   parameters = {
     ec2 = {
       common_sg_id = module.ec2_common.common_sg_id
+      # 이 단계에서 만든 SG 전체 (<용도>.<sg> → ID, 다음 단계가 참조할 때 사용)
+      sg_ids = local.purpose_sg_ids
       app_sg_ids = merge(
         var.was.enabled ? { ec2_was = module.ec2_was[0].sg_id } : {},
         var.webide.enabled ? { ec2_webide = module.ec2_webide[0].sg_id } : {},
