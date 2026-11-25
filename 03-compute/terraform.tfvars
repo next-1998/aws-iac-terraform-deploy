@@ -9,6 +9,7 @@
 #     SG 규칙 (접근 경로)    고객 보안팀          deployment/ec2-*/src/sg_rules.csv (포트, 출발지 prefix list)
 #     서버 이미지 (AMI)      고객 보안/플랫폼     was/webide.ami (커스텀 이미지, 공유·암호화 키, 루트 볼륨 크기)
 #     서버 사양              고객 (서비스 담당)   was/webide.instance_type, root_volume_size, ebs_volumes
+#     디스크 자동 증설       고객 운영팀          root_auto_grow, ebs_volumes[].auto_grow (기준 %, 증가량, 상한)
 #     서비스 포트·헬스체크   고객 (서비스 담당)   app_port, health_check_path
 #     LB 공개 범위           고객 보안팀          enable_alb, alb_internal (외부용은 01-network enable_public 필요)
 #     서비스 도메인 이름     고객 DNS 담당        alb_record_name
@@ -59,6 +60,13 @@ was = {
   ami              = "ami-05377cf8cfef186c2" # (필수) 이 서버의 AMI ID (커스텀 이미지)
   instance_type    = "t3.micro"              # 기본 t3.micro
   root_volume_size = 30                      # 루트 볼륨 GB (기본 30, 이미지 크기 이상)
+  # EBS 자동 증설 (선택, 기본 꺼짐). 고정 서버만. 디스크 사용률 > threshold% 이면 크기 + max(increase_percent%, min_increase GiB), max_size까지
+  #   Lambda가 볼륨을 늘리고 서버 안 파일시스템까지 확장 (파티션 growpart → xfs_growfs / resize2fs, LVM은 지원 안 함). 결과는 02-shared 알림 토픽
+  #   같은 볼륨은 6시간에 한 번만 늘릴 수 있음 (AWS 제한). 대기 중이면 1시간마다 다시 확인
+  #   늘어난 크기는 Terraform이 유지 (tfvars보다 크면 실제 크기 사용). tfvars를 더 크게 하면 그 값으로 늘어남
+  #   폐쇄망(public 없음)이면 01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns) 필요
+  #   데이터 볼륨은 ebs_volumes 항목에 auto_grow = { max_size = 200 } (mount_point 필요)
+  # root_auto_grow = { max_size = 100 } # threshold = 80, increase_percent = 20, min_increase = 10 (기본값)
   # 데이터 볼륨 (기본 없음). 서버를 만든 뒤 따로 만들어 붙임. volume_type 기본 gp3
   #   크기는 여기서만 바꿈 (서버 교체 없이 늘어남, 줄일 수 없음). 장치 이름을 바꾸면 볼륨이 다시 만들어짐
   #   마운트 (mount_point가 있는 볼륨만. 붙인 뒤 SSM이 서버 안에서 deployment/ec2-<용도>/src/mount_volumes.sh 실행)
@@ -75,6 +83,7 @@ was = {
     # { device_name = "/dev/sdh", volume_size = 200, volume_type = "gp3", mount_point = "/backup",
     #   fs_type = "xfs", mount_options = "defaults,nofail,noatime" },                             # 옵션 지정
     # { device_name = "/dev/sdi", volume_size = 30 },                                             # 붙이기만 (마운트 안 함)
+    # { device_name = "/dev/sdj", volume_size = 100, mount_point = "/app/data", auto_grow = { max_size = 500 } }, # 자동 증설
   ]
   weekend_stop_enable = false # 주말 중지 대상 (ec2_weekend_stop.enabled일 때 동작. 태그 WEEKEND_STOP_ENABLE)
   enable_alb          = true  # ALB 생성 (기본 true)
@@ -151,7 +160,7 @@ central_kms_key_arns = {
 }
 
 # ── 운영 모드 (삭제 보호) ─────────────────────────────────────
-# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ
+# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ, 백업 볼트 보존
 # 그 외(null, 기본)         : 모두 삭제 가능 (테스트처럼 만들고 지우는 환경)
 # 처음 배포할 때 정하고 바꾸지 않습니다 (바꾸면 버킷·KMS 키·EIP가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다
 operation_mode = null
@@ -164,4 +173,5 @@ deletion_protection = {
   # alb         = true # ALB 삭제 보호 (03-compute)
   # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
   # rds         = true # RDS 삭제 보호 + 삭제 시 최종 스냅샷 (03-database)
+  # backups     = true # 백업 볼트 삭제 불가·남은 백업 보존 (02-shared)
 }

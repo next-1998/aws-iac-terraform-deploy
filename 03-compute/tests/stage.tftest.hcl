@@ -13,6 +13,12 @@ mock_provider "aws" {
   mock_data "aws_partition" {
     defaults = { partition = "aws" }
   }
+  mock_data "aws_region" {
+    defaults = { region = "ap-northeast-2" }
+  }
+  mock_data "aws_caller_identity" {
+    defaults = { account_id = "111111111111" }
+  }
 }
 
 override_data {
@@ -83,3 +89,49 @@ run "reject_placeholder_ami" {
   }
   expect_failures = [var.was]
 }
+
+run "ebs_auto_grow" {
+  # 루트·데이터 볼륨 자동 증설: 증설 Lambda 생성, 볼륨마다 알람, 늘어난 실제 크기는 유지 (줄이지 않음)
+  command = plan
+  variables {
+    was = {
+      ami            = "ami-0123456789abcdef0"
+      root_auto_grow = { max_size = 100 }
+      ebs_volumes    = [{ device_name = "/dev/sdf", volume_size = 50, mount_point = "/data", auto_grow = { max_size = 200 } }]
+    }
+  }
+  override_data {
+    target = data.aws_ssm_parameter.network["endpoints"]
+    values = { insecure_value = "{\"ids\":{},\"gateway\":{\"s3\":\"vpce-2\"},\"interface\":[\"ssm\",\"logs\",\"monitoring\",\"ec2\"],\"vpce_sg_id\":\"sg-1\"}" }
+  }
+  # 데이터 볼륨이 자동으로 60 GiB로 늘어난 상태
+  override_data {
+    target = module.ec2_was[0].data.aws_ebs_volumes.grow[0]
+    values = { ids = ["vol-1"] }
+  }
+  override_data {
+    target = module.ec2_was[0].data.aws_ebs_volume.grow["vol-1"]
+    values = { size = 60, tags = { ResourceKey = "ec2_was_data_sdf_vol" } }
+  }
+  assert {
+    condition     = module.ec2_common.ebs_grow == "simple-ec2-common-ebs-grow"
+    error_message = "증설 Lambda: ${jsonencode(module.ec2_common.ebs_grow)}"
+  }
+  assert {
+    condition     = toset(module.ec2_was[0].auto_grow.alarms) == toset(["simple-ec2-was-ebs-grow-root", "simple-ec2-was-ebs-grow-sdf"])
+    error_message = "알람: ${jsonencode(module.ec2_was[0].auto_grow.alarms)}"
+  }
+  assert {
+    condition     = module.ec2_was[0].auto_grow.data_volume_size["/dev/sdf"] == 60 && module.ec2_was[0].auto_grow.root_volume_size == 30
+    error_message = "크기: ${jsonencode(module.ec2_was[0].auto_grow)}"
+  }
+}
+
+run "ebs_auto_grow_off_by_default" {
+  command = plan
+  assert {
+    condition     = module.ec2_common.ebs_grow == null && length(module.ec2_was[0].auto_grow.alarms) == 0
+    error_message = "기본은 자동 증설 꺼짐이어야 합니다."
+  }
+}
+

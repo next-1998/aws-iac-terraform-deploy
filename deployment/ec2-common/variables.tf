@@ -73,3 +73,24 @@ variable "logs_kms_key_arn" {
   type        = string
   default     = null
 }
+
+############################################################
+# EBS 자동 증설 (ebs_grow.tf) — ec2-<용도>의 auto_grow 볼륨이 있을 때 03-compute가 켬
+#   디스크 사용률 알람 → Lambda: 볼륨 크기 늘림 → SSM: 파일시스템 확장 → SNS 알림
+#   VPC 안에서 실행하므로 public이 없으면 01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns)이 있어야 합니다.
+############################################################
+variable "enable_ebs_auto_grow" {
+  description = "EBS 자동 증설 Lambda 생성 여부"
+  type        = bool
+  default     = false
+}
+
+variable "ebs_auto_grow" {
+  description = "EBS 자동 증설 공통 설정"
+  type = object({
+    alarm_topic_arn    = optional(string)                 # 결과 알림 SNS (02-shared 알림 토픽). null이면 알림 없음
+    retry_schedule     = optional(string, "rate(1 hour)") # 6시간 대기 등으로 못 늘린 알람을 다시 확인하는 주기
+    log_retention_days = optional(number, 14)
+  })
+  default = {}
+}

@@ -50,6 +50,9 @@ module "cwagent" {
           "SEC_GROUP='${module.agent_log["secure"].name}'",
           # 자동 확장 기준 지표 (CPU·메모리). 켜지 않으면 비움 = 지표를 보내지 않음
           "METRIC_GROUP='${local.autoscale ? local.service_group : ""}'",
+          # EBS 자동 증설 기준 지표 (고정 서버의 대상 마운트 경로만). 켜지 않으면 비움
+          "DISK_INSTANCE='${module.ec2.ec2_instance.id}'",
+          "DISK_PATHS='${join(" ", sort(distinct([for t in values(local.grow_targets) : t.path])))}'",
           file("${path.module}/src/cwagent_setup.sh"),
         ])
       }

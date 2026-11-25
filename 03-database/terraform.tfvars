@@ -13,6 +13,7 @@
 #     DB 로그·보관           고객 보안팀          log_exports, log_retention_days (CloudWatch. S3에는 계정 로그 정책으로 더 오래)
 #     DB 파라미터            고객 (서비스·DBA)    deployment/rds-db/src/rds-<용도>.parameters.csv (엔진 기본값에서 바꿀 값만)
 #     관리자 비밀번호        고객 보안팀          RDS가 Secrets Manager에 만들고 관리 (비밀번호를 tfvars에 넣지 않음)
+#                                                 PostgreSQL 읽기 복제본을 쓰면 rds_master_passwords 평문 (test.tfvars에만)
 #                                                  애플리케이션은 출력의 secret_arn으로 읽음. 폐쇄망이면 01-network에 secretsmanager endpoint 필요
 #     암호화 키 (CMK)        고객 보안팀          central_kms_key_arns.rds (없으면 이 계정에 RDS 키 생성)
 #     스냅샷 복원·복제본     고객 (서비스·DBA)    rds.<용도>.snapshot_identifier (기존 DB 이전·골든 이미지), replicas (읽기 부하 분산)
@@ -50,6 +51,7 @@ rds = {
     # snapshot_identifier = "app-golden-2026-11"   # 또는 arn:aws:rds:<리전>:<계정>:snapshot:<이름>
 
     # 읽기 복제본 (키 → 설정). 이름은 <site>-rds-app-<키>, 원본과 같은 SG·파라미터·키. 원본 자동 백업이 켜져 있어야 함
+    #   PostgreSQL 복제본은 RDS 비밀번호 관리와 같이 쓸 수 없어 rds_master_passwords가 필요 (아래)
     replicas = {
       # r1 = {}                                   # 원본과 같은 사양
       # r2 = { instance_class = "db.t4g.small" }  # 사양만 다르게
@@ -79,8 +81,13 @@ central_kms_key_arns = {
   # rds  = "arn:aws:kms:ap-northeast-2:<중앙 계정>:key/<키 ID>"  # 이 단계에서 사용
 }
 
+# ── 마스터 비밀번호 평문 (선택) ────────────────────────────────
+# 넣은 DB는 RDS 비밀번호 관리(Secrets Manager)를 끄고 이 값을 씁니다. PostgreSQL 읽기 복제본을 쓰는 DB는 필수
+# 비밀번호가 평문으로 tfvars·state에 남습니다. 이 파일(커밋됨)에는 넣지 말고 test.tfvars(커밋 안 함)에만 넣으세요
+# rds_master_passwords = { app = "<8~128자, 슬래시·큰따옴표·@·공백 제외>" }
+
 # ── 운영 모드 (삭제 보호) ─────────────────────────────────────
-# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ
+# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ, 백업 볼트 보존
 # 그 외(null, 기본)         : 모두 삭제 가능 (테스트처럼 만들고 지우는 환경)
 # 처음 배포할 때 정하고 바꾸지 않습니다 (바꾸면 버킷·KMS 키·EIP가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다
 operation_mode = null
@@ -93,4 +100,5 @@ deletion_protection = {
   # alb         = true # ALB 삭제 보호 (03-compute)
   # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
   # rds         = true # RDS 삭제 보호 + 삭제 시 최종 스냅샷 (03-database)
+  # backups     = true # 백업 볼트 삭제 불가·남은 백업 보존 (02-shared)
 }

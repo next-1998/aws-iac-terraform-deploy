@@ -50,3 +50,28 @@ variable "rds" {
     error_message = "읽기 복제본(replicas)을 쓰는 DB는 backup_retention_days가 1 이상이어야 합니다 (원본 자동 백업 필요)."
   }
 }
+
+variable "rds_master_passwords" {
+  description = <<-EOT
+    마스터 비밀번호 평문 (DB 키 → 비밀번호). 넣은 DB는 RDS 비밀번호 관리(Secrets Manager)를 끄고 이 값을 씀
+      PostgreSQL 읽기 복제본은 RDS 비밀번호 관리와 같이 쓸 수 없어서 복제본이 있는 postgres DB는 필수
+      비밀번호가 tfvars·state에 평문으로 남습니다. test.tfvars(커밋 안 함)에만 넣고, 커밋하는 terraform.tfvars에는 넣지 않습니다
+  EOT
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+
+  validation {
+    condition     = alltrue([for k in keys(var.rds_master_passwords) : contains(keys(var.rds), k)])
+    error_message = "rds_master_passwords의 키는 rds에 있는 DB 키여야 합니다."
+  }
+  validation {
+    # RDS 규칙: 8~128자, / " @ 공백 불가
+    condition     = alltrue([for k, p in var.rds_master_passwords : length(p) >= 8 && length(p) <= 128 && !can(regex("[/\"@ ]", p))])
+    error_message = "마스터 비밀번호는 8~128자이고 / \" @ 공백을 쓸 수 없습니다."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.rds : !(v.engine == "postgres" && length(v.replicas) > 0) || contains(keys(var.rds_master_passwords), k)])
+    error_message = "PostgreSQL 읽기 복제본은 RDS 비밀번호 관리(Secrets Manager)와 같이 쓸 수 없습니다. 복제본이 있는 postgres DB는 rds_master_passwords에 비밀번호를 넣으세요."
+  }
+}

@@ -93,3 +93,13 @@ output "autoscale" {
     initial_image      = local.make_image
   } : null
 }
+
+output "auto_grow" {
+  description = "EBS 자동 증설 (알람 이름, 적용 크기: 실제 크기가 tfvars보다 크면 실제 크기)"
+  value = {
+    alarms           = keys(module.grow_alarm.arns)
+    root_volume_size = local.root_volume_size
+    data_volume_size = local.data_volume_size
+    tag_enabled      = local.grow_any
+  }
+}

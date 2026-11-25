@@ -1,5 +1,5 @@
 output "db" {
-  description = "접속 정보 (비밀번호는 secret_arn의 Secrets Manager 비밀에서 읽음)"
+  description = "접속 정보 (비밀번호는 secret_arn의 Secrets Manager 비밀에서 읽음. master_password를 쓰면 secret_arn = null)"
   value = {
     identifier = module.db.identifier
     engine     = var.engine
@@ -37,7 +37,7 @@ output "settings" {
     multi_az                    = var.multi_az
     deletion_protection         = var.protect
     final_snapshot              = var.protect
-    manage_master_user_password = true
+    manage_master_user_password = local.managed_password
     parameter_group_family      = local.family
     parameters                  = local.parameters
     log_exports                 = local.log_exports

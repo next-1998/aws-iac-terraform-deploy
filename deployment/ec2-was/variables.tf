@@ -57,7 +57,7 @@ variable "instance_az" {
 }
 
 variable "root_volume_size" {
-  description = "루트 볼륨 크기 (GiB)"
+  description = "루트 볼륨 크기 (GiB). root_auto_grow를 켜면 처음 크기 (실제 크기가 더 크면 실제 크기 유지)"
   type        = number
   default     = 30
 }
@@ -69,6 +69,7 @@ variable "ebs_volumes" {
       mount_point   : 마운트 경로. null이면 붙이기만 함. 있으면 SSM으로 포맷(처음만)·마운트·fstab 등록 (src/mount_volumes.sh)
       fs_type       : xfs(기본) | ext4
       mount_options : fstab 옵션 (기본 defaults,nofail)
+      auto_grow     : 자동 증설 (null이면 끔, autogrow.tf). mount_point가 있어야 함. { max_size = 상한 GiB, threshold = 80, increase_percent = 20, min_increase = 10 }
     예: [{ device_name = "/dev/sdf", volume_size = 100, mount_point = "/data" }]
   EOT
   type = list(object({
@@ -78,6 +79,7 @@ variable "ebs_volumes" {
     mount_point   = optional(string)
     fs_type       = optional(string, "xfs")
     mount_options = optional(string, "defaults,nofail")
+    auto_grow     = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) }))
   }))
   default = []
 
@@ -96,6 +98,14 @@ variable "ebs_volumes" {
   validation {
     condition     = length(distinct(compact([for v in var.ebs_volumes : v.mount_point == null ? null : trimsuffix(v.mount_point, "/")]))) == length(compact([for v in var.ebs_volumes : v.mount_point == null ? null : trimsuffix(v.mount_point, "/")]))
     error_message = "ebs_volumes에 같은 mount_point가 두 번 있습니다."
+  }
+  validation {
+    condition     = alltrue([for v in var.ebs_volumes : v.auto_grow == null || v.mount_point != null])
+    error_message = "auto_grow를 켠 볼륨은 mount_point가 있어야 합니다 (마운트 경로의 사용률로 판단)."
+  }
+  validation {
+    condition     = alltrue([for v in var.ebs_volumes : v.auto_grow == null || try(v.auto_grow.max_size > v.volume_size && v.auto_grow.max_size <= 16384 && v.auto_grow.threshold > 0 && v.auto_grow.threshold < 100 && v.auto_grow.increase_percent > 0 && v.auto_grow.min_increase >= 1, false)])
+    error_message = "auto_grow: max_size는 volume_size보다 크고 16384 GiB 이하, threshold는 1~99, increase_percent는 1 이상, min_increase는 1 GiB 이상이어야 합니다."
   }
   validation {
     condition     = alltrue([for v in var.ebs_volumes : contains(["xfs", "ext4"], v.fs_type)])
@@ -308,5 +318,31 @@ variable "autoscale" {
   validation {
     condition     = var.autoscale.scale_in > 0 && var.autoscale.scale_in < var.autoscale.scale_out && var.autoscale.scale_out < 100
     error_message = "autoscale은 0 < scale_in < scale_out < 100 이어야 합니다 (늘었다 줄었다 반복하지 않게 간격 필요)."
+  }
+}
+
+############################################################
+# EBS 자동 증설 (autogrow.tf) — 고정 서버만 (확장 서버는 교체되므로 제외)
+#   디스크 사용률(CloudWatch Agent) > threshold% → 크기 + max(increase_percent%, min_increase GiB), max_size까지
+#   ec2-common의 증설 Lambda가 늘리고 파일시스템까지 확장. 같은 볼륨은 6시간에 한 번만 (AWS 제한)
+#   켠 볼륨은 실제 크기가 tfvars보다 크면 실제 크기를 유지 (줄이려다 실패하지 않음). tfvars를 더 크게 하면 그 값으로 늘어남
+############################################################
+variable "root_auto_grow" {
+  description = "루트 볼륨 자동 증설 (null이면 끔). { max_size = 상한 GiB, threshold = 80, increase_percent = 20, min_increase = 10 }"
+  type = object({
+    max_size         = number
+    threshold        = optional(number, 80)
+    increase_percent = optional(number, 20)
+    min_increase     = optional(number, 10)
+  })
+  default = null
+
+  validation {
+    condition     = var.root_auto_grow == null || try(var.root_auto_grow.threshold > 0 && var.root_auto_grow.threshold < 100 && var.root_auto_grow.increase_percent > 0 && var.root_auto_grow.min_increase >= 1, false)
+    error_message = "root_auto_grow: threshold는 1~99, increase_percent는 1 이상, min_increase는 1 GiB 이상이어야 합니다."
+  }
+  validation {
+    condition     = var.root_auto_grow == null || try(var.root_auto_grow.max_size > var.root_volume_size && var.root_auto_grow.max_size <= 16384, false)
+    error_message = "root_auto_grow.max_size는 root_volume_size보다 크고 16384 GiB 이하여야 합니다."
   }
 }

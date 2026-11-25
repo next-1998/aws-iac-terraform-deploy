@@ -1,0 +1,62 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Describe",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeVolumes", "ec2:DescribeVolumesModifications", "cloudwatch:DescribeAlarms"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "GrowTaggedVolumesOnly",
+      "Effect": "Allow",
+      "Action": "ec2:ModifyVolume",
+      "Resource": "arn:${partition}:ec2:${region}:${account_id}:volume/*",
+      "Condition": {
+        "StringEqualsIgnoreCase": { "aws:ResourceTag/${tag_key}": "true" }
+      }
+    },
+    {
+      "Sid": "ResetOwnAlarms",
+      "Effect": "Allow",
+      "Action": "cloudwatch:SetAlarmState",
+      "Resource": "arn:${partition}:cloudwatch:${region}:${account_id}:alarm:${alarm_pattern}"
+    },
+    {
+      "Sid": "ResizeFilesystemOnTaggedInstances",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:${partition}:ec2:${region}:${account_id}:instance/*",
+      "Condition": {
+        "StringEqualsIgnoreCase": { "ssm:resourceTag/${tag_key}": "true" }
+      }
+    },
+    {
+      "Sid": "RunShellScriptDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:${partition}:ssm:${region}::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "CommandResult",
+      "Effect": "Allow",
+      "Action": "ssm:GetCommandInvocation",
+      "Resource": "*"
+    }%{ if topic_arn != "" },
+    {
+      "Sid": "Notify",
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "${topic_arn}"
+    },
+    {
+      "Sid": "NotifyEncryptedTopic",
+      "Effect": "Allow",
+      "Action": ["kms:GenerateDataKey*", "kms:Decrypt"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": { "kms:ViaService": "sns.${region}.amazonaws.com" }
+      }
+    }%{ endif }
+  ]
+}

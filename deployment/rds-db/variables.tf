@@ -187,3 +187,10 @@ variable "replicas" {
     error_message = "replicas의 키는 소문자, 숫자, '-'로 10자 이하여야 합니다."
   }
 }
+
+variable "master_password" {
+  description = "마스터 비밀번호 평문. null(기본)이면 RDS가 만들어 Secrets Manager에 보관. 넣으면 tfvars·state에 평문으로 남음 (PostgreSQL 읽기 복제본은 이 방식만 가능)"
+  type        = string
+  default     = null
+  sensitive   = true
+}

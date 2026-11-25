@@ -51,20 +51,27 @@ fi
 # 3) 설정 (로그 그룹은 Terraform이 만든 것을 씀. 보관 기간은 Terraform 값 유지)
 #    METRIC_GROUP이 있으면 CPU·메모리 사용률도 보냄 (자동 확장 기준).
 #    차원은 ServiceGroup 하나뿐이라, 고정 서버와 확장 서버가 같은 지표에 값을 넣고 CloudWatch가 평균을 냄
+#    DISK_PATHS(공백 구분 마운트 경로)가 있고 이 서버가 DISK_INSTANCE(고정 서버)면 디스크 사용률도 보냄 (EBS 자동 증설 기준)
+#    디스크 차원: InstanceId, path (+ Agent 기본 fstype). 확장 서버는 보내지 않음
 CTL=/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
 CFG=/opt/aws/amazon-cloudwatch-agent/etc/iac-os-logs.json
-METRICS=""
+COLLECT=()
 if [ -n "${METRIC_GROUP:-}" ]; then
-  METRICS=$(cat <<EOM
-  "metrics": {
-    "namespace": "CWAgent",
-    "metrics_collected": {
-      "cpu": { "totalcpu": true, "measurement": ["usage_active"], "metrics_collection_interval": 60, "append_dimensions": { "ServiceGroup": "${METRIC_GROUP}" } },
-      "mem": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "append_dimensions": { "ServiceGroup": "${METRIC_GROUP}" } }
-    }
-  },
-EOM
-)
+  COLLECT+=("\"cpu\": { \"totalcpu\": true, \"measurement\": [\"usage_active\"], \"metrics_collection_interval\": 60, \"append_dimensions\": { \"ServiceGroup\": \"${METRIC_GROUP}\" } }")
+  COLLECT+=("\"mem\": { \"measurement\": [\"used_percent\"], \"metrics_collection_interval\": 60, \"append_dimensions\": { \"ServiceGroup\": \"${METRIC_GROUP}\" } }")
+fi
+if [ -n "${DISK_PATHS:-}" ]; then
+  T=$(curl -sS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+  SELF=$(curl -sS -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/instance-id)
+  if [ "$SELF" = "${DISK_INSTANCE:-}" ]; then
+    RES=$(for p in $DISK_PATHS; do printf '"%s",' "$p"; done)
+    COLLECT+=("\"disk\": { \"resources\": [${RES%,}], \"measurement\": [\"used_percent\"], \"drop_device\": true, \"metrics_collection_interval\": 60, \"append_dimensions\": { \"InstanceId\": \"${SELF}\" } }")
+    echo "disk metrics: ${DISK_PATHS}"
+  fi
+fi
+METRICS=""
+if [ -n "${COLLECT[*]:-}" ]; then
+  METRICS="  \"metrics\": { \"namespace\": \"CWAgent\", \"metrics_collected\": { $(IFS=,; echo "${COLLECT[*]}") } },"
 fi
 cat > "$CFG" <<EOF
 {

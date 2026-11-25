@@ -48,8 +48,10 @@ module "db" {
   username            = var.username
   port                = local.port
 
-  # 비밀번호: RDS가 Secrets Manager에 만들고 관리 (tfvars·state에 비밀값 없음). 비밀은 RDS 키로 암호화
-  manage_master_user_password   = true
+  # 비밀번호: 기본은 RDS가 Secrets Manager에 만들고 관리 (tfvars·state에 비밀값 없음, 비밀은 RDS 키로 암호화)
+  #           master_password를 넣으면 그 값 사용 (PostgreSQL 읽기 복제본은 이 방식만 가능)
+  manage_master_user_password   = local.managed_password
+  password                      = var.master_password
   master_user_secret_kms_key_id = var.common.kms_key_arn
 
   allocated_storage     = var.allocated_storage

@@ -114,7 +114,8 @@ run "central_rds_key" {
 run "read_replicas" {
   command = plan
   variables {
-    rds = { app = { replicas = { r1 = {}, r2 = { instance_class = "db.t4g.small" } } } }
+    rds                  = { app = { replicas = { r1 = {}, r2 = { instance_class = "db.t4g.small" } } } }
+    rds_master_passwords = { app = "Test-Passw0rd-123" }
   }
   assert {
     # 복제본 2개, 이름 <site>-rds-app-<키>, 복제본마다 로그 그룹
@@ -143,4 +144,34 @@ run "restore_from_snapshot" {
     condition     = module.rds_db["app"].settings.from_snapshot && module.rds_db["app"].settings.manage_master_user_password
     error_message = "스냅샷 복원 + 관리형 비밀번호"
   }
+}
+
+run "reject_postgres_replicas_with_managed_password" {
+  # PostgreSQL 복제본은 RDS 비밀번호 관리와 같이 쓸 수 없음 → 비밀번호를 넣어야 함
+  command = plan
+  variables {
+    rds = { app = { replicas = { r1 = {} } } }
+  }
+  expect_failures = [var.rds_master_passwords]
+}
+
+run "plaintext_password_turns_off_managed" {
+  command = plan
+  variables {
+    rds                  = { app = {}, etc = {} }
+    rds_master_passwords = { app = "Test-Passw0rd-123" }
+  }
+  assert {
+    condition     = !module.rds_db["app"].settings.manage_master_user_password && module.rds_db["etc"].settings.manage_master_user_password
+    error_message = "비밀번호를 넣은 DB만 RDS 비밀번호 관리를 꺼야 합니다."
+  }
+}
+
+run "reject_password_for_unknown_db" {
+  command = plan
+  variables {
+    rds                  = { app = {} }
+    rds_master_passwords = { other = "Test-Passw0rd-123" }
+  }
+  expect_failures = [var.rds_master_passwords]
 }

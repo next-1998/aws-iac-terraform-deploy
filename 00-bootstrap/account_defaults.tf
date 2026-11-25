@@ -4,7 +4,8 @@
 #          kms_key_id를 주지 않은 모든 새 EBS 볼륨이 이 CMK로 암호화됩니다.
 #   - S3 : 계정 단위 퍼블릭 접근 차단 (계정 전체, 버킷 설정보다 우선)
 #   - EC2: 인스턴스 메타데이터 기본값 IMDSv2 필수
-#   EBS, IMDS 설정은 리전 단위라 이 단계를 실행하는 리전마다 적용됩니다.
+#   - AWS Backup: 백업할 리소스 유형 사용 설정 (지원하는 모든 유형 켜기. 볼트·플랜·대상은 02-shared)
+#   EBS, IMDS, AWS Backup 설정은 리전 단위라 이 단계를 실행하는 리전마다 적용됩니다.
 #   이미 만들어진 볼륨·인스턴스는 바뀌지 않습니다 (새로 만드는 것부터 적용).
 ############################################################
 
@@ -25,4 +26,9 @@ module "s3_account_public_access_block" {
 
 module "imds_defaults" {
   source = "../../aws-iac-terraform-module/module/computing/aws-instance-metadata-defaults-workload"
+}
+
+# 리소스 유형 사용 설정 (리전 단위). destroy해도 설정은 그대로 남습니다 (Terraform 관리만 해제)
+module "backup_region_settings" {
+  source = "../../aws-iac-terraform-module/module/management/aws-backup-workload/region-settings"
 }

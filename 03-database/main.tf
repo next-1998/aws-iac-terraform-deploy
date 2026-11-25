@@ -70,6 +70,7 @@ module "rds_db" {
 
   snapshot_identifier = each.value.snapshot_identifier
   replicas            = each.value.replicas
+  master_password     = lookup(var.rds_master_passwords, each.key, null) # 없으면 RDS가 Secrets Manager로 관리
 
   common_tags = var.common_tags
 }

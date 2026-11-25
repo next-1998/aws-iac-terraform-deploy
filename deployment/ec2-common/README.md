@@ -53,3 +53,21 @@ common,1,ingress,tcp,22,22,pl:access_ctl,server access control,서버 접근제�
 - IAM 권한도 태그가 `true`인 인스턴스만 중지·시작할 수 있게 제한합니다.
 - VPC 안에서 실행하므로 01-network `interface_endpoints`에 **`ec2`**가 있어야 합니다(없으면 plan에서 막힘).
 - Lambda 코드: 이 폴더의 `src/weekend_stop.py` (RDS용은 `rds-common`을 만들 때 그 폴더에 둠). 조합은 `weekend_stop.tf` (log group → role → SG → Lambda → scheduler)
+
+## EBS 자동 증설 (선택, 기본 꺼짐)
+
+ec2-<용도>에서 `root_auto_grow` 또는 `ebs_volumes[].auto_grow`를 켜면 03-compute가 `enable_ebs_auto_grow = true`로 넘깁니다. 사이트에 Lambda 하나를 만듭니다 (`ebs_grow.tf`, 코드 `src/ebs_grow.py`).
+
+```text
+CloudWatch Agent (disk_used_percent, InstanceId·path) → 알람 <site>-<용도>-ebs-grow-<root|장치>
+  → Lambda: 볼륨 크기 늘림 → SSM: 파일시스템 확장 → 알람 OK로 되돌림 → SNS 알림 (02-shared 알림 토픽)
+스케줄 (1시간마다) → ALARM 상태로 남은 증설 알람 다시 확인 (6시간 제한 대기, 늘린 뒤에도 높은 경우)
+```
+
+| 항목 | 내용 |
+|---|---|
+| 권한 | 태그 `EBS_AUTO_GROW = true`인 볼륨만 크기 변경, 같은 태그의 서버에만 SSM 명령 |
+| 대상 정보 | 알람 설명에 `volume=… instance=… path=… max=… percent=… min=…` (Terraform이 넣음) |
+| 제한 | 같은 볼륨은 6시간에 한 번 (AWS). LVM은 지원하지 않음 (파티션 + xfs / ext4) |
+| 네트워크 | public이 없으면 interface endpoint `ec2`, `ssm`, `monitoring` (+ 알림 시 `sns`)가 필요 (없으면 plan에서 막힘) |
+| Terraform 크기 | 자동으로 늘어난 볼륨은 실제 크기가 tfvars보다 크면 실제 크기를 씀 (줄이려다 실패하지 않음) |

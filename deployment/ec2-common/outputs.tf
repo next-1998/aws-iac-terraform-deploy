@@ -22,6 +22,25 @@ output "contract" {
 
     # 로그 그룹 암호화 CMK (00-bootstrap의 logs 키). ec2-<용도>가 Agent 로그 그룹에 씀
     logs_kms_key_arn = var.logs_kms_key_arn
+
+    # EBS 자동 증설 (켜지 않으면 lambda_arn = null). ec2-<용도>가 알람 이름·태그에 씀
+    ebs_grow = {
+      enabled    = var.enable_ebs_auto_grow
+      lambda_arn = try(module.eg_lambda["this"].arn, null)
+      tag_key    = local.eg_tag
+      alarm_mark = local.eg_alarm_mark
+    }
+  }
+}
+
+output "ebs_grow" {
+  description = "EBS 자동 증설 Lambda (켜지 않으면 null)"
+  value       = try(module.eg_lambda["this"].function_name, null)
+
+  # 폐쇄망(public 없음)이면 Lambda가 쓰는 AWS API endpoint가 있어야 함
+  precondition {
+    condition     = !var.enable_ebs_auto_grow || local.routing.has_public || length(local.eg_missing_endpoints) == 0
+    error_message = "EBS 자동 증설 Lambda용 VPC endpoint가 없습니다: ${join(", ", local.eg_missing_endpoints)}. 01-network의 interface_endpoints에 추가하세요."
   }
 }
 

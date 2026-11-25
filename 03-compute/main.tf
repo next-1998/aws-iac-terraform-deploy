@@ -38,6 +38,11 @@ locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
   shared  = jsondecode(data.aws_ssm_parameter.shared.insecure_value)
 
+  # EBS 자동 증설 대상이 하나라도 있는지 (켜진 용도만)
+  ebs_auto_grow = anytrue([
+    for p in [var.was, var.webide] : p.enabled && (p.root_auto_grow != null || anytrue([for v in p.ebs_volumes : v.auto_grow != null]))
+  ])
+
   # ALB 접근 로그 버킷 이름
   access_log_bucket = !var.enable_alb_access_logs ? null : (
     var.central_log_bucket_arn != null ? element(split(":::", var.central_log_bucket_arn), 1) :
@@ -55,6 +60,10 @@ module "ec2_common" {
 
   # 암호화: 로그 그룹은 00-bootstrap의 logs 키(또는 중앙 키). EC2 볼륨은 계정 EBS 기본 키(00-bootstrap ebs)
   logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
+
+  # EBS 자동 증설: 어느 서버든 auto_grow 볼륨이 있으면 Lambda 생성. 결과는 02-shared 알림 토픽으로
+  enable_ebs_auto_grow = local.ebs_auto_grow
+  ebs_auto_grow        = { alarm_topic_arn = local.shared.alarm_topic_arn }
 
   enable_weekend_stop = var.ec2_weekend_stop.enabled
   weekend_stop = {
@@ -90,6 +99,7 @@ module "ec2_was" {
   ami                 = var.was.ami
   instance_type       = var.was.instance_type
   root_volume_size    = var.was.root_volume_size
+  root_auto_grow      = var.was.root_auto_grow
   ebs_volumes         = var.was.ebs_volumes
   weekend_stop_enable = var.was.weekend_stop_enable
 
@@ -119,6 +129,7 @@ module "ec2_webide" {
   ami                 = var.webide.ami
   instance_type       = var.webide.instance_type
   root_volume_size    = var.webide.root_volume_size
+  root_auto_grow      = var.webide.root_auto_grow
   ebs_volumes         = var.webide.ebs_volumes
   weekend_stop_enable = var.webide.weekend_stop_enable
 

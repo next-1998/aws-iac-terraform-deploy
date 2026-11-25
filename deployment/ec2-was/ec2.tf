@@ -13,7 +13,7 @@ module "ec2" {
   subnet                 = var.common.subnet_ids[local.instance_az]
   vpc_security_group_ids = [var.common.common_sg_id, module.sg.securitygroup_id] # 공통 SG(서버 접근) + 개별 SG(서비스)
 
-  volume_size = var.root_volume_size # 이미지 루트 크기 이상
+  volume_size = local.root_volume_size # 이미지 루트 크기 이상. 자동 증설로 늘어난 실제 크기가 더 크면 그 값 (autogrow.tf)
   encrypted   = true
   kms_key_id  = var.kms_key_id
   # 루트 볼륨만 (데이터 볼륨은 volumes.tf)
@@ -23,11 +23,11 @@ module "ec2" {
   user_data = var.user_data
 
   common_tags = var.common_tags
-  # 리소스 생성 시 태그: 주말 중지 대상 여부, 서비스 그룹(자동 확장 시 Agent 설치 대상·지표 묶음)
+  # 리소스 생성 시 태그: 주말 중지 대상 여부, 서비스 그룹(자동 확장 시 Agent 설치 대상·지표 묶음), EBS 자동 증설 허용(루트 볼륨에도 붙음)
   resource_tags = merge(local.resource_tags, {
     WEEKEND_STOP_ENABLE = tostring(var.weekend_stop_enable)
     ServiceGroup        = local.prefix
-  })
+  }, local.grow_any ? { (local.grow_tag) = "true" } : {})
   site       = local.site
   stack      = var.name
   key_target = local.key

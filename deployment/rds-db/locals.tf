@@ -26,3 +26,8 @@ locals {
   )
   allowed_cidrs = var.allowed_cidrs != null ? var.allowed_cidrs : local.ec2_cidrs
 }
+
+locals {
+  # 비밀번호 여부만 판단 (값은 노출하지 않음)
+  managed_password = nonsensitive(var.master_password == null)
+}
