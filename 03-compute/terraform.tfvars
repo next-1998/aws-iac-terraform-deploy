@@ -151,7 +151,7 @@ central_kms_key_arns = {
 }
 
 # ── 운영 모드 (삭제 보호) ─────────────────────────────────────
-# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김
+# operation_mode = "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ
 # 그 외(null, 기본)         : 모두 삭제 가능 (테스트처럼 만들고 지우는 환경)
 # 처음 배포할 때 정하고 바꾸지 않습니다 (바꾸면 버킷·KMS 키·EIP가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다
 operation_mode = null
@@ -163,4 +163,5 @@ deletion_protection = {
   # nat_eip     = true # NAT EIP (01-network)
   # alb         = true # ALB 삭제 보호 (03-compute)
   # ec2_volumes = true # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
+  # rds         = true # RDS 삭제 보호 + 삭제 시 최종 스냅샷 (03-database)
 }

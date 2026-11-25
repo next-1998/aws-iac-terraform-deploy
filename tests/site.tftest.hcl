@@ -976,3 +976,43 @@ run "prefix_list_id_uses_real_max_entries" {
   }
   expect_failures = [output.ingress, output.egress]
 }
+
+############################################################
+# RDS 파라미터 CSV (deployment/rds-db/src/<name>.parameters.csv → module/_rds_parameters_csv)
+############################################################
+run "rds_parameters_csv_parse" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_parameters_csv" }
+  variables {
+    # BOM + Windows 줄바꿈, apply_method 비우면 pending-reboot, 빈 행 무시
+    csv = "﻿no,name,value,apply_method,memo\r\n1,log_min_duration_statement,1000,immediate,느린 쿼리\r\n2,rds.force_ssl,1,,SSL 강제\r\n,,,,\r\n"
+  }
+  assert {
+    condition = (
+      length(output.parameters) == 2 &&
+      output.parameters[0].name == "log_min_duration_statement" && output.parameters[0].apply_method == "immediate" &&
+      output.parameters[1].apply_method == "pending-reboot"
+    )
+    error_message = "파라미터 CSV 해석: ${jsonencode(output.parameters)}"
+  }
+}
+
+run "reject_rds_parameters_csv_errors" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_parameters_csv" }
+  variables {
+    # 순번 중복, 이름 중복, 잘못된 apply_method
+    csv = "no,name,value,apply_method,memo\n1,max_connections,200,immediate,\n1,max_connections,300,later,\n"
+  }
+  expect_failures = [output.parameters]
+}
+
+run "reject_rds_parameters_tfvars_and_csv" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_parameters_csv" }
+  variables {
+    csv                = "no,name,value,apply_method,memo\n1,max_connections,200,,\n"
+    other_source_count = 1
+  }
+  expect_failures = [output.parameters]
+}

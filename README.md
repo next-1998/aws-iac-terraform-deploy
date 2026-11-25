@@ -16,7 +16,7 @@ workspace/
 | `01-network` | 사이트 | VPC, 공통 서브넷(edge/vpce/transit/public), NAT, VPC endpoint, DNS, prefix list, Flow Logs, 기존 TGW/peering 연결 | 구현 |
 | `02-shared` | 사이트 | 여러 유형이 같이 쓰는 것: 사이트 인증서, 알림 토픽 (`shared-common`) | 구현 |
 | `03-compute` | 사이트 | EC2 유형: `ec2-common` + 용도별 (`ec2-was`, `ec2-webide` …) | 구현 |
-| `03-database` | 사이트 | DB 유형: `rds-common` + 용도별 | 예정 (README에 설계) |
+| `03-database` | 사이트 | DB 유형: `rds-common` + `rds-db`(DB마다). RDS PostgreSQL·MySQL, 비밀번호는 Secrets Manager 관리 | 구현 (RDS) |
 | `04-eks` | 사이트 | EKS | 예정 (README에 설계) |
 | `05-pod` | 사이트 | 애드온, Helm, 워크로드 | 예정 |
 
@@ -36,6 +36,7 @@ Parameter Store
 /iac/<site>/01-network/base | subnets | routing | endpoints | dns
 /iac/<site>/02-shared/shared
 /iac/<site>/03-compute/ec2
+/iac/<site>/03-database/rds
 ```
 
 ## 배포 순서

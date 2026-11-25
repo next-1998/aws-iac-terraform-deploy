@@ -183,7 +183,7 @@ variable "cloudwatch_logs_destination_arn" {
 variable "operation_mode" {
   description = <<-EOT
     운영 모드 (삭제 보호)
-      "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김
+      "enable" : 운영. 버킷·KMS 키·NAT EIP 삭제 불가, KMS 삭제 대기 30일, ALB 삭제 보호, EC2 볼륨은 서버 삭제 후에도 남김, RDS 삭제 보호(최종 스냅샷)·Multi-AZ
       그 외(null 등, 기본) : 위 항목 모두 삭제 가능 (destroy로 정리. 버킷은 파일까지, KMS 대기 7일, EC2 볼륨도 같이 삭제)
     항목별로 다르게 하려면 deletion_protection에서 선택
     처음 배포할 때 정하고 바꾸지 않습니다 (바꾸면 버킷·KMS 키·EIP가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다
@@ -200,6 +200,7 @@ variable "deletion_protection" {
     nat_eip     = optional(bool) # NAT EIP (01-network)
     alb         = optional(bool) # ALB 삭제 보호 (03-compute)
     ec2_volumes = optional(bool) # 서버 삭제 후 EBS 볼륨 유지 (03-compute)
+    rds         = optional(bool) # RDS 삭제 보호 + 삭제 시 최종 스냅샷 (03-database)
   })
   default = {}
 }
@@ -207,7 +208,7 @@ variable "deletion_protection" {
 locals {
   # 항목별 삭제 보호: 항목 값이 있으면 그 값, 없으면 operation_mode = "enable"일 때만 보호 (그 외 값은 모두 기본 = 삭제 가능)
   protect = {
-    for k in ["buckets", "kms_keys", "nat_eip", "alb", "ec2_volumes"] :
+    for k in ["buckets", "kms_keys", "nat_eip", "alb", "ec2_volumes", "rds"] :
     k => lookup(var.deletion_protection, k, null) != null ? lookup(var.deletion_protection, k, null) : var.operation_mode == "enable"
   }
 }
