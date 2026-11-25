@@ -87,7 +87,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 | 위치 | 보관 | 설정 |
 |---|---|---|
 | CloudWatch Logs | **14일** | 로그 그룹 모듈 기본값 (각 단계 `log_retention_days`) |
-| S3 로그 버킷 `<버킷>/<로그 그룹 이름>/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정** |
+| S3 로그 버킷 `<버킷>/<로그 그룹 이름>/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정**. Glacier 전환일 + 90일 이상이어야 함 (Glacier 최소 보관 90일, 더 일찍 지우면 조기 삭제 요금) |
 
 ```text
 모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose (iac-cwlogs-to-s3) ─→ S3 로그 버킷

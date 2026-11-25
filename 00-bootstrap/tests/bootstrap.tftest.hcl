@@ -264,3 +264,23 @@ run "operation_mode_enable_and_item_override" {
     error_message = "보호 선택: ${jsonencode(local.protect)}"
   }
 }
+
+run "reject_retention_shorter_than_glacier_minimum" {
+  command = plan
+  variables {
+    # Glacier 30일 전환 후 60일에 삭제 → Glacier 보관 30일 (< 최소 90일) → 조기 삭제 요금
+    log_retention_days = 100
+  }
+  expect_failures = [var.log_retention_days]
+}
+
+run "retention_at_glacier_minimum_ok" {
+  command = plan
+  variables {
+    log_retention_days = 120 # 30 + 90
+  }
+  assert {
+    condition     = module.log_lifecycle["this"].rules[0].expiration_days == 120
+    error_message = "Glacier 전환 + 90일 = 120일은 허용"
+  }
+}

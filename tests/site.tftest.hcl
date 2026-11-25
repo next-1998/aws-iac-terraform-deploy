@@ -933,3 +933,46 @@ run "reject_autoscale_thresholds" {
   }
   expect_failures = [var.autoscale]
 }
+
+############################################################
+# SG 규칙 CSV 검사 보강 (QA)
+############################################################
+run "reject_all_protocol_with_ports" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
+  variables {
+    sg_ids = { app = "sg-app" }
+    # all에 22를 적어도 모든 포트가 열림 → 막아야 함
+    csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,ingress,all,22,22,cidr:10.0.0.0/24,ssh only,의도와 다름\n"
+  }
+  expect_failures = [output.ingress, output.egress]
+}
+
+run "all_protocol_without_ports_ok" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
+  variables {
+    sg_ids = { app = "sg-app" }
+    csv    = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,egress,all,,,cidr:10.0.0.0/24,all to subnet,\n"
+  }
+  assert {
+    condition     = length(output.egress) == 1 && length(output.errors) == 0
+    error_message = "all + 빈 포트는 허용: ${jsonencode(output.errors)}"
+  }
+}
+
+run "prefix_list_id_uses_real_max_entries" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_sg_rules_csv" }
+  override_data {
+    target = data.aws_ec2_managed_prefix_list.direct["pl-0abc1234def567890"]
+    values = { max_entries = 50 }
+  }
+  variables {
+    sg_ids     = { app = "sg-app" }
+    rule_limit = 30
+    # ID로 쓴 prefix list의 max_entries(50)가 한도(30)를 넘음 → 막아야 함 (예전에는 1로 계산되어 통과)
+    csv = "sg,no,direction,protocol,from_port,to_port,source,description,memo\napp,1,ingress,tcp,443,443,pl:pl-0abc1234def567890,https from partner,\n"
+  }
+  expect_failures = [output.ingress, output.egress]
+}

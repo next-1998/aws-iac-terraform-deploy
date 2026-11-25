@@ -72,8 +72,9 @@ variable "log_retention_days" {
   default     = 365
 
   validation {
-    condition     = var.log_retention_days > var.log_transition_glacier_days
-    error_message = "log_retention_days(${var.log_retention_days})는 Glacier 전환 시점(log_transition_glacier_days = ${var.log_transition_glacier_days})보다 커야 합니다."
+    # GLACIER(Flexible Retrieval)는 최소 보관 90일: 그 전에 지우면 남은 기간만큼 조기 삭제 요금이 붙음
+    condition     = var.log_retention_days >= var.log_transition_glacier_days + 90
+    error_message = "log_retention_days(${var.log_retention_days})는 Glacier 전환 시점(log_transition_glacier_days = ${var.log_transition_glacier_days}) + 90일 이상이어야 합니다 (Glacier 최소 보관 90일, 더 일찍 지우면 조기 삭제 요금)."
   }
 }
 
