@@ -36,8 +36,10 @@ module "rds_common" {
   network                = local.network
   central_kms_key_arns   = var.central_kms_key_arns
   kms_key_administrators = var.kms_key_administrators
-  protect_kms_keys       = local.protect.kms_keys
-  common_tags            = var.common_tags
+  # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성
+  enable_enhanced_monitoring = anytrue([for k, v in var.rds : v.monitoring_interval > 0])
+  protect_kms_keys           = local.protect.kms_keys
+  common_tags                = var.common_tags
 }
 
 module "rds_db" {
@@ -59,10 +61,12 @@ module "rds_db" {
   parameters            = each.value.parameters
 
   # 운영 모드면 Multi-AZ·삭제 보호 (DB별로 multi_az를 정하면 그 값)
-  multi_az              = coalesce(each.value.multi_az, var.operation_mode == "enable")
-  protect               = local.protect.rds
-  backup_retention_days = each.value.backup_retention_days
-  performance_insights  = each.value.performance_insights
+  multi_az                   = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect                    = local.protect.rds
+  backup_retention_days      = each.value.backup_retention_days
+  performance_insights       = each.value.performance_insights
+  monitoring_interval        = each.value.monitoring_interval
+  auto_minor_version_upgrade = each.value.auto_minor_version_upgrade
 
   log_exports        = each.value.log_exports
   log_retention_days = each.value.log_retention_days

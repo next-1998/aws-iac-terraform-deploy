@@ -31,16 +31,18 @@ common_tags = {}
 rds = {
   app = {
     engine                = "postgres"     # postgres | mysql
-    engine_version        = "16"           # 주 버전 (postgres 16, mysql 8.0). 부 버전은 자동 업그레이드
+    engine_version        = "16"           # 주 버전 (postgres 16, mysql 8.0). 부 버전은 만들 때 기본값, 이후 자동으로 안 바뀜
     instance_class        = "db.t4g.micro" # 기본 db.t4g.micro
     allocated_storage     = 20             # GiB (gp3)
     max_allocated_storage = 100            # 저장소 자동 확장 상한 (allocated_storage와 같으면 자동 확장 끔)
     db_name               = "app"          # 처음 만들 DB 이름 (null이면 만들지 않음)
     username              = "dbadmin"      # 마스터 사용자 (비밀번호는 Secrets Manager)
     # port                = 5432           # null이면 엔진 기본 (postgres 5432, mysql 3306)
-    # multi_az            = true           # null이면 operation_mode = "enable"일 때만 켬
-    backup_retention_days = 7     # 자동 백업 보관 일수
-    performance_insights  = false # 일부 작은 클래스는 지원 안 함
+    # multi_az            = true           # null이면 operation_mode = "enable"일 때만 켬 (DB별로 true/false 지정 가능)
+    backup_retention_days      = 7     # 자동 백업 보관 일수
+    performance_insights       = false # 일부 작은 클래스는 지원 안 함
+    monitoring_interval        = 60    # 향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같음
+    auto_minor_version_upgrade = false # 마이너 버전 자동 업그레이드 (기본 끔. 올릴 때는 engine_version을 바꿔 apply)
     # log_exports         = ["postgresql", "upgrade"]  # null이면 엔진 기본 (mysql: error, slowquery)
     log_retention_days = 14 # DB 로그 CloudWatch 보관 일수
     # allowed_cidrs      = ["10.227.0.128/26"]          # null이면 EC2 서브넷 대역 전체

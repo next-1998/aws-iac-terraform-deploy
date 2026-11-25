@@ -64,7 +64,11 @@ module "db" {
   performance_insights_kms_key_id = var.performance_insights ? var.common.kms_key_arn : null
 
   multi_az                   = var.multi_az
-  auto_minor_version_upgrade = true
+  auto_minor_version_upgrade = var.auto_minor_version_upgrade
+
+  # 향상된 모니터링 (rds-common 역할)
+  monitoring_interval = var.monitoring_interval
+  monitoring_role_arn = var.common.monitoring_role_arn
 
   # 로그 그룹을 먼저 만든 뒤 내보내기 (로그 그룹 모듈 결과를 참조 → 순서 보장)
   enabled_cloudwatch_logs_exports = [for k, lg in module.db_log : k if lg.name != ""]

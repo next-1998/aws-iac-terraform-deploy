@@ -25,14 +25,16 @@ variable "rds" {
       value        = string
       apply_method = optional(string, "pending-reboot")
     })), [])
-    multi_az              = optional(bool) # null이면 operation_mode = "enable"일 때만 켬
-    backup_retention_days = optional(number, 7)
-    performance_insights  = optional(bool, false)
-    log_exports           = optional(list(string))
-    log_retention_days    = optional(number, 14)
-    allowed_cidrs         = optional(list(string)) # null이면 EC2 서브넷 대역
-    snapshot_identifier   = optional(string)       # 이 스냅샷으로 만듦 (처음 한 번만)
-    replicas = optional(map(object({               # 읽기 복제본 (키 → 설정)
+    multi_az                   = optional(bool) # null이면 operation_mode = "enable"일 때만 켬
+    backup_retention_days      = optional(number, 7)
+    performance_insights       = optional(bool, false)
+    monitoring_interval        = optional(number, 60)  # 향상된 모니터링 간격(초), 0이면 끔
+    auto_minor_version_upgrade = optional(bool, false) # 마이너 버전 자동 업그레이드 (기본 끔)
+    log_exports                = optional(list(string))
+    log_retention_days         = optional(number, 14)
+    allowed_cidrs              = optional(list(string)) # null이면 EC2 서브넷 대역
+    snapshot_identifier        = optional(string)       # 이 스냅샷으로 만듦 (처음 한 번만)
+    replicas = optional(map(object({                    # 읽기 복제본 (키 → 설정)
       instance_class       = optional(string)
       multi_az             = optional(bool, false)
       performance_insights = optional(bool)

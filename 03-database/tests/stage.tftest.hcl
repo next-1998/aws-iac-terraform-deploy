@@ -175,3 +175,30 @@ run "reject_password_for_unknown_db" {
   }
   expect_failures = [var.rds_master_passwords]
 }
+
+run "monitoring_and_minor_upgrade_defaults" {
+  # 기본: 향상된 모니터링 60초(역할 생성), 마이너 버전 자동 업그레이드 끔
+  command = plan
+  variables {
+    rds = { app = {}, nomon = { monitoring_interval = 0, auto_minor_version_upgrade = true } }
+  }
+  assert {
+    condition     = module.rds_db["app"].settings.monitoring_interval == 60 && !module.rds_db["app"].settings.auto_minor_version_upgrade
+    error_message = "기본값: ${jsonencode(module.rds_db["app"].settings)}"
+  }
+  assert {
+    condition     = module.rds_db["nomon"].settings.monitoring_interval == 0 && module.rds_db["nomon"].settings.auto_minor_version_upgrade
+    error_message = "DB별 값: ${jsonencode(module.rds_db["nomon"].settings)}"
+  }
+}
+
+run "no_monitoring_role_when_all_off" {
+  command = plan
+  variables {
+    rds = { app = { monitoring_interval = 0 } }
+  }
+  assert {
+    condition     = length(module.rds_common[0].contract.monitoring_role_arn == null ? [] : ["x"]) == 0
+    error_message = "모니터링을 모두 끄면 역할을 만들지 않아야 합니다."
+  }
+}

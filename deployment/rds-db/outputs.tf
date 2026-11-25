@@ -35,6 +35,9 @@ output "settings" {
   description = "주요 설정 (확인·테스트용)"
   value = {
     multi_az                    = var.multi_az
+    monitoring_interval         = var.monitoring_interval
+    monitoring_role             = var.common.monitoring_role_arn != null
+    auto_minor_version_upgrade  = var.auto_minor_version_upgrade
     deletion_protection         = var.protect
     final_snapshot              = var.protect
     manage_master_user_password = local.managed_password

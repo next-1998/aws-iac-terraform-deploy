@@ -35,3 +35,9 @@ variable "protect_kms_keys" {
   type        = bool
   default     = false
 }
+
+variable "enable_enhanced_monitoring" {
+  description = "향상된 모니터링 역할 생성 (DB 중 monitoring_interval > 0이 하나라도 있으면 03-database가 켬)"
+  type        = bool
+  default     = false
+}

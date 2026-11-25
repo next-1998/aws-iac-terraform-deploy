@@ -43,7 +43,11 @@ module "replica" {
   performance_insights_kms_key_id = coalesce(each.value.performance_insights, var.performance_insights) ? var.common.kms_key_arn : null
 
   multi_az                   = each.value.multi_az
-  auto_minor_version_upgrade = true
+  auto_minor_version_upgrade = var.auto_minor_version_upgrade
+
+  # 향상된 모니터링 (rds-common 역할)
+  monitoring_interval = var.monitoring_interval
+  monitoring_role_arn = var.common.monitoring_role_arn
 
   # 이 복제본의 로그 그룹을 먼저 만든 뒤 내보내기
   enabled_cloudwatch_logs_exports = [for k, lg in module.replica_log : lg.name == "" ? "" : split("|", k)[1] if split("|", k)[0] == each.key]

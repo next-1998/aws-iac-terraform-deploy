@@ -41,7 +41,7 @@ variable "engine" {
 }
 
 variable "engine_version" {
-  description = "엔진 버전. 주 버전만 쓰면 그 안의 기본 부 버전 (예: postgres 16, mysql 8.0). 부 버전 자동 업그레이드는 켜짐"
+  description = "엔진 버전. 주 버전만 쓰면 만들 때 그 안의 기본 부 버전 (예: postgres 16, mysql 8.0). 부 버전 자동 업그레이드는 auto_minor_version_upgrade (기본 끔)"
   type        = string
   default     = "16"
 }
@@ -193,4 +193,21 @@ variable "master_password" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "monitoring_interval" {
+  description = "향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같은 값. 비용은 CloudWatch Logs(RDSOSMetrics) 수집량만큼"
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = contains([0, 1, 5, 10, 15, 30, 60], var.monitoring_interval)
+    error_message = "monitoring_interval은 0, 1, 5, 10, 15, 30, 60 중 하나여야 합니다."
+  }
+}
+
+variable "auto_minor_version_upgrade" {
+  description = "마이너 버전 자동 업그레이드 (기본 끔: 유지 관리 기간에 자동으로 버전이 바뀌지 않음. 올릴 때는 engine_version을 바꿔 apply)"
+  type        = bool
+  default     = false
 }
