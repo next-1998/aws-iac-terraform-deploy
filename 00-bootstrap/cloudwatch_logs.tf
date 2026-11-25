@@ -34,6 +34,17 @@ locals {
 
   cwlogs_name = "iac-cwlogs-to-s3"
 
+  # S3 경로 = 로그 그룹 이름 (앞의 / 제거)
+  #   예외: RDS 로그 그룹은 AWS가 /aws/rds/instance/<DB>/<로그>로 고정 → 다른 리소스처럼 <VPC 이름>/rds/<DB>/<로그>
+  #         DB 이름 <site>-rds-<용도>[-<복제본>]에서 site를 뽑고, VPC 이름 규칙 <site>-vpc (01-network)를 씀
+  #   예) /iactest-vpc/ec2/iactest-ec2-was/messages      → iactest-vpc/ec2/iactest-ec2-was/messages/
+  #       /aws/rds/instance/iactest-rds-app/postgresql   → iactest-vpc/rds/iactest-rds-app/postgresql/
+  cwlogs_path_query = join("", [
+    "{log_group: (.logGroup as $g",
+    " | (($g | capture(\"^/aws/rds/instance/(?<id>(?<site>[a-z0-9-]+?)-rds-[^/]+)/(?<log>[^/]+)$\")) // null) as $m",
+    " | if $m then \"\\($m.site)-vpc/rds/\\($m.id)/\\($m.log)\" else ($g | ltrimstr(\"/\")) end)}",
+  ])
+
   # policies/*.json.tftpl 에 넣는 값
   cwlogs_policy_vars = {
     partition     = data.aws_partition.current.partition
@@ -83,9 +94,9 @@ module "cwlogs_firehose" {
   processors = [
     # CloudWatch Logs가 보낸 gzip 데이터를 풂
     { type = "Decompression", parameters = { CompressionFormat = "GZIP" } },
-    # 로그 그룹 이름 → 경로 (앞의 / 제거)
+    # 로그 그룹 이름 → 경로 (local.cwlogs_path_query)
     { type = "MetadataExtraction", parameters = {
-      MetadataExtractionQuery = "{log_group: (.logGroup | ltrimstr(\"/\"))}"
+      MetadataExtractionQuery = local.cwlogs_path_query
       JsonParsingEngine       = "JQ-1.6"
     } },
     # 레코드마다 줄바꿈 (한 파일에 여러 JSON)
