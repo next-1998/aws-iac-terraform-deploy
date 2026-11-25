@@ -13,10 +13,6 @@
 ############################################################
 
 locals {
-  # Auto Scaling이 CMK로 암호화된 볼륨을 붙이려면 서비스 연결 역할에 키 사용 권한이 필요합니다.
-  # 이 역할이 계정에 먼저 있어야 키 정책을 만들 수 있으므로 ASG를 쓸 때만 켭니다.
-  asg_service_role = "arn:${data.aws_partition.current.partition}:iam::${local.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
-
   central = var.central_kms_key_arns
 
   # tfstate 전용 키를 쓰는지 (중앙 키가 있거나 분리 옵션을 켰을 때)
@@ -26,22 +22,18 @@ locals {
     ebs = {
       description = "EBS default encryption key (account/region default)"
       admins      = var.kms_key_administrators
-      asg         = var.ebs_kms_allow_autoscaling
     }
     s3 = {
       description = "S3 buckets"
       admins      = var.kms_key_administrators
-      asg         = false
     }
     logs = {
       description = "CloudWatch Logs log groups (account)"
       admins      = var.kms_key_administrators
-      asg         = false
     }
     tfstate = {
       description = "Terraform state bucket and lock table (separated)"
       admins      = var.tfstate_kms_key_administrators
-      asg         = false
     }
   }
 
@@ -53,6 +45,23 @@ locals {
 data "aws_partition" "current" {}
 
 locals {
+  # EBS 기본 키: 이 계정 안에서 EC2 서비스를 통해 쓰는 경우만 허용 (AWS 기본 키 aws/ebs와 같은 방식)
+  #   Auto Scaling이 확장 서버의 암호화 볼륨을 만들 때 쓰는 서비스 연결 역할(AWSServiceRoleForAutoScaling)도 포함됩니다.
+  #   특정 역할 이름을 적지 않으므로 그 역할이 계정에 아직 없어도 키를 만들 수 있습니다 (bootstrap이 ASG보다 먼저 실행됨).
+  #   EC2를 거치지 않는 직접 사용(Decrypt API 등)은 키 관리자 외에는 허용되지 않습니다.
+  ebs_key_statements = [
+    {
+      sid        = "EbsViaEc2InThisAccount"
+      actions    = ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey", "kms:CreateGrant"]
+      principals = [{ type = "AWS", identifiers = ["*"] }]
+      resources  = ["*"]
+      condition = [
+        { test = "StringEquals", variable = "kms:CallerAccount", values = [local.account_id] },
+        { test = "StringEquals", variable = "kms:ViaService", values = ["ec2.${local.region}.amazonaws.com"] },
+      ]
+    },
+  ]
+
   logs_key_statements = [{
     sid     = "CloudWatchLogs"
     actions = ["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"]
@@ -80,10 +89,10 @@ module "kms_key" {
   deletion_window_in_days = local.protect.kms_keys ? 30 : 7
   prevent_destroy         = local.protect.kms_keys
 
-  key_administrators                = each.value.admins
-  key_service_roles_for_autoscaling = each.value.asg ? [local.asg_service_role] : []
+  key_administrators = each.value.admins
+  # ebs 키: 이 계정 안에서 EC2를 통해 쓰는 경우만 허용 (Auto Scaling 서비스 역할 포함)
   # logs 키: CloudWatch Logs 서비스가 이 계정 로그 그룹을 암호화하도록 허용
-  key_statements = [for s in local.logs_key_statements : s if each.key == "logs"]
+  key_statements = each.key == "ebs" ? local.ebs_key_statements : each.key == "logs" ? local.logs_key_statements : []
 
   common_tags = var.common_tags
   site        = local.tag.site

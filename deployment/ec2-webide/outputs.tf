@@ -83,3 +83,13 @@ output "sg_ids" {
   description = "이 용도에서 만든 SG (sg_rules.csv의 sg 이름 → ID: app, alb). 03-compute가 다른 용도에 <용도>.<이름>으로 넘김"
   value       = local.sg_ids
 }
+
+output "autoscale" {
+  description = "자동 확장 (꺼져 있으면 null)"
+  value = local.autoscale ? {
+    asg_name           = module.asg[0].name
+    launch_template_id = module.asg_lt[0].id
+    image_id           = local.asg_ami
+    initial_image      = local.make_image
+  } : null
+}

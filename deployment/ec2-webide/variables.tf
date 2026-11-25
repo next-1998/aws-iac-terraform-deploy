@@ -262,3 +262,51 @@ variable "peer_sg_ids" {
   type        = map(string)
   default     = {}
 }
+
+############################################################
+# 자동 확장 (autoscale.tf, 선택 · 기본 꺼짐)
+############################################################
+variable "autoscale" {
+  description = <<-EOT
+    고정 서버 1대 + 확장 서버(ASG, 0 ~ max_extra)
+      enabled       : 켜기 (기본 false = 고정 서버 1대만, 지금과 같음)
+      ami           : 확장 서버 이미지 (고정 AMI ID). null이면 고정 서버로 최초 이미지를 한 번만 만들어 씀
+      max_extra     : 확장 서버 최대 대수 (0이면 대기만)
+      scale_out     : CPU 또는 메모리 그룹 평균이 이 값(%)을 5분 넘으면 +1
+      scale_in      : CPU와 메모리 그룹 평균이 모두 이 값(%) 미만 15분이면 -1
+      image_reboot  : 최초 이미지를 만들 때 고정 서버 재부팅 (true = 파일 일관성, 잠시 중단)
+      instance_type : 확장 서버 사양 (null이면 고정 서버와 같음)
+      refresh_min_healthy_percentage : 이미지가 바뀌어 순차 교체할 때 유지할 정상 비율 (%)
+      weekend_stop  : 주말 중지 (선택, 기본 꺼짐). 확장 서버만 0대 ↔ 원복
+  EOT
+  type = object({
+    enabled                        = optional(bool, false)
+    ami                            = optional(string)
+    max_extra                      = optional(number, 0)
+    scale_out                      = optional(number, 80)
+    scale_in                       = optional(number, 50)
+    image_reboot                   = optional(bool, false)
+    instance_type                  = optional(string)
+    refresh_min_healthy_percentage = optional(number, 90)
+    weekend_stop = optional(object({
+      enabled        = optional(bool, false)
+      stop_schedule  = optional(string, "0 21 * * FRI")
+      start_schedule = optional(string, "0 7 * * MON")
+      time_zone      = optional(string, "Asia/Seoul")
+    }), {})
+  })
+  default = {}
+
+  validation {
+    condition     = var.autoscale.ami == null || can(regex("^ami-[0-9a-f]{8,17}$", var.autoscale.ami))
+    error_message = "autoscale.ami는 AMI ID(ami-로 시작) 형식이어야 합니다."
+  }
+  validation {
+    condition     = var.autoscale.max_extra >= 0 && floor(var.autoscale.max_extra) == var.autoscale.max_extra
+    error_message = "autoscale.max_extra는 0 이상의 정수여야 합니다."
+  }
+  validation {
+    condition     = var.autoscale.scale_in > 0 && var.autoscale.scale_in < var.autoscale.scale_out && var.autoscale.scale_out < 100
+    error_message = "autoscale은 0 < scale_in < scale_out < 100 이어야 합니다 (늘었다 줄었다 반복하지 않게 간격 필요)."
+  }
+}

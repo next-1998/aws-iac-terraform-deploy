@@ -119,12 +119,6 @@ variable "kms_key_administrators" {
   default     = []
 }
 
-variable "ebs_kms_allow_autoscaling" {
-  description = "Auto Scaling 서비스 연결 역할에 EBS CMK 사용 허용 (ASG를 쓸 때 true. 역할이 계정에 먼저 있어야 함)"
-  type        = bool
-  default     = false
-}
-
 variable "manage_s3_account_public_access_block" {
   description = "계정 단위 S3 퍼블릭 차단을 이 state에서 관리. 계정 전체 설정이라 여러 리전에서 이 단계를 실행하면 한 리전만 true"
   type        = bool

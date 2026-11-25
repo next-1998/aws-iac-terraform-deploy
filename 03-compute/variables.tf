@@ -24,6 +24,7 @@ variable "was" {
     alb_record_name     = optional(string, "web")
     app_port            = optional(number, 8080)
     health_check_path   = optional(string, "/")
+    autoscale           = optional(any, {}) # 자동 확장 (deployment/ec2-<용도>/variables.tf의 autoscale, 기본 꺼짐)
   })
 
   validation {
@@ -47,6 +48,7 @@ variable "webide" {
     alb_record_name     = optional(string, "ide")
     app_port            = optional(number, 80)
     health_check_path   = optional(string, "/")
+    autoscale           = optional(any, {}) # 자동 확장 (deployment/ec2-<용도>/variables.tf의 autoscale, 기본 꺼짐)
   })
 
   validation {

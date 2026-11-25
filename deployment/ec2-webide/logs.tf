@@ -41,15 +41,21 @@ module "cwagent" {
 
   associations = local.cwagent_enabled ? {
     "${local.prefix}-cwagent" = {
-      instance_ids = [module.ec2.ec2_instance.id]
+      # 자동 확장을 켜면 태그(ServiceGroup)로 지정 → 고정 서버와 나중에 뜨는 확장 서버 모두 자동 적용
+      instance_ids = local.autoscale ? [] : [module.ec2.ec2_instance.id]
+      target_tag   = local.autoscale ? { key = "ServiceGroup", values = [local.service_group] } : null
       parameters = {
         commands = join("\n", [
           "MSG_GROUP='${module.agent_log["messages"].name}'",
           "SEC_GROUP='${module.agent_log["secure"].name}'",
+          # 자동 확장 기준 지표 (CPU·메모리). 켜지 않으면 비움 = 지표를 보내지 않음
+          "METRIC_GROUP='${local.autoscale ? local.service_group : ""}'",
           file("${path.module}/src/cwagent_setup.sh"),
         ])
       }
       schedule_expression = var.cloudwatch_agent_schedule
+      # 최초 이미지를 만들 때는 Agent 설치가 끝난 뒤 찍히도록 성공까지 대기
+      wait_for_success_seconds = local.make_image ? 1800 : null
     }
   } : {}
 }

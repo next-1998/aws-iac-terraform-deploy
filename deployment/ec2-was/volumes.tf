@@ -70,6 +70,8 @@ module "volume_mount" {
           file("${path.module}/src/mount_volumes.sh"),
         ])
       }
+      # 최초 이미지를 만들 때는 마운트가 끝난 뒤 찍히도록 성공까지 대기
+      wait_for_success_seconds = local.make_image ? 1800 : null
     }
   } : {}
 }

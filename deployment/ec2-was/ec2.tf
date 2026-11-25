@@ -23,9 +23,10 @@ module "ec2" {
   user_data = var.user_data
 
   common_tags = var.common_tags
-  # 리소스 생성 시 태그: 주말 중지 대상 여부
+  # 리소스 생성 시 태그: 주말 중지 대상 여부, 서비스 그룹(자동 확장 시 Agent 설치 대상·지표 묶음)
   resource_tags = merge(local.resource_tags, {
     WEEKEND_STOP_ENABLE = tostring(var.weekend_stop_enable)
+    ServiceGroup        = local.prefix
   })
   site       = local.site
   stack      = var.name

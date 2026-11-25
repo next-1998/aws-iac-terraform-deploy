@@ -870,3 +870,66 @@ run "same_stage_sg_reference_by_name" {
     error_message = "이름표: ${jsonencode(keys(output.purpose_sg_ids))}"
   }
 }
+
+############################################################
+# 자동 확장 (고정 서버 1대 + ASG 0 ~ max_extra)
+############################################################
+run "autoscale_off_by_default" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common = run.layout_v1_2az.ec2_common_contract
+    ami    = "ami-0123456789abcdef0"
+  }
+  assert {
+    condition     = output.autoscale == null && length(module.asg) == 0 && length(module.initial_image) == 0 && length(module.asg_alarm) == 0
+    error_message = "기본은 자동 확장 꺼짐 (고정 서버만)"
+  }
+}
+
+run "autoscale_with_initial_image" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common      = run.layout_v1_2az.ec2_common_contract
+    ami         = "ami-0123456789abcdef0"
+    enable_alb  = true
+    ebs_volumes = [{ device_name = "/dev/sdf", volume_size = 20, mount_point = "/data" }]
+    autoscale   = { enabled = true, max_extra = 2 }
+  }
+  assert {
+    # autoscale.ami가 없으면 고정 서버로 최초 이미지, ALB 대상 그룹에 연결, 알람 2개·정책 2개, 주말 중지는 기본 꺼짐
+    condition = (
+      length(module.initial_image) == 1 && length(module.asg) == 1 && length(module.asg_tg) == 1 &&
+      length(module.asg_policy) == 1 && length(module.asg_alarm) == 1 && length(module.asg_schedule) == 0 &&
+      output.autoscale.initial_image
+    )
+    error_message = "자동 확장 구성: ${jsonencode(output.autoscale)}"
+  }
+}
+
+run "autoscale_with_fixed_ami_and_weekend_stop" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common    = run.layout_v1_2az.ec2_common_contract
+    ami       = "ami-0123456789abcdef0"
+    autoscale = { enabled = true, ami = "ami-0fedcba9876543210", max_extra = 3, weekend_stop = { enabled = true } }
+  }
+  assert {
+    # 고정 AMI ID가 있으면 최초 이미지를 만들지 않음, ALB를 끄면 대상 그룹 연결 없음, 주말 중지 켜면 예약 2개
+    condition     = length(module.initial_image) == 0 && output.autoscale.image_id == "ami-0fedcba9876543210" && length(module.asg_tg) == 0 && length(module.asg_schedule) == 1
+    error_message = "고정 AMI: ${jsonencode(output.autoscale)}"
+  }
+}
+
+run "reject_autoscale_thresholds" {
+  command = plan
+  module { source = "../deployment/ec2-was" }
+  variables {
+    common    = run.layout_v1_2az.ec2_common_contract
+    ami       = "ami-0123456789abcdef0"
+    autoscale = { enabled = true, max_extra = 2, scale_out = 60, scale_in = 70 }
+  }
+  expect_failures = [var.autoscale]
+}

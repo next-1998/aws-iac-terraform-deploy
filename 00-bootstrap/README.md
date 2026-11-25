@@ -61,7 +61,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 
 - 이미 있는 볼륨·인스턴스는 바뀌지 않습니다. 새로 만드는 것부터 적용됩니다.
 - 여러 리전에서 이 단계를 실행하면 S3 계정 차단은 한 리전에서만 관리합니다 (`manage_s3_account_public_access_block`).
-- Auto Scaling을 쓰면 `ebs_kms_allow_autoscaling = true` (서비스 연결 역할이 계정에 먼저 있어야 함).
+- EBS 키 정책은 **이 계정 안에서 EC2를 통해 쓰는 경우**만 허용합니다 (AWS 기본 키 `aws/ebs`와 같은 방식). Auto Scaling 확장 서버(서비스 연결 역할)도 별도 설정 없이 암호화 볼륨을 만들 수 있습니다. 중앙 계정 ebs 키를 쓰면 중앙 키 정책에 이 계정의 Auto Scaling 서비스 연결 역할(또는 같은 조건) 허용이 필요합니다 (중앙 계정 사전 요청).
 - CMK ARN은 `/iac/_account/00-bootstrap/kms`에 남깁니다 (`key_arns`, `source`: central / local / same-as-s3).
 
 ## 암호화 키 (CMK, `kms.tf`)

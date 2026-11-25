@@ -100,6 +100,7 @@ module "ec2_was" {
   access_log_bucket   = local.access_log_bucket
   app_port            = var.was.app_port
   health_check_path   = var.was.health_check_path
+  autoscale           = var.was.autoscale
 
   # 같은 단계 다른 용도 SG (sg_rules.csv에서 sg:webide.app 등으로 참조)
   peer_sg_ids = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "was.") }
@@ -128,6 +129,7 @@ module "ec2_webide" {
   access_log_bucket   = local.access_log_bucket
   app_port            = var.webide.app_port
   health_check_path   = var.webide.health_check_path
+  autoscale           = var.webide.autoscale
 
   # 같은 단계 다른 용도 SG (sg_rules.csv에서 sg:was.app 등으로 참조)
   peer_sg_ids = { for k, v in local.purpose_sg_ids : k => v if !startswith(k, "webide.") }

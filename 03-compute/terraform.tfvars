@@ -82,6 +82,27 @@ was = {
   alb_record_name     = "web" # 서비스 도메인 <이름>.<site>.<root_domain> (기본 web)
   app_port            = 8080  # 서버 서비스 포트 = ALB 대상 포트 (기본 8080)
   health_check_path   = "/"   # ALB 헬스체크 경로 (기본 /)
+
+  # 자동 확장 (선택, 기본 꺼짐): 고정 서버(위) 1대 + 확장 서버 ASG 0 ~ max_extra대, 같은 ALB 대상 그룹
+  #   켜기 전 확인 (협의 항목, 고객 서비스 담당)
+  #     - 이미지만으로 애플리케이션이 뜨는가 (수동 설치·설정 없음)
+  #     - 세션·업로드 파일이 서버 밖(DB·Redis·S3·EFS)에 있는가. 데이터 볼륨은 이미지 시점 복사본이 들어가고,
+  #       확장 서버에서 쓴 데이터는 줄어들 때 사라짐
+  #     - 라이선스가 서버 대수·IP에 묶여 있지 않은가 / 외부 방화벽이 서버 IP가 아니라 대역·SG로 허용되는가
+  #   이미지: ami가 없으면 처음 한 번 고정 서버로 이미지를 만들어 씀 (데이터 볼륨 포함, 마운트·Agent 설치 후)
+  #           이후 바꿀 때는 Terraform 밖에서 만든 이미지 ID를 ami에 → 확장 서버만 순차 교체
+  #   확장 기준: CPU·메모리 그룹 평균 (고정 + 확장). 하나라도 scale_out% 초과 5분 → +1, 둘 다 scale_in% 미만 15분 → -1
+  autoscale = {
+    enabled = false # true로 켜야 동작
+    # ami           = "ami-…"  # 확장 서버 이미지 (고정 ID). 비우면 최초 1회 고정 서버로 생성
+    # max_extra     = 0        # 확장 서버 최대 대수 (0이면 대기만)
+    # scale_out     = 80       # %
+    # scale_in      = 50       # %
+    # image_reboot  = false    # 최초 이미지 생성 시 고정 서버 재부팅 (true = 파일 일관성, 잠시 중단)
+    # instance_type = null     # 확장 서버 사양 (null = 고정 서버와 같음)
+    # refresh_min_healthy_percentage = 90  # 이미지 변경 시 순차 교체 중 유지할 정상 비율
+    # weekend_stop  = { enabled = false, stop_schedule = "0 21 * * FRI", start_schedule = "0 7 * * MON" }  # 확장 서버만 0대 ↔ 원복
+  }
 }
 
 # ── Web IDE ───────────────────────────────────────────────────
@@ -97,6 +118,7 @@ webide = {
   alb_record_name     = "ide"                   # 서비스 도메인 이름 (기본 ide)
   app_port            = 80                      # 서버 서비스 포트 (기본 80)
   health_check_path   = "/"                     # ALB 헬스체크 경로 (기본 /)
+  autoscale           = { enabled = false }     # 자동 확장 (형식은 was와 같음, 기본 꺼짐)
 }
 
 # ── EC2 주말 중지 (협의 후 적용) ───────────────────────────────

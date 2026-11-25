@@ -49,11 +49,27 @@ else
 fi
 
 # 3) 설정 (로그 그룹은 Terraform이 만든 것을 씀. 보관 기간은 Terraform 값 유지)
+#    METRIC_GROUP이 있으면 CPU·메모리 사용률도 보냄 (자동 확장 기준).
+#    차원은 ServiceGroup 하나뿐이라, 고정 서버와 확장 서버가 같은 지표에 값을 넣고 CloudWatch가 평균을 냄
 CTL=/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl
 CFG=/opt/aws/amazon-cloudwatch-agent/etc/iac-os-logs.json
+METRICS=""
+if [ -n "${METRIC_GROUP:-}" ]; then
+  METRICS=$(cat <<EOM
+  "metrics": {
+    "namespace": "CWAgent",
+    "metrics_collected": {
+      "cpu": { "totalcpu": true, "measurement": ["usage_active"], "metrics_collection_interval": 60, "append_dimensions": { "ServiceGroup": "${METRIC_GROUP}" } },
+      "mem": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "append_dimensions": { "ServiceGroup": "${METRIC_GROUP}" } }
+    }
+  },
+EOM
+)
+fi
 cat > "$CFG" <<EOF
 {
-  "agent": { "run_as_user": "root" },
+  "agent": { "run_as_user": "root", "omit_hostname": true },
+${METRICS}
   "logs": {
     "logs_collected": {
       "files": {
