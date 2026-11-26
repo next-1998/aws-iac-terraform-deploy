@@ -135,3 +135,19 @@ run "ebs_auto_grow_off_by_default" {
   }
 }
 
+
+run "key_pair_by_name" {
+  # 미리 만든 key pair를 이름으로 지정 (WAS만), webide는 key pair 없음
+  command = plan
+  variables {
+    was = { ami = "ami-0123456789abcdef0", key_pair_name = "iactest-was-key", autoscale = { enabled = true } }
+  }
+  override_data {
+    target = module.ec2_was[0].data.aws_key_pair.this[0]
+    values = { key_name = "iactest-was-key" }
+  }
+  assert {
+    condition     = module.ec2_was[0].key_pair == "iactest-was-key" && module.ec2_webide[0].key_pair == null
+    error_message = "key pair: ${jsonencode([module.ec2_was[0].key_pair, module.ec2_webide[0].key_pair])}"
+  }
+}

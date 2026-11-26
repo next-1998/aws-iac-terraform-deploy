@@ -7,6 +7,7 @@ module "ec2" {
 
   name                 = local.prefix
   iam_instance_profile = module.instance_profile.name
+  key_name             = one(data.aws_key_pair.this[*].key_name)
 
   ami                    = var.ami
   instance_type          = var.instance_type
@@ -31,4 +32,11 @@ module "ec2" {
   site       = local.site
   stack      = var.name
   key_target = local.key
+}
+
+# key pair (선택): 담당자가 콘솔에서 만든 key pair를 이름으로 지정 (Terraform은 키를 만들지 않음 → state·Git에 개인 키 없음)
+#   이 계정·리전에 없는 이름이면 plan에서 실패
+data "aws_key_pair" "this" {
+  count    = var.key_pair_name == null ? 0 : 1
+  key_name = var.key_pair_name
 }

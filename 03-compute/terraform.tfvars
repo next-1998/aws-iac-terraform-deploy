@@ -10,6 +10,7 @@
 #     서버 이미지 (AMI)      고객 보안/플랫폼     was/webide.ami (커스텀 이미지, 공유·암호화 키, 루트 볼륨 크기)
 #     서버 사양              고객 (서비스 담당)   was/webide.instance_type, root_volume_size, ebs_volumes
 #     디스크 자동 증설       고객 운영팀          root_auto_grow, ebs_volumes[].auto_grow (기준 %, 증가량, 상한)
+#     서버 접속 키           고객 보안팀          was/webide.key_pair_name (사용 여부, 담당자가 만든 key pair 이름. pem 전달은 담당자. 기본은 Session Manager만)
 #     서비스 포트·헬스체크   고객 (서비스 담당)   app_port, health_check_path
 #     LB 공개 범위           고객 보안팀          enable_alb, alb_internal (외부용은 01-network enable_public 필요)
 #     서비스 도메인 이름     고객 DNS 담당        alb_record_name
@@ -68,6 +69,9 @@ was = {
   #   데이터 볼륨은 ebs_volumes 항목에 auto_grow = { max_size = 200 } (mount_point 필요)
   # root_auto_grow = { max_size = 100 } # threshold = 80, increase_percent = 20, min_increase = 10 (기본값)
   # backup_plans   = ["daily"]          # AWS Backup 플랜 목록 (02-shared backup_plans). 고정 서버에 태그 Backup-daily = true (서버 + 볼륨 이미지). 확장 서버는 제외
+  # key_pair_name  = "iactest-was-key"   # (선택) 담당자가 콘솔(EC2 > 키 페어)에서 미리 만든 key pair 이름. pem은 만든 사람이 전달 (Git·Terraform에는 이름만)
+  #                                      null이면 key pair 없음 (Session Manager로만 접속). 이 계정·리전에 없으면 plan에서 실패
+  #                                      서버를 만들 때만 적용 (바꿔도 떠 있는 서버는 그대로). SSH(22)는 src/sg_rules.csv로 따로 열어야 함
   # 데이터 볼륨 (기본 없음). 서버를 만든 뒤 따로 만들어 붙임. volume_type 기본 gp3
   #   크기는 여기서만 바꿈 (서버 교체 없이 늘어남, 줄일 수 없음). 장치 이름을 바꾸면 볼륨이 다시 만들어짐
   #   마운트 (mount_point가 있는 볼륨만. 붙인 뒤 SSM이 서버 안에서 deployment/ec2-<용도>/src/mount_volumes.sh 실행)

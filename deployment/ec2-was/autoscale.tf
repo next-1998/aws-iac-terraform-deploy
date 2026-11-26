@@ -58,6 +58,7 @@ module "asg_lt" {
   image_id                  = local.asg_ami
   instance_type             = coalesce(var.autoscale.instance_type, var.instance_type)
   iam_instance_profile_name = module.instance_profile.name
+  key_name                  = one(data.aws_key_pair.this[*].key_name)
   vpc_security_group_ids    = [var.common.common_sg_id, module.sg.securitygroup_id]
   user_data                 = var.user_data == null ? null : base64encode(var.user_data)
   instance_name             = "${local.prefix}-asg"

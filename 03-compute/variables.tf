@@ -13,12 +13,14 @@ variable "enable_alb_access_logs" {
 variable "was" {
   description = "WAS 서버 설정"
   type = object({
-    enabled             = optional(bool, true)
-    ami                 = string
-    instance_type       = optional(string, "t3.micro")
-    root_volume_size    = optional(number, 30)
-    root_auto_grow      = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) # 루트 볼륨 자동 증설 (null이면 끔)
-    backup_plans        = optional(list(string), [])                                                                                                                              # AWS Backup 플랜 목록 (02-shared, 예: ["daily"]). 고정 서버에 태그 Backup-daily = true
+    enabled          = optional(bool, true)
+    ami              = string
+    instance_type    = optional(string, "t3.micro")
+    root_volume_size = optional(number, 30)
+    root_auto_grow   = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) # 루트 볼륨 자동 증설 (null이면 끔)
+    backup_plans     = optional(list(string), [])                                                                                                                              # AWS Backup 플랜 목록 (02-shared, 예: ["daily"]). 고정 서버에 태그 Backup-daily = true
+    key_pair_name    = optional(string)                                                                                                                                        # 미리 만든 key pair 이름 (null이면 Session Manager로만 접속)
+
     ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3"), mount_point = optional(string), fs_type = optional(string, "xfs"), mount_options = optional(string, "defaults,nofail"), auto_grow = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) })), [])
     weekend_stop_enable = optional(bool, false)
     enable_alb          = optional(bool, true)
@@ -39,12 +41,14 @@ variable "was" {
 variable "webide" {
   description = "Web IDE 서버 설정"
   type = object({
-    enabled             = optional(bool, true)
-    ami                 = string
-    instance_type       = optional(string, "t3.medium")
-    root_volume_size    = optional(number, 30)
-    root_auto_grow      = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) # 루트 볼륨 자동 증설 (null이면 끔)
-    backup_plans        = optional(list(string), [])                                                                                                                              # AWS Backup 플랜 목록 (02-shared, 예: ["daily"]). 고정 서버에 태그 Backup-daily = true
+    enabled          = optional(bool, true)
+    ami              = string
+    instance_type    = optional(string, "t3.medium")
+    root_volume_size = optional(number, 30)
+    root_auto_grow   = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) # 루트 볼륨 자동 증설 (null이면 끔)
+    backup_plans     = optional(list(string), [])                                                                                                                              # AWS Backup 플랜 목록 (02-shared, 예: ["daily"]). 고정 서버에 태그 Backup-daily = true
+    key_pair_name    = optional(string)                                                                                                                                        # 미리 만든 key pair 이름 (null이면 Session Manager로만 접속)
+
     ebs_volumes         = optional(list(object({ device_name = string, volume_size = number, volume_type = optional(string, "gp3"), mount_point = optional(string), fs_type = optional(string, "xfs"), mount_options = optional(string, "defaults,nofail"), auto_grow = optional(object({ max_size = number, threshold = optional(number, 80), increase_percent = optional(number, 20), min_increase = optional(number, 10) })) })), [])
     weekend_stop_enable = optional(bool, false)
     enable_alb          = optional(bool, false)

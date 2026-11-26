@@ -103,3 +103,8 @@ output "auto_grow" {
     tag_enabled      = local.grow_any
   }
 }
+
+output "key_pair" {
+  description = "서버에 지정한 key pair 이름 (지정 안 하면 null)"
+  value       = one(data.aws_key_pair.this[*].key_name)
+}

@@ -9,3 +9,6 @@ tests/.nested_hold/
 # 테스트 계정 배포용 값 (커밋하지 않음)
 test.tfvars
 backend.hcl
+
+# EC2 개인 키(pem)는 저장소에 넣지 않음
+*.pem

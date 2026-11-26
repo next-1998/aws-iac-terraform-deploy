@@ -357,3 +357,9 @@ variable "backup_plans" {
     error_message = "backup_plans는 02-shared 플랜 이름(소문자, 숫자, '-')이어야 합니다."
   }
 }
+
+variable "key_pair_name" {
+  description = "EC2 key pair 이름 (담당자가 이 계정·리전에 미리 만들고 pem을 전달한 것). null이면 key pair 없음 (Session Manager로만 접속). 고정 서버·확장 서버에 같이 적용, 서버를 만들 때만 적용"
+  type        = string
+  default     = null
+}
