@@ -39,10 +39,14 @@ locals {
   #         DB 이름 <site>-rds-<용도>[-<복제본>]에서 site를 뽑고, VPC 이름 규칙 <site>-vpc (01-network)를 씀
   #   예) /iactest-vpc/ec2/iactest-ec2-was/messages      → iactest-vpc/ec2/iactest-ec2-was/messages/
   #       /aws/rds/instance/iactest-rds-app/postgresql   → iactest-vpc/rds/iactest-rds-app/postgresql/
+  #   계정 단위 로그 그룹(VPC 없음): RDSOSMetrics → _account/rds/RDSOSMetrics/
+  #   로그 그룹 이름이 빈 레코드(구독을 만들 때 CloudWatch Logs가 보내는 연결 확인 메시지) → _control/
   cwlogs_path_query = join("", [
     "{log_group: (.logGroup as $g",
-    " | (($g | capture(\"^/aws/rds/instance/(?<id>(?<site>[a-z0-9-]+?)-rds-[^/]+)/(?<log>[^/]+)$\")) // null) as $m",
-    " | if $m then \"\\($m.site)-vpc/rds/\\($m.id)/\\($m.log)\" else ($g | ltrimstr(\"/\")) end)}",
+    " | if (($g // \"\") == \"\") then \"_control\"",
+    " elif $g == \"RDSOSMetrics\" then \"_account/rds/RDSOSMetrics\"",
+    " else ((($g | capture(\"^/aws/rds/instance/(?<id>(?<site>[a-z0-9-]+?)-rds-[^/]+)/(?<log>[^/]+)$\")) // null) as $m",
+    " | if $m then \"\\($m.site)-vpc/rds/\\($m.id)/\\($m.log)\" else ($g | ltrimstr(\"/\")) end) end)}",
   ])
 
   # policies/*.json.tftpl 에 넣는 값
@@ -166,4 +170,23 @@ module "cwlogs_account_subscription" {
   selection_criteria = null
 
   depends_on = [module.cwlogs_subscription_policy]
+}
+
+############################################################
+# RDS 향상된 모니터링 로그 그룹 (계정·리전에 하나, 이름은 AWS가 RDSOSMetrics로 고정)
+#   미리 만들지 않으면 RDS가 보관 30일·기본 암호화로 만듦 → 다른 로그와 같게 보관 기간·logs CMK를 정함
+#   S3로 보내는 방식은 다른 로그와 같음 (경로 _account/rds/RDSOSMetrics/, local.cwlogs_path_query)
+############################################################
+module "rds_os_metrics_log" {
+  source = "../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/loggroup"
+  count  = var.manage_rds_os_metrics_log_group ? 1 : 0
+
+  name              = "RDSOSMetrics"
+  retention_in_days = var.cloudwatch_log_retention_days
+  kms_key_id        = local.kms_key_arns.logs
+
+  common_tags = var.common_tags
+  site        = local.tag.site
+  stack       = local.tag.stack
+  key_target  = "rds_os_metrics"
 }

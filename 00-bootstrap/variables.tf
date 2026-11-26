@@ -231,3 +231,18 @@ variable "manage_backup_region_settings" {
   type        = bool
   default     = true
 }
+
+variable "cloudwatch_log_retention_days" {
+  description = "이 단계가 만드는 계정 단위 CloudWatch 로그 그룹(예: RDS 향상된 모니터링 RDSOSMetrics)의 보관 일수. 장기 보관은 S3 (log_retention_days)"
+  type        = number
+  default     = 14
+}
+
+variable "manage_rds_os_metrics_log_group" {
+  description = <<-EOT
+    RDS 향상된 모니터링 로그 그룹(RDSOSMetrics, 계정·리전에 하나)을 미리 만들어 보관 기간·암호화를 정함
+    RDS가 이미 만들어 둔 계정이면 apply 전에 가져오기: terraform import 'module.rds_os_metrics_log[0].aws_cloudwatch_log_group.this' RDSOSMetrics
+  EOT
+  type        = bool
+  default     = true
+}
