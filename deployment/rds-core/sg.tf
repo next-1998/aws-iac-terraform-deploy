@@ -60,3 +60,36 @@ module "sg_egress" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/egress-rule"
   rules  = module.sg_rules_csv.egress
 }
+
+############################################################
+# 복제본 SG (원본과 분리: NLB 쓰기 대상 그룹에 복제본 IP가 섞이지 않도록)
+#   기본 규칙: DB 포트 ← allowed_cidrs (원본과 같음). CSV 규칙은 원본 SG(db)에만 적용
+############################################################
+module "sg_ro" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
+  count  = length(var.replicas) > 0 ? 1 : 0
+
+  name        = "${local.np}-sg-rds${local.db_key}ro-01"
+  description = "${local.identifier} read replicas"
+  vpc_id      = local.base.vpc_id
+
+  common_tags   = var.common_tags
+  resource_tags = local.resource_tags
+  site          = local.site
+  stack         = var.name
+  key_target    = "${local.key}_ro"
+}
+
+module "sg_ro_ingress" {
+  source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/ingress-rule"
+  rules = length(var.replicas) == 0 ? {} : {
+    for c in local.allowed_cidrs : "base|ro|${c}" => {
+      security_group_id = module.sg_ro[0].securitygroup_id
+      ip_protocol       = "tcp"
+      from_port         = local.port
+      to_port           = local.port
+      cidr_ipv4         = c
+      description       = "database port from ${c}"
+    }
+  }
+}

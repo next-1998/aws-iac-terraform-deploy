@@ -13,6 +13,12 @@ mock_provider "aws" {
   mock_data "aws_partition" {
     defaults = { partition = "aws" }
   }
+  mock_data "aws_region" {
+    defaults = { region = "ap-northeast-2" }
+  }
+  mock_data "aws_caller_identity" {
+    defaults = { account_id = "111111111111" }
+  }
 }
 
 override_data {
@@ -26,6 +32,10 @@ override_data {
 override_data {
   target = data.aws_ssm_parameter.network["routing"]
   values = { insecure_value = "{\"has_public\":false,\"has_tgw\":true,\"has_private_nat\":false,\"igw_id\":null,\"public_nat_ids\":{},\"private_nat_ids\":{},\"nat_public_ips\":[],\"tgw_id\":\"tgw-1\",\"corp_cidrs\":[\"10.0.0.0/8\"],\"peerings\":{},\"prefix_list_ids\":{\"access_ctl\":\"pl-1\"}}" }
+}
+override_data {
+  target = data.aws_ssm_parameter.network["endpoints"]
+  values = { insecure_value = "{\"ids\":{},\"gateway\":{\"s3\":\"vpce-2\"},\"interface\":[\"ssm\",\"logs\",\"monitoring\",\"ec2\",\"elasticloadbalancing\"],\"vpce_sg_id\":\"sg-1\"}" }
 }
 override_data {
   target = data.aws_ssm_parameter.bootstrap_kms
@@ -274,4 +284,44 @@ run "reject_mariadb_replicas_with_managed_password" {
     rds_mariadb  = { shop = { replicas = { r1 = {} } } }
   }
   expect_failures = [var.rds_master_passwords]
+}
+
+run "nlb_dedicated_and_shared" {
+  # 전용 NLB(app, 복제본 읽기 포트 포함) + 공유 NLB(orders 3306, shop 3307), 대상 동기화 Lambda
+  command = plan
+  variables {
+    rds_postgres         = { app = { replicas = { r1 = {} }, nlb = { mode = "dedicated", allowed_cidrs = ["10.10.0.0/16"], read_port = 5433 } } }
+    rds_mysql            = { orders = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_mariadb          = { shop = { port = 3307, nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_master_passwords = { app = "Test-Passw0rd-123" }
+  }
+  assert {
+    condition = (
+      module.rds_postgres["app"].db.nlb.port == 5432 && module.rds_postgres["app"].db.nlb.read_port == 5433 &&
+      toset(module.rds_postgres["app"].settings.nlb_listener_ports) == toset([5432, 5433]) &&
+      module.rds_postgres["app"].settings.replica_sg &&
+      module.rds_mysql["orders"].db.nlb.mode == "shared" && module.rds_mariadb["shop"].db.nlb.port == 3307 &&
+      module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+    )
+    error_message = "NLB: ${jsonencode([module.rds_postgres["app"].db.nlb, module.rds_mysql["orders"].db.nlb, module.rds_mariadb["shop"].db.nlb])}"
+  }
+}
+
+run "reject_shared_nlb_port_overlap" {
+  # 공유 NLB를 쓰는 MySQL·MariaDB가 둘 다 3306 → 리스너 포트 충돌
+  command = plan
+  variables {
+    rds_postgres = {}
+    rds_mysql    = { orders = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_mariadb  = { shop = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  expect_failures = [var.rds_shared_nlb]
+}
+
+run "no_nlb_by_default" {
+  command = plan
+  assert {
+    condition     = module.rds_postgres["app"].db.nlb == null && module.rds_common[0].nlb_sync == null
+    error_message = "기본은 NLB 없음이어야 합니다."
+  }
 }

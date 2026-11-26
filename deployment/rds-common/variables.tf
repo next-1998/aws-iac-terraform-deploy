@@ -41,3 +41,29 @@ variable "enable_enhanced_monitoring" {
   type        = bool
   default     = false
 }
+
+variable "enable_nlb_sync" {
+  description = "NLB 대상 동기화 Lambda 생성 (NLB를 쓰는 DB가 하나라도 있으면 03-database가 켬)"
+  type        = bool
+  default     = false
+}
+
+variable "shared_nlb" {
+  description = "공유 NLB (null이면 만들지 않음). nlb.mode = shared인 DB가 리스너(DB port)를 붙임. private_ips: AZ → 고정 IP (비우면 AWS가 정하고 NLB를 지울 때까지 유지)"
+  type = object({
+    private_ips = optional(map(string), {})
+  })
+  default = null
+}
+
+variable "logs_kms_key_arn" {
+  description = "동기화 Lambda 로그 그룹 암호화 키 (00-bootstrap logs 키)"
+  type        = string
+  default     = null
+}
+
+variable "protect_nlb" {
+  description = "NLB 삭제 보호 (operation_mode / deletion_protection.rds)"
+  type        = bool
+  default     = false
+}

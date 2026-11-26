@@ -9,7 +9,7 @@
 ############################################################
 
 locals {
-  network_bundles = ["base", "subnets", "routing"]
+  network_bundles = ["base", "subnets", "routing", "endpoints"]
 }
 
 # 민감 정보가 아닌 String 파라미터라 insecure_value로 읽습니다.
@@ -44,8 +44,13 @@ module "rds_common" {
   kms_key_administrators = var.kms_key_administrators
   # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성
   enable_enhanced_monitoring = anytrue([for k, v in local.all_dbs : v.monitoring_interval > 0])
-  protect_kms_keys           = local.protect.kms_keys
-  common_tags                = var.common_tags
+  # NLB: 쓰는 DB가 있으면 대상 동기화 Lambda, shared를 쓰는 DB가 있으면 공유 NLB
+  enable_nlb_sync  = anytrue([for k, v in local.all_dbs : v.nlb != null])
+  shared_nlb       = anytrue([for k, v in local.all_dbs : try(v.nlb.mode, "") == "shared"]) ? var.rds_shared_nlb : null
+  protect_nlb      = local.protect.rds
+  logs_kms_key_arn = local.logs_kms_key_arn
+  protect_kms_keys = local.protect.kms_keys
+  common_tags      = var.common_tags
 }
 
 ############################################################

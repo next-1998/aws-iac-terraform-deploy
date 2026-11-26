@@ -10,6 +10,8 @@ output "db" {
     secret_arn = module.db.master_user_secret_arn
     readers    = { for k, r in module.replica : k => r.address }
     sg_id      = module.sg.securitygroup_id
+    # NLB (고정 IP 용도, 없으면 null): 접속 주소, 쓰기 포트(DB port), 읽기 포트
+    nlb = local.nlb_on ? { mode = var.nlb.mode, dns_name = local.nlb_dns, private_ips = local.nlb_ips, port = local.port, read_port = local.read_on ? var.nlb.read_port : null } : null
   }
 }
 
@@ -44,6 +46,9 @@ output "settings" {
     parameter_group_family      = local.family
     parameter_group_name        = module.parameter_group.name
     identifier                  = local.identifier
+    nlb_mode                    = try(var.nlb.mode, null)
+    nlb_listener_ports          = values(local.nlb_ports)
+    replica_sg                  = length(var.replicas) > 0
     parameters                  = local.parameters
     log_exports                 = local.log_exports
     from_snapshot               = var.snapshot_identifier != null
@@ -55,4 +60,14 @@ output "settings" {
 output "replicas" {
   description = "읽기 복제본 접속 주소 (키 → identifier, address). 읽기 전용"
   value       = { for k, r in module.replica : k => { identifier = r.identifier, address = r.address } }
+}
+
+output "nlb_check" {
+  description = "공유 NLB를 쓰는데 rds-common에 공유 NLB가 없으면 plan에서 막음"
+  value       = local.nlb_on ? var.nlb.mode : null
+
+  precondition {
+    condition     = !local.nlb_on || local.nlb_ded || local.nlb_shared != null
+    error_message = "nlb.mode = shared인데 공유 NLB가 없습니다 (03-database가 rds-common에 shared_nlb를 넘겨야 함)."
+  }
 }

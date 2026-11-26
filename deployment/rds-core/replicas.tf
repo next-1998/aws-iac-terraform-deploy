@@ -54,7 +54,7 @@ module "replica" {
   enabled_cloudwatch_logs_exports = [for k, lg in module.replica_log : lg.name == "" ? "" : split("|", k)[1] if split("|", k)[0] == each.key]
 
   parameter_group_name = module.parameter_group.name
-  security_group_ids   = [module.sg.securitygroup_id]
+  security_group_ids   = [module.sg_ro[0].securitygroup_id] # 복제본 전용 SG (원본과 분리)
 
   # 복제본: 삭제 보호는 원본과 같게, 최종 스냅샷·자동 백업은 없음 (원본이 백업)
   deletion_protection     = var.protect

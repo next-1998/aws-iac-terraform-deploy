@@ -18,6 +18,7 @@
 #     암호화 키 (CMK)        고객 보안팀          central_kms_key_arns.rds (없으면 이 계정에 RDS 키 생성)
 #     스냅샷 복원·복제본     고객 (서비스·DBA)    <엔진 목록>.<DB 키>.snapshot_identifier (기존 DB 이전·골든 이미지), replicas (읽기 부하 분산)
 #     삭제 보호              고객 운영팀          operation_mode, deletion_protection.rds (보호 시 삭제 방지 + 최종 스냅샷)
+#     DB 고정 IP (NLB)       고객 보안팀·DBA      <엔진 목록>.<DB 키>.nlb (DB 접근제어가 IP로만 허용할 때. 전용/공유, 허용 대역, 읽기 포트, 고정 IP), rds_shared_nlb
 ############################################################
 
 # ── 사이트 (모든 단계 같은 값) ────────────────────────────────
@@ -60,6 +61,12 @@ rds_postgres = {
       # r1 = {}                                   # 원본과 같은 사양
       # r2 = { instance_class = "db.t4g.small" }  # 사양만 다르게
     }
+    # NLB (선택, 기본 없음): 고객 DB 접근제어가 IP로만 허용할 때 고정 IP 용도. 쓰기 리스너 포트 = DB port
+    #   mode = "dedicated" : 이 DB 전용 NLB (<접두어>-nlb-rds<DB 키>-01)
+    #   mode = "shared"    : 사이트 공유 NLB (<접두어>-nlb-rds-01). 공유를 쓰는 DB끼리 port·read_port가 겹치면 plan에서 막힘
+    #   대상은 원본·대기(Multi-AZ) IP, 상태 확인이 활성 DB만 사용. 복제본은 read_port로 (복제본이 있으면 필수)
+    #   고정 IP는 출력 rds.<DB 키>.nlb.private_ips (고객 접근제어에 등록). 폐쇄망이면 01-network에 ec2, elasticloadbalancing endpoint 필요
+    # nlb = { mode = "dedicated", allowed_cidrs = ["10.10.0.0/16"], read_port = 5433 }
     # 파라미터 그룹 값: 보통은 CSV로 넣음 → deployment/rds-postgres/src/rds-app.parameters.csv (열: no,name,value,apply_method,memo)
     #   예제: deployment/rds-postgres/src/parameters.example.csv. 여기(parameters)에 넣어도 되지만 CSV와 둘 다 넣으면 plan에서 막힘
     # parameters = [{ name = "log_min_duration_statement", value = "1000", apply_method = "immediate" }]
@@ -74,6 +81,11 @@ rds_mysql = {
 # MariaDB (기본 버전 10.11, 포트 3306, 기본 로그 error·slowquery, general·audit 선택). 항목은 rds_postgres와 같음. CSV: deployment/rds-mariadb/src/
 rds_mariadb = {
   # shop = { engine_version = "10.11", db_name = "shop", backup_plans = ["daily", "pitr"] }
+}
+
+# 공유 NLB (nlb.mode = "shared"인 DB가 있을 때만 생성). AZ별 고정 IP를 정해서 쓰려면 private_ips
+rds_shared_nlb = {
+  # private_ips = { "ap-northeast-2a" = "10.227.0.200", "ap-northeast-2c" = "10.227.1.200" }
 }
 
 # RDS 키 관리자 (비우면 계정 root 정책으로만 관리)

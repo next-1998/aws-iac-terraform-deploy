@@ -36,6 +36,7 @@ module "core" {
 
   snapshot_identifier = var.db.snapshot_identifier
   replicas            = var.db.replicas
+  nlb                 = var.db.nlb
   master_password     = var.master_password
 
   common_tags = var.common_tags

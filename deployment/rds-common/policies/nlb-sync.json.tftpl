@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Describe",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeNetworkInterfaces",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTags",
+        "elasticloadbalancing:DescribeTargetHealth"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SyncTaggedTargetGroupsOnly",
+      "Effect": "Allow",
+      "Action": ["elasticloadbalancing:RegisterTargets", "elasticloadbalancing:DeregisterTargets"],
+      "Resource": "arn:${partition}:elasticloadbalancing:${region}:${account_id}:targetgroup/*",
+      "Condition": {
+        "StringLike": { "aws:ResourceTag/${tag_key}": "sg-*" }
+      }
+    }
+  ]
+}

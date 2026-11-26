@@ -4,7 +4,7 @@ locals {
   subnets = local.network.subnets
   routing = local.network.routing
 
-  site       = local.base.site
+  site = local.base.site
   # 이름: <np>-rds-<엔진 코드>-<DB 키>-01 (np = 00-bootstrap naming 접두어, DB 키 = name에서 rds- 를 뺀 것)
   np         = local.base.name_prefix
   db_key     = trimprefix(var.name, "rds-")
