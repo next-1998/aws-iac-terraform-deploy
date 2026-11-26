@@ -211,3 +211,9 @@ variable "auto_minor_version_upgrade" {
   type        = bool
   default     = false
 }
+
+variable "backup_plan" {
+  description = "AWS Backup 플랜 이름 (02-shared backup_plans 중 하나, 예: pitr). 넣으면 DB(원본)에 태그 Backup = <플랜>을 붙여 백업 대상이 됨. null이면 태그 없음 (RDS 자동 백업만)"
+  type        = string
+  default     = null
+}

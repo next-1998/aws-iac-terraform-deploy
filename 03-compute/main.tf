@@ -100,6 +100,7 @@ module "ec2_was" {
   instance_type       = var.was.instance_type
   root_volume_size    = var.was.root_volume_size
   root_auto_grow      = var.was.root_auto_grow
+  backup_plan         = var.was.backup_plan
   ebs_volumes         = var.was.ebs_volumes
   weekend_stop_enable = var.was.weekend_stop_enable
 
@@ -130,6 +131,7 @@ module "ec2_webide" {
   instance_type       = var.webide.instance_type
   root_volume_size    = var.webide.root_volume_size
   root_auto_grow      = var.webide.root_auto_grow
+  backup_plan         = var.webide.backup_plan
   ebs_volumes         = var.webide.ebs_volumes
   weekend_stop_enable = var.webide.weekend_stop_enable
 

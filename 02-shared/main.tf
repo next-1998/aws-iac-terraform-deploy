@@ -62,6 +62,8 @@ module "contract" {
       backup_tag_key = try(module.backup[0].contract.tag_key, null)
       backup_plans   = try(keys(module.backup[0].contract.plans), [])
       backup_vault   = try(module.backup[0].contract.vault_name, null)
+      # 플랜별 시점 복구(연속 백업) 보관 일수 (없으면 null). 03-database가 RDS 자동 백업 보관 기간을 맞춤
+      backup_pitr_days = try({ for k, p in module.backup[0].contract.plans : k => p.pitr_days }, {})
     }
   }
 

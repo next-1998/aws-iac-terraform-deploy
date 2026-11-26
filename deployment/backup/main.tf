@@ -108,15 +108,7 @@ module "plan" {
 
   name       = "${local.prefix}-${each.key}"
   vault_name = module.vault.name
-  rules = {
-    (each.key) = {
-      schedule                = each.value.schedule
-      timezone                = each.value.timezone
-      retention_days          = each.value.retention_days
-      cold_storage_after_days = each.value.cold_storage_after_days
-      continuous_backup       = each.value.continuous_backup
-    }
-  }
+  rules      = each.value
 
   common_tags   = var.common_tags
   resource_tags = var.resource_tags

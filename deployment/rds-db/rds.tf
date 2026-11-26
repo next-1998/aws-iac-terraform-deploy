@@ -82,8 +82,9 @@ module "db" {
   skip_final_snapshot     = !var.protect
   backup_retention_period = var.backup_retention_days
 
-  common_tags   = var.common_tags
-  resource_tags = local.resource_tags
+  common_tags = var.common_tags
+  # 백업 태그는 DB(원본)에만. 복제본은 원본이 백업되므로 제외
+  resource_tags = merge(local.resource_tags, var.backup_plan == null ? {} : { Backup = var.backup_plan })
   site          = local.site
   stack         = var.name
   key_target    = local.key

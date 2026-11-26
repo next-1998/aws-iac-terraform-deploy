@@ -1,10 +1,16 @@
 output "contract" {
-  description = "다음 단계가 쓰는 값 (리소스에 붙일 태그 안내)"
+  description = "다음 단계가 쓰는 값 (리소스에 붙일 태그, 플랜별 연속 백업 보관 일수)"
   value = {
-    vault_name  = module.vault.name
-    vault_arn   = module.vault.arn
-    tag_key     = var.tag_key
-    plans       = { for k, p in var.plans : k => { schedule = p.schedule, retention_days = p.retention_days } }
+    vault_name = module.vault.name
+    vault_arn  = module.vault.arn
+    tag_key    = var.tag_key
+    plans = {
+      for k, p in var.plans : k => {
+        rules = { for r, v in p : r => { schedule = v.schedule, retention_days = v.retention_days, continuous_backup = v.continuous_backup } }
+        # 연속 백업(시점 복구) 보관 일수. 없으면 null. RDS는 자동 백업 보관 기간을 이 값으로 맞춤 (AWS Backup이 관리)
+        pitr_days = one([for v in values(p) : v.retention_days if v.continuous_backup])
+      }
+    }
     kms_key_arn = local.kms_key_arn
   }
 }

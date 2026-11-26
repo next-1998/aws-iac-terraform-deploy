@@ -126,6 +126,7 @@ module "eg_lambda" {
   function_name    = local.eg_name
   description      = "EBS auto grow by disk usage alarm (tag ${local.eg_tag})"
   role_arn         = module.eg_role[each.key].arn
+  handler          = "ebs_grow.lambda_handler"
   filename         = data.archive_file.ebs_grow[0].output_path
   source_code_hash = data.archive_file.ebs_grow[0].output_base64sha256
   timeout          = 600 # 볼륨 변경 대기(최대 5분) + 파일시스템 확장(최대 3분)

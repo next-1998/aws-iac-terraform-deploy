@@ -120,6 +120,7 @@ module "ws_lambda" {
   function_name    = local.ws_name
   description      = "EC2 weekend stop/start by tag ${local.ws_tag}"
   role_arn         = module.ws_role[each.key].arn
+  handler          = "weekend_stop.lambda_handler"
   filename         = data.archive_file.weekend_stop[0].output_path
   source_code_hash = data.archive_file.weekend_stop[0].output_base64sha256
   timeout          = 300

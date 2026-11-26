@@ -346,3 +346,9 @@ variable "root_auto_grow" {
     error_message = "root_auto_grow.max_size는 root_volume_size보다 크고 16384 GiB 이하여야 합니다."
   }
 }
+
+variable "backup_plan" {
+  description = "AWS Backup 플랜 이름 (02-shared backup_plans 중 하나, 예: daily). 넣으면 고정 서버에 태그 Backup = <플랜>을 붙여 백업 대상이 됨 (서버 + 붙은 볼륨 전체 이미지). null이면 태그 없음"
+  type        = string
+  default     = null
+}

@@ -39,10 +39,11 @@ rds = {
     username              = "dbadmin"      # 마스터 사용자 (비밀번호는 Secrets Manager)
     # port                = 5432           # null이면 엔진 기본 (postgres 5432, mysql 3306)
     # multi_az            = true           # null이면 operation_mode = "enable"일 때만 켬 (DB별로 true/false 지정 가능)
-    backup_retention_days      = 7     # 자동 백업 보관 일수
-    performance_insights       = false # 일부 작은 클래스는 지원 안 함
-    monitoring_interval        = 60    # 향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같음
-    auto_minor_version_upgrade = false # 마이너 버전 자동 업그레이드 (기본 끔. 올릴 때는 engine_version을 바꿔 apply)
+    backup_retention_days      = 7      # 자동 백업 보관 일수
+    performance_insights       = false  # 일부 작은 클래스는 지원 안 함
+    monitoring_interval        = 60     # 향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같음
+    auto_minor_version_upgrade = false  # 마이너 버전 자동 업그레이드 (기본 끔. 올릴 때는 engine_version을 바꿔 apply)
+    backup_plan                = "pitr" # AWS Backup 플랜 (02-shared backup_plans). 태그 Backup = pitr → 시점 복구 + 일간 스냅샷. null이면 RDS 자동 백업만
     # log_exports         = ["postgresql", "upgrade"]  # null이면 엔진 기본 (mysql: error, slowquery)
     log_retention_days = 14 # DB 로그 CloudWatch 보관 일수
     # allowed_cidrs      = ["10.227.0.128/26"]          # null이면 EC2 서브넷 대역 전체

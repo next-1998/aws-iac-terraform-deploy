@@ -30,6 +30,7 @@ variable "rds" {
     performance_insights       = optional(bool, false)
     monitoring_interval        = optional(number, 60)  # 향상된 모니터링 간격(초), 0이면 끔
     auto_minor_version_upgrade = optional(bool, false) # 마이너 버전 자동 업그레이드 (기본 끔)
+    backup_plan                = optional(string)      # AWS Backup 플랜 (02-shared, 예: pitr). 넣으면 태그 Backup = <플랜>
     log_exports                = optional(list(string))
     log_retention_days         = optional(number, 14)
     allowed_cidrs              = optional(list(string)) # null이면 EC2 서브넷 대역

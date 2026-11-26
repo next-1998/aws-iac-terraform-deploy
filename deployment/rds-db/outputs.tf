@@ -46,6 +46,7 @@ output "settings" {
     log_exports                 = local.log_exports
     from_snapshot               = var.snapshot_identifier != null
     replicas                    = keys(local.replicas)
+    backup_plan                 = var.backup_plan
   }
 }
 

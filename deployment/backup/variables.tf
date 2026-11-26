@@ -26,23 +26,28 @@ variable "resource_tags" {
 
 variable "plans" {
   description = <<-EOT
-    백업 플랜 (이름 → 규칙). 리소스 태그 Backup = <이름> 이고 Site = <site>인 리소스를 백업 (AWS Backup이 지원하는 모든 유형)
+    백업 플랜 (플랜 이름 → 규칙 이름 → 규칙). 리소스 태그 Backup = <플랜 이름> 이고 Site = <site>인 리소스를 백업 (AWS Backup이 지원하는 모든 유형)
+    한 플랜에 규칙을 여러 개 둘 수 있음 (예: DB = 연속 백업(시점 복구) + 일간 스냅샷)
       schedule                : cron(분 시 일 월 요일 년), timezone 기준 (기본 Asia/Seoul)
       retention_days          : 보관 일수
       cold_storage_after_days : 콜드 스토리지로 옮길 일수 (null이면 안 옮김)
-      continuous_backup       : 시점 복구용 연속 백업 (최대 35일)
+      continuous_backup       : 시점 복구용 연속 백업 (RDS·S3 등, 최대 35일)
   EOT
-  type = map(object({
+  type = map(map(object({
     schedule                = string
     timezone                = optional(string, "Asia/Seoul")
     retention_days          = number
     cold_storage_after_days = optional(number)
     continuous_backup       = optional(bool, false)
-  }))
+  })))
 
   validation {
-    condition     = alltrue([for k, p in var.plans : can(regex("^[a-z0-9-]{1,20}$", k))])
-    error_message = "플랜 이름(태그 값)은 소문자, 숫자, '-'로 20자 이하여야 합니다."
+    condition     = alltrue([for k, p in var.plans : can(regex("^[a-z0-9-]{1,20}$", k)) && length(p) > 0])
+    error_message = "플랜 이름(태그 값)은 소문자, 숫자, '-'로 20자 이하이고, 규칙이 하나 이상 있어야 합니다."
+  }
+  validation {
+    condition     = alltrue([for k, p in var.plans : length([for r in values(p) : r if r.continuous_backup]) <= 1])
+    error_message = "한 플랜에 연속 백업(continuous_backup) 규칙은 하나만 둘 수 있습니다."
   }
 }
 

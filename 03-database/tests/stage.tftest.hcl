@@ -202,3 +202,15 @@ run "no_monitoring_role_when_all_off" {
     error_message = "모니터링을 모두 끄면 역할을 만들지 않아야 합니다."
   }
 }
+
+run "backup_tag_from_plan" {
+  # backup_plan을 넣은 DB만 태그 Backup = <플랜> (02-shared AWS Backup이 태그로 선택)
+  command = plan
+  variables {
+    rds = { app = { backup_plan = "pitr" }, etc = {} }
+  }
+  assert {
+    condition     = module.rds_db["app"].settings.backup_plan == "pitr" && module.rds_db["etc"].settings.backup_plan == null
+    error_message = "백업 플랜: ${jsonencode([module.rds_db["app"].settings.backup_plan, module.rds_db["etc"].settings.backup_plan])}"
+  }
+}
