@@ -3,7 +3,7 @@
 #   DB 유형 전체를 만듭니다 (state 하나).
 #   - rds-common : DB 서브넷, 라우트, DB 서브넷 그룹, RDS 키 (1차 조합)
 #   - rds-postgres / rds-mysql / rds-mariadb : 엔진 조합 (엔진 고정값·검사·CSV) → rds-core (파라미터 그룹, DB, 복제본, SG, 로그 그룹)
-#   읽는 값: /iac/<site>/01-network/*, /iac/_account/00-bootstrap/kms (logs 키)
+#   읽는 값: /iac/<site>/01-network/*, /iac/<site>/02-shared/shared (백업 플랜 목록), /iac/_account/00-bootstrap/kms (logs 키)
 #   결과는 /iac/<site>/03-database/rds 에 남깁니다 (접속 주소, 비밀 ARN).
 #   03-compute와 같은 번호(병렬)라 서로의 값을 읽지 않습니다. DB 접근은 EC2 서브넷 대역으로 허용.
 ############################################################
@@ -16,6 +16,11 @@ locals {
 data "aws_ssm_parameter" "network" {
   for_each = toset(local.network_bundles)
   name     = "/iac/${var.site}/01-network/${each.key}"
+}
+
+# 02-shared 값 (백업 플랜 목록: backup_plans 입력 검사)
+data "aws_ssm_parameter" "shared" {
+  name = "/iac/${var.site}/02-shared/shared"
 }
 
 data "aws_ssm_parameter" "bootstrap_kms" {
@@ -33,6 +38,10 @@ locals {
   az_ok = length(local.network.base.azs) >= 2
 
   logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
+
+  # 02-shared에 실제로 있는 백업 플랜 (backup_plans 입력 검사용). 백업을 끈 사이트는 빈 목록
+  backup_plans_known   = keys(try(jsondecode(data.aws_ssm_parameter.shared.insecure_value).backup_tag_keys, {}))
+  backup_plans_unknown = distinct([for p in flatten([for k, v in local.all_dbs : v.backup_plans]) : p if !contains(local.backup_plans_known, p)])
 }
 
 module "rds_common" {

@@ -68,7 +68,7 @@ was = {
   #   01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns) 필요 (public 여부와 무관, VPC endpoint로만)
   #   데이터 볼륨은 ebs_volumes 항목에 auto_grow = { max_size = 200 } (mount_point 필요)
   # root_auto_grow = { max_size = 100 } # threshold = 80, increase_percent = 20, min_increase = 10 (기본값)
-  # backup_plans   = ["daily"]          # AWS Backup 플랜 목록 (02-shared backup_plans). 고정 서버에 태그 Backup-daily = true (서버 + 볼륨 이미지). 확장 서버는 제외
+  # backup_plans   = ["daily"]          # AWS Backup 플랜 목록 (02-shared backup_plans). 없는 이름이면 plan에서 막힘. 고정 서버에 태그 Backup-daily = true (서버 + 볼륨 이미지). 확장 서버는 제외
   # key_pair_name  = "hw-iac-dev-an2-kp-was-01"   # (선택) 담당자가 콘솔(EC2 > 키 페어)에서 미리 만든 key pair 이름. pem은 만든 사람이 전달 (Git·Terraform에는 이름만)
   #                                      null이면 key pair 없음 (Session Manager로만 접속). 이 계정·리전에 없으면 plan에서 실패
   #                                      서버를 만들 때만 적용 (바꿔도 떠 있는 서버는 그대로). SSH(22)는 src/sg_rules.csv로 따로 열어야 함

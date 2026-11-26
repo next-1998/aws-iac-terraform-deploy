@@ -38,6 +38,10 @@ locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
   shared  = jsondecode(data.aws_ssm_parameter.shared.insecure_value)
 
+  # 02-shared에 실제로 있는 백업 플랜 (backup_plans 입력 검사용). 백업을 끈 사이트는 빈 목록
+  backup_plans_known   = keys(try(local.shared.backup_tag_keys, {}))
+  backup_plans_unknown = distinct([for p in flatten([for s in [var.was, var.webide] : s.enabled ? s.backup_plans : []]) : p if !contains(local.backup_plans_known, p)])
+
   # EBS 자동 증설 대상이 하나라도 있는지 (켜진 용도만)
   ebs_auto_grow = anytrue([
     for p in [var.was, var.webide] : p.enabled && (p.root_auto_grow != null || anytrue([for v in p.ebs_volumes : v.auto_grow != null]))

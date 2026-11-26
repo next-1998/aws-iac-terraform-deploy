@@ -38,6 +38,10 @@ override_data {
   values = { insecure_value = "{\"ids\":{},\"gateway\":{\"s3\":\"vpce-2\"},\"interface\":[\"ssm\",\"logs\",\"monitoring\",\"ec2\",\"elasticloadbalancing\"],\"vpce_sg_id\":\"sg-1\"}" }
 }
 override_data {
+  target = data.aws_ssm_parameter.shared
+  values = { insecure_value = "{\"backup_tag_keys\":{\"daily\":\"Backup-daily\",\"monthly\":\"Backup-monthly\",\"pitr\":\"Backup-pitr\"}}" }
+}
+override_data {
   target = data.aws_ssm_parameter.bootstrap_kms
   values = { insecure_value = "{\"key_arns\":{\"ebs\":\"arn:aws:kms:ap-northeast-2:111111111111:key/ebs-mock\",\"logs\":\"arn:aws:kms:ap-northeast-2:111111111111:key/logs-mock\",\"s3\":\"arn:aws:kms:ap-northeast-2:111111111111:key/s3-mock\"},\"source\":{}}" }
 }
@@ -359,4 +363,13 @@ run "apply_immediately_default_off" {
     condition     = !module.rds_postgres["app"].settings.apply_immediately && module.rds_postgres["now"].settings.apply_immediately
     error_message = "apply_immediately: ${jsonencode([module.rds_postgres["app"].settings.apply_immediately, module.rds_postgres["now"].settings.apply_immediately])}"
   }
+}
+
+run "reject_unknown_backup_plan" {
+  # 02-shared에 없는 플랜 이름 → 태그만 붙고 백업되지 않으므로 plan에서 막음
+  command = plan
+  variables {
+    rds_postgres = { app = { backup_plans = ["daily", "weekly"] } }
+  }
+  expect_failures = [output.backup_plan_check]
 }

@@ -47,7 +47,7 @@ override_data {
 }
 override_data {
   target = data.aws_ssm_parameter.shared
-  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null}" }
+  values = { insecure_value = "{\"certificate_arn\":\"arn:aws:acm:ap-northeast-2:111111111111:certificate/mock\",\"alarm_topic_arn\":null,\"backup_tag_keys\":{\"daily\":\"Backup-daily\",\"monthly\":\"Backup-monthly\",\"pitr\":\"Backup-pitr\"}}" }
 }
 override_data {
   target = data.aws_ssm_parameter.bootstrap_kms
@@ -150,4 +150,12 @@ run "key_pair_by_name" {
     condition     = module.ec2_was[0].key_pair == "hw-iac-dev-an2-kp-was-01" && module.ec2_webide[0].key_pair == null
     error_message = "key pair: ${jsonencode([module.ec2_was[0].key_pair, module.ec2_webide[0].key_pair])}"
   }
+}
+
+run "reject_unknown_backup_plan" {
+  command = plan
+  variables {
+    was = { ami = "ami-0123456789abcdef0", backup_plans = ["dayly"] }
+  }
+  expect_failures = [output.backup_plan_check]
 }

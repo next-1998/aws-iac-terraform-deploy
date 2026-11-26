@@ -1,6 +1,6 @@
 # 03-database
 
-DB 유형 전체를 하나의 state로 만듭니다. 03-compute와 같은 번호라 **서로 의존하지 않고 병렬로 apply할 수 있습니다** (01-network만 읽음).
+DB 유형 전체를 하나의 state로 만듭니다. 03-compute와 같은 번호라 **서로 의존하지 않고 병렬로 apply할 수 있습니다** (01-network, 02-shared를 읽고 03-compute 값은 읽지 않음).
 
 | 모듈 | 조합 코드 | 만드는 것 |
 |---|---|---|
@@ -13,7 +13,7 @@ terraform init -backend-config=backend.hcl
 terraform apply
 ```
 
-- 입력: `/iac/<site>/01-network/{base,subnets,routing}`, `/iac/_account/00-bootstrap/kms` (logs 키)
+- 입력: `/iac/<site>/01-network/{base,subnets,routing,endpoints}`, `/iac/<site>/02-shared/shared` (백업 플랜 목록), `/iac/_account/00-bootstrap/kms` (logs 키)
 - 출력: `/iac/<site>/03-database/rds` (용도별 접속 주소, 포트, 비밀 ARN, SG ID. **비밀번호 자체는 없음**)
 - RDS는 AZ 2개 이상 필요 (01-network `az_count` ≥ 2, plan에서 검사)
 
