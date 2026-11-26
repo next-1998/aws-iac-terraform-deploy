@@ -31,4 +31,6 @@ module "imds_defaults" {
 # 리소스 유형 사용 설정 (리전 단위). destroy해도 설정은 그대로 남습니다 (Terraform 관리만 해제)
 module "backup_region_settings" {
   source = "../../aws-iac-terraform-module/module/management/aws-backup-workload/region-settings"
+
+  resource_types = var.backup_resource_types
 }

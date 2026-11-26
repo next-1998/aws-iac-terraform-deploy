@@ -29,10 +29,10 @@ locals {
   eg_alarm_mark = "-ebs-grow-"
   eg_alarm_arn  = "arn:${data.aws_partition.current.partition}:cloudwatch:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:alarm:${local.site}-*${local.eg_alarm_mark}*"
 
-  # public(NAT)이 없으면 AWS API는 VPC endpoint로만
+  # AWS API는 VPC endpoint로만 (public을 켜도 워크로드는 private 기본, public subnet은 제한적 용도)
   eg_endpoints         = concat(["ec2", "ssm", "monitoring"], var.ebs_auto_grow.alarm_topic_arn == null ? [] : ["sns"])
   eg_missing_endpoints = setsubtract(local.eg_endpoints, var.network.endpoints.interface)
-  eg_egress_cidrs      = local.routing.has_public ? ["0.0.0.0/0"] : local.base.vpc_cidrs
+  eg_egress_cidrs      = local.base.vpc_cidrs
 }
 
 module "eg_log" {
@@ -95,7 +95,7 @@ module "eg_sg" {
   for_each = local.eg
 
   name        = "${local.eg_name}-sg"
-  description = "EBS auto grow lambda (egress 443 to AWS APIs)"
+  description = "EBS auto grow lambda (egress 443 to VPC endpoints only)"
   vpc_id      = local.base.vpc_id
 
   common_tags   = var.common_tags
@@ -114,7 +114,7 @@ module "eg_sg_egress" {
       from_port         = 443
       to_port           = 443
       cidr_ipv4         = pair[1]
-      description       = local.routing.has_public ? "to AWS APIs" : "to VPC endpoints"
+      description       = "to VPC endpoints"
     }
   }
 }

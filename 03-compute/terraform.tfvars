@@ -64,7 +64,7 @@ was = {
   #   Lambda가 볼륨을 늘리고 서버 안 파일시스템까지 확장 (파티션 growpart → xfs_growfs / resize2fs, LVM은 지원 안 함). 결과는 02-shared 알림 토픽
   #   같은 볼륨은 6시간에 한 번만 늘릴 수 있음 (AWS 제한). 대기 중이면 1시간마다 다시 확인
   #   늘어난 크기는 Terraform이 유지 (tfvars보다 크면 실제 크기 사용). tfvars를 더 크게 하면 그 값으로 늘어남
-  #   폐쇄망(public 없음)이면 01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns) 필요
+  #   01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns) 필요 (public 여부와 무관, VPC endpoint로만)
   #   데이터 볼륨은 ebs_volumes 항목에 auto_grow = { max_size = 200 } (mount_point 필요)
   # root_auto_grow = { max_size = 100 } # threshold = 80, increase_percent = 20, min_increase = 10 (기본값)
   # 데이터 볼륨 (기본 없음). 서버를 만든 뒤 따로 만들어 붙임. volume_type 기본 gp3

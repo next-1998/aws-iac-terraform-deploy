@@ -77,7 +77,7 @@ variable "logs_kms_key_arn" {
 ############################################################
 # EBS 자동 증설 (ebs_grow.tf) — ec2-<용도>의 auto_grow 볼륨이 있을 때 03-compute가 켬
 #   디스크 사용률 알람 → Lambda: 볼륨 크기 늘림 → SSM: 파일시스템 확장 → SNS 알림
-#   VPC 안에서 실행하므로 public이 없으면 01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns)이 있어야 합니다.
+#   VPC 안에서 실행하므로 01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns)이 있어야 합니다 (public 사용 여부와 무관, VPC endpoint로만).
 ############################################################
 variable "enable_ebs_auto_grow" {
   description = "EBS 자동 증설 Lambda 생성 여부"

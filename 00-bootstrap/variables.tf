@@ -213,3 +213,15 @@ locals {
     k => lookup(var.deletion_protection, k, null) != null ? lookup(var.deletion_protection, k, null) : var.operation_mode == "enable"
   }
 }
+
+variable "backup_resource_types" {
+  description = <<-EOT
+    AWS Backup으로 백업할 리소스 유형 (리전 설정). 리전마다 지원 유형이 달라 그 리전에 없는 유형이 있으면 apply가 실패합니다.
+    다른 리전에 배포하면 aws backup describe-region-settings 결과에 있는 유형만 넣습니다. 기본값은 ap-northeast-2 기준 (2026-11)
+  EOT
+  type        = list(string)
+  default = [
+    "Aurora", "CloudFormation", "DSQL", "DocumentDB", "DynamoDB", "EBS", "EC2", "EFS", "EKS", "FSx", "Neptune",
+    "RDS", "Redshift", "Redshift Serverless", "S3", "SAP HANA on Amazon EC2", "Storage Gateway", "VirtualMachine",
+  ]
+}

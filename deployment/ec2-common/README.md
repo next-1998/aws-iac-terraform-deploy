@@ -69,5 +69,5 @@ CloudWatch Agent (disk_used_percent, InstanceId·path) → 알람 <site>-<용도
 | 권한 | 태그 `EBS_AUTO_GROW = true`인 볼륨만 크기 변경, 같은 태그의 서버에만 SSM 명령 |
 | 대상 정보 | 알람 설명에 `volume=… instance=… path=… max=… percent=… min=…` (Terraform이 넣음) |
 | 제한 | 같은 볼륨은 6시간에 한 번 (AWS). LVM은 지원하지 않음 (파티션 + xfs / ext4) |
-| 네트워크 | public이 없으면 interface endpoint `ec2`, `ssm`, `monitoring` (+ 알림 시 `sns`)가 필요 (없으면 plan에서 막힘) |
+| 네트워크 | interface endpoint `ec2`, `ssm`, `monitoring` (+ 알림 시 `sns`)가 필요 (public 여부와 무관, 없으면 plan에서 막힘) |
 | Terraform 크기 | 자동으로 늘어난 볼륨은 실제 크기가 tfvars보다 크면 실제 크기를 씀 (줄이려다 실패하지 않음) |
