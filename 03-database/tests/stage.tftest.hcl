@@ -220,15 +220,16 @@ run "mariadb_engine_defaults" {
   # MariaDB: 포트 3306, 파라미터 그룹 family mariadb<주.부>, 로그 error·slowquery
   command = plan
   variables {
-    rds_postgres = {}
-    rds_mariadb  = { shop = { engine_version = "10.11", replicas = { r1 = {} } } }
+    rds_postgres         = {}
+    rds_mariadb          = { shop = { engine_version = "10.11", replicas = { r1 = {} } } }
+    rds_master_passwords = { shop = "Test-Passw0rd-123" }
   }
   assert {
     condition = (
       module.rds_mariadb["shop"].db.port == 3306 &&
       module.rds_mariadb["shop"].settings.parameter_group_family == "mariadb10.11" &&
       toset(keys(module.rds_mariadb["shop"].log_groups)) == toset(["error", "slowquery"]) &&
-      module.rds_mariadb["shop"].settings.manage_master_user_password
+      !module.rds_mariadb["shop"].settings.manage_master_user_password
     )
     error_message = "mariadb 기본값: ${jsonencode(module.rds_mariadb["shop"].settings)}"
   }
@@ -263,4 +264,14 @@ run "reject_same_db_key_across_engines" {
     rds_mariadb  = { app = {} }
   }
   expect_failures = [var.rds_mariadb]
+}
+
+run "reject_mariadb_replicas_with_managed_password" {
+  # MariaDB도 복제본 + RDS 비밀번호 관리 불가 (실계정 확인)
+  command = plan
+  variables {
+    rds_postgres = {}
+    rds_mariadb  = { shop = { replicas = { r1 = {} } } }
+  }
+  expect_failures = [var.rds_master_passwords]
 }

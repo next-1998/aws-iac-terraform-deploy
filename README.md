@@ -55,6 +55,9 @@ cd 02-shared   && terraform init -backend-config=backend.hcl && terraform apply
 cd 03-compute  && terraform init -backend-config=backend.hcl && terraform apply   # 03-database도 같은 방식
 ```
 
+- `backend.hcl`의 `bucket`은 00-bootstrap이 만든 state 버킷 `<접두어>-s3-tfstate-01`입니다 (00-bootstrap 출력 `backend_hcl_example` 참고).
+- state 버킷이나 key를 바꾼 뒤 init하면 "Backend configuration changed"로 멈춥니다. 옮길 state가 없으면(새로 배포) `terraform init -reconfigure -backend-config=backend.hcl`, 기존 state를 새 버킷으로 옮기려면 `-migrate-state`를 씁니다.
+
 **삭제는 번호의 반대 순서**(05 → 04 → 03-compute·03-database → 02-shared → 01 → 00)입니다. 01을 먼저 지우면 Parameter Store 값이 사라져 다음 단계를 정리할 수 없습니다.
 
 ## 사전 요청 사항 (이 코드 밖의 작업)

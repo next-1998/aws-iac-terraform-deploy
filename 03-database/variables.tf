@@ -150,7 +150,7 @@ variable "rds_mariadb" {
 variable "rds_master_passwords" {
   description = <<-EOT
     마스터 비밀번호 평문 (DB 키 → 비밀번호). 넣은 DB는 RDS 비밀번호 관리(Secrets Manager)를 끄고 이 값을 씀
-      PostgreSQL 읽기 복제본은 RDS 비밀번호 관리와 같이 쓸 수 없어서 복제본이 있는 postgres DB는 필수
+      읽기 복제본은 RDS 비밀번호 관리와 같이 쓸 수 없어서 복제본이 있는 DB는 필수 (엔진 무관)
       비밀번호가 tfvars·state에 평문으로 남습니다. test.tfvars(커밋 안 함)에만 넣고, 커밋하는 terraform.tfvars에는 넣지 않습니다
   EOT
   type        = map(string)
@@ -167,7 +167,7 @@ variable "rds_master_passwords" {
     error_message = "마스터 비밀번호는 8~128자이고 / \" @ 공백을 쓸 수 없습니다."
   }
   validation {
-    condition     = alltrue([for k, v in var.rds_postgres : length(v.replicas) == 0 || contains(keys(var.rds_master_passwords), k)])
-    error_message = "PostgreSQL 읽기 복제본은 RDS 비밀번호 관리(Secrets Manager)와 같이 쓸 수 없습니다. 복제본이 있는 rds_postgres DB는 rds_master_passwords에 비밀번호를 넣으세요."
+    condition     = alltrue([for k, v in merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb) : length(v.replicas) == 0 || contains(keys(var.rds_master_passwords), k)])
+    error_message = "RDS 읽기 복제본은 RDS 비밀번호 관리(Secrets Manager)와 같이 쓸 수 없습니다 (PostgreSQL·MariaDB 실계정 확인). 복제본이 있는 DB는 rds_master_passwords에 비밀번호를 넣으세요."
   }
 }
