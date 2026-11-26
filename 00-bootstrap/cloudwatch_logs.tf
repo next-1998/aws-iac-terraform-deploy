@@ -32,7 +32,7 @@ locals {
   # 계정 구독 정책(A, B 모두)은 enable_log_subscription을 켰을 때만 (선택)
   cwlogs_subscription = local.cwlogs_enabled && var.enable_log_subscription ? { this = true } : {}
 
-  cwlogs_name = "iac-cwlogs-to-s3"
+  cwlogs_name = "${local.name_prefix}-fh-cwlogs-01"
 
   # S3 경로 = 로그 그룹 이름 (앞의 / 제거)
   #   예외: RDS 로그 그룹은 AWS가 /aws/rds/instance/<DB>/<로그>로 고정 → 다른 리소스처럼 <VPC 이름>/rds/<DB>/<로그>
@@ -63,7 +63,7 @@ module "cwlogs_firehose_role" {
   source   = "../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.cwlogs
 
-  name               = "${local.cwlogs_name}-firehose-role"
+  name               = "${local.name_prefix}-role-cwlogsfh-01"
   description        = "Firehose writes CloudWatch Logs to S3"
   assume_role_policy = templatefile("${path.module}/policies/cwlogs-firehose-trust.json.tftpl", local.cwlogs_policy_vars)
 
@@ -93,7 +93,7 @@ module "cwlogs_firehose" {
   bucket_arn = local.cwlogs_bucket_arn
   # <로그 그룹 이름(앞의 / 제외)>/YYYY/MM/DD/  예) iactest-vpc/ec2/iactest-ec2-was/messages/2026/11/23/
   prefix               = "!{partitionKeyFromQuery:log_group}/!{timestamp:yyyy/MM/dd}/"
-  error_output_prefix  = "firehose-errors/${local.cwlogs_name}/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/"
+  error_output_prefix  = "firehose-errors/cwlogs/!{firehose:error-output-type}/!{timestamp:yyyy/MM/dd}/"
   dynamic_partitioning = true
   processors = [
     # CloudWatch Logs가 보낸 gzip 데이터를 풂
@@ -127,7 +127,7 @@ module "cwlogs_subscription_role" {
   source   = "../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.cwlogs
 
-  name               = "${local.cwlogs_name}-logs-role"
+  name               = "${local.name_prefix}-role-cwlogssub-01"
   description        = "CloudWatch Logs sends all log groups to Firehose"
   assume_role_policy = templatefile("${path.module}/policies/cwlogs-subscription-trust.json.tftpl", local.cwlogs_policy_vars)
 
@@ -155,7 +155,7 @@ module "cwlogs_account_subscription" {
   source   = "../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/log-account-policy"
   for_each = local.cwlogs_subscription
 
-  policy_name = "${local.cwlogs_name}-all"
+  policy_name = "${local.name_prefix}-lpol-cwlogs-01"
   policy_type = "SUBSCRIPTION_FILTER_POLICY"
   policy_document = jsonencode(local.cwlogs_central ? {
     DestinationArn = var.cloudwatch_logs_destination_arn

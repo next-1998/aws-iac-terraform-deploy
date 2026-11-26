@@ -23,7 +23,7 @@ alarm_emails = []
 
 # ── AWS Backup ────────────────────────────────────────────────
 # 볼트·플랜·IAM 역할을 만들고, 태그가 붙은 리소스만 백업합니다 (AWS Backup이 지원하는 모든 유형: EC2·EBS·RDS·EFS·S3·DynamoDB 등).
-#   볼트: VPC마다 하나 (<VPC 이름>-backup-vault)
+#   볼트: <접두어>-bku-vault-main-01 (접두어 = 00-bootstrap naming)
 #   대상 지정: 리소스 태그 Backup-<플랜> = true + Site = <site> (여러 플랜이면 태그도 여러 개)
 #     Terraform 리소스: 03-database·03-compute의 backup_plans = ["daily", "pitr"] 로 Backup 태그를 붙임 (Site는 자동)
 #     직접 만든 리소스: Backup, Site 태그를 둘 다 직접 붙임

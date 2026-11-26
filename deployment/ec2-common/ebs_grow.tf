@@ -20,14 +20,14 @@ data "archive_file" "ebs_grow" {
 }
 
 locals {
-  eg_name = "${local.prefix}-ebs-grow"
+  eg_name = "${local.np}-lbd-ebsgrow-01"
   eg_key  = "${local.key}_ebs_grow"
   eg      = var.enable_ebs_auto_grow ? { this = true } : {}
 
   # ec2-<용도>가 쓰는 이름 규칙 (알람: <site>-<용도>-ebs-grow-<볼륨>)
   eg_tag        = "EBS_AUTO_GROW"
-  eg_alarm_mark = "-ebs-grow-"
-  eg_alarm_arn  = "arn:${data.aws_partition.current.partition}:cloudwatch:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:alarm:${local.site}-*${local.eg_alarm_mark}*"
+  eg_alarm_mark = "-ebsgrow-"
+  eg_alarm_arn  = "arn:${data.aws_partition.current.partition}:cloudwatch:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:alarm:${local.np}-alm-*${local.eg_alarm_mark}*"
 
   # AWS API는 VPC endpoint로만 (public을 켜도 워크로드는 private 기본, public subnet은 제한적 용도)
   eg_endpoints         = concat(["ec2", "ssm", "monitoring"], var.ebs_auto_grow.alarm_topic_arn == null ? [] : ["sns"])
@@ -54,7 +54,7 @@ module "eg_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.eg
 
-  name               = "${local.eg_name}-role"
+  name               = "${local.np}-role-ebsgrow-01"
   description        = "EBS auto grow lambda"
   assume_role_policy = templatefile("${path.module}/policies/weekend-stop-lambda-trust.json.tftpl", {})
 
@@ -84,7 +84,7 @@ module "eg_role_target" {
       region        = data.aws_region.current.region
       account_id    = data.aws_caller_identity.current.account_id
       tag_key       = local.eg_tag
-      alarm_pattern = "${local.site}-*${local.eg_alarm_mark}*"
+      alarm_pattern = "${local.np}-alm-*${local.eg_alarm_mark}*"
       topic_arn     = var.ebs_auto_grow.alarm_topic_arn == null ? "" : var.ebs_auto_grow.alarm_topic_arn
     })
   }
@@ -94,7 +94,7 @@ module "eg_sg" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   for_each = local.eg
 
-  name        = "${local.eg_name}-sg"
+  name        = "${local.np}-sg-ebsgrow-01"
   description = "EBS auto grow lambda (egress 443 to VPC endpoints only)"
   vpc_id      = local.base.vpc_id
 
@@ -133,7 +133,7 @@ module "eg_lambda" {
 
   environment_variables = {
     TAG_KEY           = local.eg_tag
-    ALARM_NAME_PREFIX = "${local.site}-"
+    ALARM_NAME_PREFIX = "${local.np}-alm-"
     ALARM_NAME_MARK   = local.eg_alarm_mark
     SNS_TOPIC_ARN     = var.ebs_auto_grow.alarm_topic_arn == null ? "" : var.ebs_auto_grow.alarm_topic_arn
     DRY_RUN           = "false"
@@ -172,7 +172,7 @@ module "eg_scheduler_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.eg
 
-  name               = "${local.eg_name}-scheduler-role"
+  name               = "${local.np}-role-ebsgrowsch-01"
   description        = "EBS auto grow retry scheduler"
   assume_role_policy = templatefile("${path.module}/policies/weekend-stop-scheduler-trust.json.tftpl", {})
 
@@ -199,7 +199,7 @@ module "eg_schedule" {
 
   schedules = {
     retry = {
-      name       = "${local.eg_name}-retry"
+      name       = "${local.np}-sch-ebsgrow-01"
       expression = var.ebs_auto_grow.retry_schedule
       timezone   = "Asia/Seoul"
       enabled    = true

@@ -1,0 +1,4 @@
+no,name,value,apply_method,memo
+1,log_min_duration_statement,1000,immediate,1초 넘는 쿼리 로그
+2,log_connections,1,immediate,접속 로그
+3,rds.force_ssl,1,pending-reboot,SSL 접속 강제

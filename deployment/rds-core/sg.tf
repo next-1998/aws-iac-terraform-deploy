@@ -6,8 +6,8 @@
 module "sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
 
-  name        = "${local.identifier}-sg"
-  description = "${local.identifier} database (rules from rds-db/src/${var.name}.sg_rules.csv)"
+  name        = "${local.np}-sg-rds${local.db_key}-01"
+  description = "${local.identifier} database (rules from ${var.src_label}/${var.name}.sg_rules.csv)"
   vpc_id      = local.base.vpc_id
 
   common_tags   = var.common_tags
@@ -20,7 +20,7 @@ module "sg" {
 locals {
   sg_ids = { db = module.sg.securitygroup_id }
 
-  sg_rules_csv_file = "${path.module}/src/${var.name}.sg_rules.csv"
+  sg_rules_csv_file = "${var.src_dir}/${var.name}.sg_rules.csv"
   sg_rules_csv      = var.sg_rules_csv != null ? var.sg_rules_csv : (fileexists(local.sg_rules_csv_file) ? file(local.sg_rules_csv_file) : "")
 
   base_ingress = {
@@ -44,7 +44,7 @@ module "sg_rules_csv" {
   base_weights        = local.base_weights
   prefix_list_weights = try(local.routing.prefix_list_max_entries, {})
   rule_limit          = var.sg_rule_limit
-  source_name         = "rds-db/src/${var.name}.sg_rules.csv"
+  source_name         = "${var.src_label}/${var.name}.sg_rules.csv"
 
   csv             = local.sg_rules_csv
   sg_ids          = local.sg_ids

@@ -2,7 +2,7 @@
 # 03-database
 #   DB 유형 전체를 만듭니다 (state 하나).
 #   - rds-common : DB 서브넷, 라우트, DB 서브넷 그룹, RDS 키 (1차 조합)
-#   - rds-db     : 파라미터 그룹, DB 인스턴스, SG, 로그 그룹 (2차 조합, DB마다 한 번)
+#   - rds-postgres / rds-mysql / rds-mariadb : 엔진 조합 (엔진 고정값·검사·CSV) → rds-core (파라미터 그룹, DB, 복제본, SG, 로그 그룹)
 #   읽는 값: /iac/<site>/01-network/*, /iac/_account/00-bootstrap/kms (logs 키)
 #   결과는 /iac/<site>/03-database/rds 에 남깁니다 (접속 주소, 비밀 ARN).
 #   03-compute와 같은 번호(병렬)라 서로의 값을 읽지 않습니다. DB 접근은 EC2 서브넷 대역으로 허용.
@@ -25,59 +25,83 @@ data "aws_ssm_parameter" "bootstrap_kms" {
 locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
 
+  # 엔진과 관계없이 모든 DB (DB 키 → 설정)
+  all_dbs = merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb)
+  any_db  = length(local.all_dbs) > 0
+
   # RDS는 서브넷 그룹에 2개 AZ 이상 필요
   az_ok = length(local.network.base.azs) >= 2
+
+  logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
 }
 
 module "rds_common" {
   source = "../deployment/rds-common"
-  count  = length(var.rds) > 0 ? 1 : 0
+  count  = local.any_db ? 1 : 0
 
   network                = local.network
   central_kms_key_arns   = var.central_kms_key_arns
   kms_key_administrators = var.kms_key_administrators
   # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성
-  enable_enhanced_monitoring = anytrue([for k, v in var.rds : v.monitoring_interval > 0])
+  enable_enhanced_monitoring = anytrue([for k, v in local.all_dbs : v.monitoring_interval > 0])
   protect_kms_keys           = local.protect.kms_keys
   common_tags                = var.common_tags
 }
 
-module "rds_db" {
-  source   = "../deployment/rds-db"
-  for_each = var.rds
+############################################################
+# 엔진별 DB (엔진 조합 → rds-core)
+#   운영 모드면 Multi-AZ·삭제 보호 (DB별로 multi_az를 정하면 그 값)
+#   비밀번호: rds_master_passwords에 있으면 평문, 없으면 RDS가 Secrets Manager로 관리
+############################################################
+module "rds_postgres" {
+  source   = "../deployment/rds-postgres"
+  for_each = var.rds_postgres
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
+  db               = each.value
+  multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect          = local.protect.rds
+  master_password  = lookup(var.rds_master_passwords, each.key, null)
+  logs_kms_key_arn = local.logs_kms_key_arn
+  common_tags      = var.common_tags
+}
 
-  engine                = each.value.engine
-  engine_version        = each.value.engine_version
-  instance_class        = each.value.instance_class
-  allocated_storage     = each.value.allocated_storage
-  max_allocated_storage = each.value.max_allocated_storage
-  db_name               = each.value.db_name
-  username              = each.value.username
-  port                  = each.value.port
-  parameters            = each.value.parameters
+module "rds_mysql" {
+  source   = "../deployment/rds-mysql"
+  for_each = var.rds_mysql
 
-  # 운영 모드면 Multi-AZ·삭제 보호 (DB별로 multi_az를 정하면 그 값)
-  multi_az                   = coalesce(each.value.multi_az, var.operation_mode == "enable")
-  protect                    = local.protect.rds
-  backup_retention_days      = each.value.backup_retention_days
-  performance_insights       = each.value.performance_insights
-  monitoring_interval        = each.value.monitoring_interval
-  auto_minor_version_upgrade = each.value.auto_minor_version_upgrade
-  backup_plans               = each.value.backup_plans
+  common           = module.rds_common[0].contract
+  name             = "rds-${each.key}"
+  db               = each.value
+  multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect          = local.protect.rds
+  master_password  = lookup(var.rds_master_passwords, each.key, null)
+  logs_kms_key_arn = local.logs_kms_key_arn
+  common_tags      = var.common_tags
+}
 
-  log_exports        = each.value.log_exports
-  log_retention_days = each.value.log_retention_days
-  allowed_cidrs      = each.value.allowed_cidrs
+module "rds_mariadb" {
+  source   = "../deployment/rds-mariadb"
+  for_each = var.rds_mariadb
 
-  snapshot_identifier = each.value.snapshot_identifier
-  replicas            = each.value.replicas
-  master_password     = lookup(var.rds_master_passwords, each.key, null) # 없으면 RDS가 Secrets Manager로 관리
+  common           = module.rds_common[0].contract
+  name             = "rds-${each.key}"
+  db               = each.value
+  multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect          = local.protect.rds
+  master_password  = lookup(var.rds_master_passwords, each.key, null)
+  logs_kms_key_arn = local.logs_kms_key_arn
+  common_tags      = var.common_tags
+}
 
-  common_tags = var.common_tags
+locals {
+  # 엔진과 관계없이 DB 키 → 접속 정보 (다음 단계로 넘기는 값)
+  rds_dbs = merge(
+    { for k, m in module.rds_postgres : k => m.db },
+    { for k, m in module.rds_mysql : k => m.db },
+    { for k, m in module.rds_mariadb : k => m.db },
+  )
 }
 
 ############################################################
@@ -85,12 +109,12 @@ module "rds_db" {
 ############################################################
 module "contract" {
   source = "../../aws-iac-terraform-module/module/management/aws-ssm-parameter-workload"
-  count  = length(var.rds) > 0 ? 1 : 0
+  count  = local.any_db ? 1 : 0
 
   path_prefix = "/iac/${var.site}/03-database"
   description = "03-database 묶음 (접속 주소, 비밀 ARN. 비밀번호 자체는 없음)"
   parameters = {
-    rds = { for k, m in module.rds_db : k => m.db }
+    rds = local.rds_dbs
   }
 
   common_tags = var.common_tags
@@ -101,7 +125,7 @@ module "contract" {
 
 check "rds_needs_two_azs" {
   assert {
-    condition     = length(var.rds) == 0 || local.az_ok
+    condition     = !local.any_db || local.az_ok
     error_message = "RDS는 2개 AZ 이상이 필요합니다 (01-network az_count >= 2)."
   }
 }

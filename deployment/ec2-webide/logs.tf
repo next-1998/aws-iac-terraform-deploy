@@ -31,7 +31,7 @@ module "agent_log" {
 ############################################################
 locals {
   # 로그 그룹 이름 앞부분 (/<VPC 이름>/ec2/<서버 이름>)
-  log_prefix = "/${local.base.vpc_name}/ec2/${local.prefix}"
+  log_prefix = "/${local.base.vpc_name}/ec2/${local.service_group}"
 
   cwagent_enabled = var.enable_cloudwatch_agent && alltrue([for k in ["messages", "secure"] : contains(keys(var.agent_log_groups), k)])
 }
@@ -40,7 +40,7 @@ module "cwagent" {
   source = "../../../aws-iac-terraform-module/module/management/aws-ssm-association-workload"
 
   associations = local.cwagent_enabled ? {
-    "${local.prefix}-cwagent" = {
+    "${local.np}-ssa-${local.purpose}cwagent-01" = {
       # 자동 확장을 켜면 태그(ServiceGroup)로 지정 → 고정 서버와 나중에 뜨는 확장 서버 모두 자동 적용
       instance_ids = local.autoscale ? [] : [module.ec2.ec2_instance.id]
       target_tag   = local.autoscale ? { key = "ServiceGroup", values = [local.service_group] } : null

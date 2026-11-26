@@ -24,7 +24,7 @@ module "db_log" {
 module "parameter_group" {
   source = "../../../aws-iac-terraform-module/module/database/aws-rds-workload/parameter-group"
 
-  name       = "${local.identifier}-pg"
+  name       = "${local.np}-rds-pagrp-${local.engine_defaults[var.engine].ver_code}-${local.db_key}-01" # 엔진·주버전 포함 (주버전을 바꾸면 새 파라미터 그룹)
   family     = local.family
   parameters = local.parameters
 

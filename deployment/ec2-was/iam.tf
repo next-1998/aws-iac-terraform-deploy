@@ -7,7 +7,7 @@ data "aws_partition" "current" {}
 module "role" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
 
-  name               = "${local.prefix}-role"
+  name               = "${local.np}-role-${local.purpose}-01"
   description        = "EC2 role for ${local.prefix}"
   assume_role_policy = templatefile("${path.module}/policies/ec2-trust.json.tftpl", {})
 
@@ -49,7 +49,7 @@ module "role_policy_logs_guard" {
 module "instance_profile" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/instance-profile"
 
-  name      = "${local.prefix}-profile"
+  name      = "${local.np}-ipf-${local.purpose}-01"
   role_name = module.role.name
 
   common_tags   = var.common_tags

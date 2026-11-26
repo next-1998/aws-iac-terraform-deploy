@@ -1,0 +1,3 @@
+sg,no,direction,protocol,from_port,to_port,source,description,memo
+db,1,ingress,tcp,5432,5432,pl:dba_tools,from dba tools,사내 DB 관리 도구 (prefix list 이름은 01-network prefix_lists.csv)
+db,2,ingress,tcp,5432,5432,cidr:10.185.20.0/24,from batch servers,기존 배치 서버 대역

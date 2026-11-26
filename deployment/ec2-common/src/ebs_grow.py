@@ -19,8 +19,8 @@ EBS 자동 증설 Lambda
 
 환경 변수
   TAG_KEY            : 증설 허용 태그 키 (볼륨·서버에 "true", IAM 조건과 같은 키)
-  ALARM_NAME_PREFIX  : 다시 확인할 알람 이름 앞부분 (<site>-)
-  ALARM_NAME_MARK    : 증설 알람 이름에 들어 있는 표시 (-ebs-grow-)
+  ALARM_NAME_PREFIX  : 다시 확인할 알람 이름 앞부분 (<접두어>-alm-)
+  ALARM_NAME_MARK    : 증설 알람 이름에 들어 있는 표시 (-ebsgrow-)
   SNS_TOPIC_ARN      : 결과 알림 토픽 (비우면 알림 없음)
   DRY_RUN            : "true"면 크기를 바꾸지 않고 로그만
 """
@@ -40,7 +40,7 @@ logger.setLevel(logging.INFO)
 
 TAG_KEY = os.environ.get("TAG_KEY", "EBS_AUTO_GROW")
 ALARM_NAME_PREFIX = os.environ.get("ALARM_NAME_PREFIX", "")
-ALARM_NAME_MARK = os.environ.get("ALARM_NAME_MARK", "-ebs-grow-")
+ALARM_NAME_MARK = os.environ.get("ALARM_NAME_MARK", "-ebsgrow-")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
 

@@ -342,9 +342,10 @@ run "reject_small_routable" {
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site      = "simple"
-    vpc_name  = "simple-vpc"
-    vpc_cidrs = [{ cidr = "10.227.0.0/24", role = "routable" }] # AZ 2개면 /23 필요
+    site        = "simple"
+    vpc_name    = "simple-vpc"
+    name_prefix = "hw-iac-dev-an2"
+    vpc_cidrs   = [{ cidr = "10.227.0.0/24", role = "routable" }] # AZ 2개면 /23 필요
   }
   expect_failures = [output.input_checks]
 }
@@ -355,6 +356,7 @@ run "reject_eks_routable_too_small" {
   variables {
     site          = "simple"
     vpc_name      = "simple-vpc"
+    name_prefix   = "hw-iac-dev-an2"
     vpc_cidrs     = [{ cidr = "10.227.0.0/23", role = "routable" }]
     eks_placement = "routable"
   }
@@ -367,6 +369,7 @@ run "reject_manual_outside_spare" {
   variables {
     site           = "simple"
     vpc_name       = "simple-vpc"
+    name_prefix    = "hw-iac-dev-an2"
     vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
     manual_subnets = [{ name = "bad", az = "ap-northeast-2a", cidr = "10.227.0.128/28", purpose = "ec2" }] # ec2 서브넷과 겹침
   }
@@ -379,6 +382,7 @@ run "reject_unknown_layout_version" {
   variables {
     site           = "simple"
     vpc_name       = "simple-vpc"
+    name_prefix    = "hw-iac-dev-an2"
     vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
     layout_version = "v9"
   }
@@ -393,10 +397,11 @@ run "reject_az_count_over_region" {
     values = { names = ["ap-northeast-2a", "ap-northeast-2c"] }
   }
   variables {
-    site      = "simple"
-    vpc_name  = "simple-vpc"
-    vpc_cidrs = [{ cidr = "10.227.0.0/22", role = "routable" }]
-    az_count  = 3
+    site        = "simple"
+    vpc_name    = "simple-vpc"
+    name_prefix = "hw-iac-dev-an2"
+    vpc_cidrs   = [{ cidr = "10.227.0.0/22", role = "routable" }]
+    az_count    = 3
   }
   expect_failures = [output.input_checks]
 }
@@ -405,8 +410,9 @@ run "reject_wrong_internal_cidr" {
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site     = "simple"
-    vpc_name = "simple-vpc"
+    site        = "simple"
+    vpc_name    = "simple-vpc"
+    name_prefix = "hw-iac-dev-an2"
     vpc_cidrs = [
       { cidr = "10.227.0.0/23", role = "routable" },
       { cidr = "100.0.0.0/16", role = "internal" },
@@ -419,8 +425,9 @@ run "reject_internal_first" {
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site     = "simple"
-    vpc_name = "simple-vpc"
+    site        = "simple"
+    vpc_name    = "simple-vpc"
+    name_prefix = "hw-iac-dev-an2"
     vpc_cidrs = [
       { cidr = "100.64.0.0/16", role = "internal" },
       { cidr = "10.227.0.0/23", role = "routable" },
@@ -433,10 +440,11 @@ run "reject_5_azs" {
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site      = "simple"
-    vpc_name  = "simple-vpc"
-    vpc_cidrs = [{ cidr = "10.227.0.0/22", role = "routable" }]
-    az_count  = 5
+    site        = "simple"
+    vpc_name    = "simple-vpc"
+    name_prefix = "hw-iac-dev-an2"
+    vpc_cidrs   = [{ cidr = "10.227.0.0/22", role = "routable" }]
+    az_count    = 5
   }
   expect_failures = [var.az_count]
 }
@@ -694,12 +702,12 @@ run "agent_log_groups_precreated_14_days" {
   }
   assert {
     # 기본은 OS 로그(messages), 인증 로그(secure). 이름 규칙: /<VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>
-    condition     = jsonencode(output.agent_log_groups) == jsonencode({ messages = "/simple-vpc/ec2/simple-ec2-was/messages", secure = "/simple-vpc/ec2/simple-ec2-was/secure" })
+    condition     = jsonencode(output.agent_log_groups) == jsonencode({ messages = "/simple-vpc/ec2/hw-iac-dev-an2-ec2-was/messages", secure = "/simple-vpc/ec2/hw-iac-dev-an2-ec2-was/secure" })
     error_message = "Agent 로그 그룹: ${jsonencode(output.agent_log_groups)}"
   }
   assert {
     # Agent 설치·설정 SSM 연결이 서버마다 하나
-    condition     = keys(output.cloudwatch_agent) == ["simple-ec2-was-cwagent"]
+    condition     = keys(output.cloudwatch_agent) == ["hw-iac-dev-an2-ssa-wascwagent-01"]
     error_message = "Agent SSM 연결: ${jsonencode(keys(output.cloudwatch_agent))}"
   }
 }
@@ -840,6 +848,7 @@ run "network_base_reads_prefix_lists_csv" {
   variables {
     site             = "simple"
     vpc_name         = "simple-vpc"
+    name_prefix      = "hw-iac-dev-an2"
     vpc_cidrs        = [{ cidr = "10.227.0.0/23", role = "routable" }]
     enable_flow_logs = false
     prefix_lists_csv = "list,no,cidr,description,max_entries,memo\ncorp,1,10.0.0.0/8,corp-network,10,사내망\n"
@@ -978,7 +987,7 @@ run "prefix_list_id_uses_real_max_entries" {
 }
 
 ############################################################
-# RDS 파라미터 CSV (deployment/rds-db/src/<name>.parameters.csv → module/_rds_parameters_csv)
+# RDS 파라미터 CSV (deployment/rds-<엔진>/src/<name>.parameters.csv → module/_rds_parameters_csv)
 ############################################################
 run "rds_parameters_csv_parse" {
   command = plan

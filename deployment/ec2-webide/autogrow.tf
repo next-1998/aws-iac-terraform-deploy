@@ -71,9 +71,9 @@ locals {
 module "grow_alarm" {
   source = "../../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/metric-alarm"
 
-  name = "${local.prefix}-ebs-grow"
+  name = "${local.np}-alm-${local.purpose}-ebsgrow"
   alarms = {
-    for k, t in local.grow_targets : "${local.prefix}${var.common.ebs_grow.alarm_mark}${k}" => {
+    for k, t in local.grow_targets : "${local.np}-alm-${local.purpose}${var.common.ebs_grow.alarm_mark}${k}-01" => {
       # Lambda가 읽는 대상 정보 (key=value). 사람이 봐도 알 수 있게 그대로 둠
       description = "EBS auto grow volume=${t.volume_id} instance=${module.ec2.ec2_instance.id} path=${t.path} max=${t.conf.max_size} percent=${t.conf.increase_percent} min=${t.conf.min_increase}"
       # Metrics Insights: Agent가 붙이는 fstype 등 다른 차원과 관계없이 InstanceId·path로 조회

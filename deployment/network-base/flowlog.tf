@@ -7,7 +7,7 @@ module "flow_log" {
   source = "../../../aws-iac-terraform-module/module/monitor_log/aws-flowlog-workload"
   count  = var.enable_flow_logs && var.flow_log_bucket_arn != null ? 1 : 0
 
-  name       = "${var.site}-vpc-flow-log"
+  name       = "${var.name_prefix}-fl-vpc-01"
   vpc_id     = module.vpc.vpc.id
   bucket_arn = var.flow_log_bucket_arn
   # 로그 경로 규칙: <VPC 이름>/<리소스 유형>/<리소스 이름>/<로그 이름>

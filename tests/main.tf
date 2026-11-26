@@ -87,6 +87,7 @@ module "network_base" {
 
   site          = "simple"
   vpc_name      = "simple-vpc"
+  name_prefix   = "hw-iac-dev-an2"
   vpc_cidrs     = var.vpc_cidrs
   az_count      = var.az_count
   enable_public = var.enable_public

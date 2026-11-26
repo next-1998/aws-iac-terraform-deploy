@@ -27,7 +27,8 @@ locals {
 module "prefix_list" {
   source = "../../../aws-iac-terraform-module/module/network/aws-prefixlist-workload"
 
-  name_prefix  = var.site
+  name_prefix  = "${var.name_prefix}-pl"
+  name_suffix  = "-01"
   prefix_lists = local.prefix_lists
 
   common_tags   = var.common_tags

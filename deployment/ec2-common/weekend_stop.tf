@@ -19,7 +19,7 @@ data "archive_file" "weekend_stop" {
 }
 
 locals {
-  ws_name = "${local.prefix}-weekend-stop"
+  ws_name = "${local.np}-lbd-wkstop-01"
   ws_key  = "${local.key}_weekend_stop"
   ws_tag  = "WEEKEND_STOP_ENABLE"
   ws      = var.enable_weekend_stop ? { this = true } : {}
@@ -53,7 +53,7 @@ module "ws_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.ws
 
-  name               = "${local.ws_name}-role"
+  name               = "${local.np}-role-wkstop-01"
   description        = "weekend stop lambda"
   assume_role_policy = templatefile("${path.module}/policies/weekend-stop-lambda-trust.json.tftpl", {})
 
@@ -87,7 +87,7 @@ module "ws_sg" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   for_each = local.ws
 
-  name        = "${local.ws_name}-sg"
+  name        = "${local.np}-sg-wkstop-01"
   description = "weekend stop lambda (egress to VPC endpoints only)"
   vpc_id      = local.base.vpc_id
 
@@ -150,7 +150,7 @@ module "ws_scheduler_role" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
   for_each = local.ws
 
-  name               = "${local.ws_name}-scheduler-role"
+  name               = "${local.np}-role-wkstopsch-01"
   description        = "weekend stop scheduler"
   assume_role_policy = templatefile("${path.module}/policies/weekend-stop-scheduler-trust.json.tftpl", {})
 
@@ -177,7 +177,7 @@ module "ws_schedule" {
 
   schedules = {
     for action, expr in { stop = var.weekend_stop.stop_schedule, start = var.weekend_stop.start_schedule } : action => {
-      name                     = "${local.ws_name}-${action}"
+      name                     = "${local.np}-sch-wkstop${action}-01"
       expression               = expr
       timezone                 = var.weekend_stop.timezone
       enabled                  = var.weekend_stop.schedule_enabled

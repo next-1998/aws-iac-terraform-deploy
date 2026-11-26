@@ -6,6 +6,9 @@ locals {
   site   = local.base.site
   prefix = "${local.site}-${var.name}"
 
+  # 이름 규칙: <np>-<유형>-<이름>-<순번>[-<AZ>] (np = 00-bootstrap naming 접두어)
+  np = local.base.name_prefix
+
   # ResourceKey 대상 (stack 이름의 '-'를 '_'로)
   key = replace(var.name, "-", "_")
 

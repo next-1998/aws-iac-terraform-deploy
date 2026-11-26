@@ -63,7 +63,7 @@ module "vpc_cidr" {
 module "default_sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-default-sg-workload"
 
-  name   = "${var.site}-default-sg-locked"
+  name   = "${var.name_prefix}-sg-default-01"
   vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
@@ -96,7 +96,7 @@ module "subnet" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-sbn-workload"
   for_each = local.base_subnets
 
-  name                    = "${var.site}-${each.value.purpose}-${local.az_short[each.value.az]}-subnet"
+  name                    = "${var.name_prefix}-sbn-${each.value.purpose}-01-${local.az_short[each.value.az]}"
   vpc_id                  = module.vpc.vpc.id
   azs                     = each.value.az
   subnet_cidr_block       = [local.subnet_cidrs[each.value.purpose][each.value.az]]
@@ -127,7 +127,7 @@ module "igw" {
   source = "../../../aws-iac-terraform-module/module/network/aws-igw-workload"
   count  = var.enable_public ? 1 : 0
 
-  name   = "${var.site}-igw"
+  name   = "${var.name_prefix}-igw-main-01"
   vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
@@ -143,7 +143,7 @@ module "nat_eip" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-eip-workload"
   for_each = var.enable_public ? toset(local.nat_azs) : toset([])
 
-  name            = "${var.site}-nat-${local.az_short[each.key]}-eip"
+  name            = "${var.name_prefix}-eip-natgw-01-${local.az_short[each.key]}"
   prevent_destroy = var.protect_nat_eip
 
   common_tags   = var.common_tags
@@ -157,7 +157,7 @@ module "public_nat" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-natgw-workload"
   for_each = var.enable_public ? toset(local.nat_azs) : toset([])
 
-  name              = "${var.site}-public-${local.az_short[each.key]}-nat"
+  name              = "${var.name_prefix}-natgw-pub-01-${local.az_short[each.key]}"
   eip_id            = module.nat_eip[each.key].vpc_eip.id
   vpc_subnet_id     = local.subnet_ids.public[each.key]
   connectivity_type = "public"
@@ -176,7 +176,7 @@ module "private_nat" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-natgw-workload"
   for_each = local.create_private_nat ? toset(local.nat_azs) : toset([])
 
-  name              = "${var.site}-private-${local.az_short[each.key]}-nat"
+  name              = "${var.name_prefix}-natgw-pri-01-${local.az_short[each.key]}"
   vpc_subnet_id     = local.subnet_ids.transit[each.key]
   connectivity_type = "private"
 
@@ -195,7 +195,7 @@ module "tgw_attachment" {
   source = "../../../aws-iac-terraform-module/module/network/aws-tgwattch-workload"
   count  = local.use_tgw ? 1 : 0
 
-  name           = "${var.site}-tgwa"
+  name           = "${var.name_prefix}-tga-main-01"
   vpc_id         = module.vpc.vpc.id
   attachment_tgw = var.tgw_id
   subnet_ids     = [for az in local.layout_azs : local.subnet_ids.transit[az]]
@@ -226,7 +226,7 @@ module "rt" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   for_each = local.route_tables
 
-  name   = "${var.site}-${each.value.purpose}-${local.az_short[each.value.az]}-rt"
+  name   = "${var.name_prefix}-rtb-${each.value.purpose}-01-${local.az_short[each.value.az]}"
   vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
@@ -240,7 +240,7 @@ module "rt_public" {
   source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   count  = var.enable_public ? 1 : 0
 
-  name   = "${var.site}-public-rt"
+  name   = "${var.name_prefix}-rtb-public-01"
   vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
@@ -253,7 +253,7 @@ module "rt_public" {
 module "rt_vpce" {
   source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
 
-  name   = "${var.site}-vpce-rt"
+  name   = "${var.name_prefix}-rtb-vpce-01"
   vpc_id = module.vpc.vpc.id
 
   common_tags   = var.common_tags
@@ -327,7 +327,7 @@ module "resolver_rule" {
   source = "../../../aws-iac-terraform-module/module/network/aws-route53-workload/resolver_rule_associate"
   count  = var.resolver_rule_id != null ? 1 : 0
 
-  name                 = "${var.site}-resolver-rule"
+  name                 = "${var.name_prefix}-rsv-main-01"
   vpc_id               = module.vpc.vpc.id
   vpc_resolver_rule_id = var.resolver_rule_id
 }

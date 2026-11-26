@@ -11,7 +11,7 @@ module "kms_key" {
   source = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/key"
   count  = local.local_rds_key ? 1 : 0
 
-  key_name                = "${local.site}-rds"
+  key_name                = "${local.np}-kms-rds-01"
   description             = "${local.site} RDS encryption (storage, master user secret, performance insights)"
   enable_key_rotation     = true
   deletion_window_in_days = var.protect_kms_keys ? 30 : 7
@@ -30,7 +30,7 @@ module "kms_alias" {
   source = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/alias"
   count  = local.local_rds_key ? 1 : 0
 
-  name          = "iac/${local.site}/rds"
+  name          = "${local.np}-kms-rds-01"
   target_key_id = module.kms_key[0].key_id
 }
 

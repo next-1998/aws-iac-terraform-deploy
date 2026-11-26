@@ -1,7 +1,7 @@
 ############################################################
 # 공용 CMK (용도별)
 #   central_kms_key_arns에 용도가 있으면 중앙 키를 쓰고, 없으면 이 계정에 만듭니다.
-#     (logs 키는 계정 기본이라 00-bootstrap이 만듦: alias/iac/account/logs)
+#     (logs 키는 계정 기본이라 00-bootstrap이 만듦: alias/<접두어>-kms-logs-01)
 #     sns  : 알림 토픽. 키 정책에 CloudWatch 알람(cloudwatch.amazonaws.com) 허용
 #   서비스마다 키 정책이 달라 키를 나눕니다. 중앙 키를 쓰면 같은 권한이 중앙 키 정책에 있어야 합니다.
 ############################################################
@@ -41,7 +41,7 @@ module "kms_key" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/key"
   for_each = local.local_keys
 
-  key_name                = "${local.site}-${each.key}"
+  key_name                = "${local.base.name_prefix}-kms-${each.key}-01"
   description             = "${local.site} ${each.key} encryption"
   enable_key_rotation     = true
   deletion_window_in_days = var.protect_kms_keys ? 30 : 7
@@ -62,7 +62,7 @@ module "kms_alias" {
   source   = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/alias"
   for_each = local.local_keys
 
-  name          = "iac/${local.site}/${each.key}"
+  name          = "${local.base.name_prefix}-kms-${each.key}-01"
   target_key_id = module.kms_key[each.key].key_id
 }
 

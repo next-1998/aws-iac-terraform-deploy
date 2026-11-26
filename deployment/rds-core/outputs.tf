@@ -42,6 +42,8 @@ output "settings" {
     final_snapshot              = var.protect
     manage_master_user_password = local.managed_password
     parameter_group_family      = local.family
+    parameter_group_name        = module.parameter_group.name
+    identifier                  = local.identifier
     parameters                  = local.parameters
     log_exports                 = local.log_exports
     from_snapshot               = var.snapshot_identifier != null

@@ -16,7 +16,7 @@ mock_provider "aws" {
 
 override_data {
   target = data.aws_ssm_parameter.network["base"]
-  values = { insecure_value = "{\"contract_version\":1,\"site\":\"simple\",\"layout_version\":\"v1\",\"vpc_id\":\"vpc-1\",\"vpc_name\":\"simple-vpc\",\"azs\":[\"ap-northeast-2a\",\"ap-northeast-2b\"],\"az_short\":{\"ap-northeast-2a\":\"a\",\"ap-northeast-2b\":\"b\"},\"vpc_cidrs\":[\"10.227.0.0/23\"],\"primary_cidr\":\"10.227.0.0/23\",\"extra_routable\":[],\"internal_cidr\":null,\"enable_public\":false,\"resource_tags\":{\"VpcName\":\"simple-vpc\"}}" }
+  values = { insecure_value = "{\"contract_version\":1,\"site\":\"simple\",\"layout_version\":\"v1\",\"vpc_id\":\"vpc-1\",\"vpc_name\":\"hw-iac-dev-an2-vpc-simple-01\",\"name_prefix\":\"hw-iac-dev-an2\",\"azs\":[\"ap-northeast-2a\",\"ap-northeast-2b\"],\"az_short\":{\"ap-northeast-2a\":\"a\",\"ap-northeast-2b\":\"b\"},\"vpc_cidrs\":[\"10.227.0.0/23\"],\"primary_cidr\":\"10.227.0.0/23\",\"extra_routable\":[],\"internal_cidr\":null,\"enable_public\":false,\"resource_tags\":{\"VpcName\":\"simple-vpc\"}}" }
 }
 
 override_data {
@@ -82,14 +82,14 @@ run "no_alarm_topic_no_shared_key" {
 }
 
 run "backup_default_plans_and_tag_selection" {
-  # 기본: daily(7일)·monthly(365일)·pitr(연속 7일), 볼트 <VPC>-backup-vault, 대상은 태그 Backup-<플랜> = true AND Site=<site>, 볼트 잠금 없음
+  # 기본: daily(7일)·monthly(365일)·pitr(연속 7일), 볼트 <접두어>-bku-vault-main-01, 대상은 태그 Backup-<플랜> = true AND Site=<site>, 볼트 잠금 없음
   command = plan
   assert {
     condition     = jsonencode(sort(keys(module.backup[0].contract.plans))) == jsonencode(["daily", "monthly", "pitr"])
     error_message = "플랜: ${jsonencode(module.backup[0].contract.plans)}"
   }
   assert {
-    condition     = module.backup[0].contract.plans["monthly"].retention_days == 365 && module.backup[0].contract.plans["pitr"].continuous_backup && module.backup[0].contract.vault_name == "simple-vpc-backup-vault"
+    condition     = module.backup[0].contract.plans["monthly"].retention_days == 365 && module.backup[0].contract.plans["pitr"].continuous_backup && module.backup[0].contract.vault_name == "hw-iac-dev-an2-bku-vault-main-01"
     error_message = "monthly 보관: ${jsonencode(module.backup[0].contract.plans)}"
   }
   assert {

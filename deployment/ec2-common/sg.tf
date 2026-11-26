@@ -9,7 +9,7 @@
 module "common_sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
 
-  name        = "${local.prefix}-sg"
+  name        = "${local.np}-sg-ec2common-01"
   description = "server access (rules from ec2-common/src/sg_rules.csv)"
   vpc_id      = local.base.vpc_id
 

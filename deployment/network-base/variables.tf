@@ -276,3 +276,8 @@ variable "prefix_lists_csv" {
   type        = string
   default     = null
 }
+
+variable "name_prefix" {
+  description = "이름 앞부분 <회사>-<서비스>-<환경>-<리전 코드> (00-bootstrap naming). 이름: <name_prefix>-<유형>-<이름>-<순번>[-<AZ>]"
+  type        = string
+}

@@ -4,8 +4,9 @@
 
 | 리소스 | 기본 | 설명 |
 |---|---|---|
-| state 버킷 `iac-tfstate-<계정ID>-<리전>` | 생성 | 버전 관리, 암호화, 퍼블릭 차단, HTTPS만 허용, **삭제 보호** |
-| 로그 버킷 `iac-logs-<계정ID>-<리전>` | 생성 | Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것). SSE-S3, **30일 후 Glacier, 365일 후 삭제** (기본값, 최종 보관일은 고객 협의) |
+| 이름 규칙 (중앙) | `naming` 입력 | `<회사>-<서비스>-<환경>-<리전 코드>` 접두어를 Parameter Store `/iac/_account/00-bootstrap/naming`에 남김. 모든 이름: `<접두어>-<유형>-<이름>-<순번>[-<AZ>]` |
+| state 버킷 `<접두어>-s3-tfstate-01` | 생성 | 버전 관리, 암호화, 퍼블릭 차단, HTTPS만 허용, **삭제 보호** |
+| 로그 버킷 `<접두어>-s3-logs-01` | 생성 | Flow Logs, ALB 접근 로그, CloudWatch Logs(내보낸 것). SSE-S3, **30일 후 Glacier, 365일 후 삭제** (기본값, 최종 보관일은 고객 협의) |
 | Parameter Store | 생성 | `/iac/_account/00-bootstrap/state`, `/iac/_account/00-bootstrap/logs` |
 
 ## 실행
@@ -55,7 +56,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 | 항목 | 내용 | 범위 |
 |---|---|---|
 | EBS 기본 암호화 | 켜짐. 새 EBS 볼륨·스냅샷 복사본은 항상 암호화 | 리전 |
-| EBS 기본 키 | CMK `alias/iac/account/ebs` (또는 중앙 키), 자동 교체, **삭제 보호** | 리전 |
+| EBS 기본 키 | CMK `alias/<접두어>-kms-ebs-01` (또는 중앙 키), 자동 교체, **삭제 보호** | 리전 |
 | S3 퍼블릭 차단 | 계정 단위 4개 항목 모두 차단 (버킷 설정보다 우선) | 계정 전체 |
 | IMDSv2 | 인스턴스 메타데이터 기본값 `http_tokens = required`, hop limit 2 | 리전 |
 
@@ -70,10 +71,10 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 
 | 키 | 이 계정에 만들 때 | 쓰는 곳 |
 |---|---|---|
-| `ebs` | `alias/iac/account/ebs` | 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키 |
-| `s3` | `alias/iac/account/s3` | S3 버킷. 기본은 state 버킷도 이 키 |
-| `logs` | `alias/iac/account/logs` | CloudWatch 로그 그룹 (계정 전체: 서버 Agent 로그, Lambda 로그, Firehose 오류 로그). 키 정책에 CloudWatch Logs 서비스(이 계정 로그 그룹만) 허용. 다음 단계는 `/iac/_account/00-bootstrap/kms`의 `key_arns.logs`를 읽음 |
-| (분리 옵션) `tfstate` | `alias/iac/account/tfstate` | `separate_tfstate_key = true`일 때 state 버킷 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
+| `ebs` | `alias/<접두어>-kms-ebs-01` | 계정·리전 EBS 기본 키. EC2 볼륨은 따로 지정하지 않으면 이 키 |
+| `s3` | `alias/<접두어>-kms-s3-01` | S3 버킷. 기본은 state 버킷도 이 키 |
+| `logs` | `alias/<접두어>-kms-logs-01` | CloudWatch 로그 그룹 (계정 전체: 서버 Agent 로그, Lambda 로그, Firehose 오류 로그). 키 정책에 CloudWatch Logs 서비스(이 계정 로그 그룹만) 허용. 다음 단계는 `/iac/_account/00-bootstrap/kms`의 `key_arns.logs`를 읽음 |
+| (분리 옵션) `tfstate` | `alias/<접두어>-kms-tfstate-01` | `separate_tfstate_key = true`일 때 state 버킷 전용. 중앙 `tfstate` 키를 넣으면 옵션과 관계없이 그 키 사용 |
 
 - 키는 자동 교체, 삭제 대기 30일, **삭제 보호**(prevent_destroy). 삭제 보호는 `operation_mode = "enable"`(운영)일 때만 켜집니다. 그 외(기본 null)는 삭제 가능(버킷은 파일까지, KMS 대기 7일)이고, 항목별로는 `deletion_protection`에서 고릅니다. **처음 배포할 때 정하고 바꾸지 않습니다** (바꾸면 버킷·키가 새로 만들어짐). 모든 단계에 같은 값을 넣습니다.
 - 지우는 순서: 03-compute → 02-shared → 01-network → 00-bootstrap (02 이후 단계가 01-network 값을 읽으므로 01-network를 먼저 지우면 02-shared 삭제가 실패함)
@@ -90,7 +91,7 @@ terraform -chdir=00-bootstrap init && terraform -chdir=00-bootstrap test
 | S3 로그 버킷 `<버킷>/<로그 그룹 이름>/YYYY/MM/DD/` | **365일** (30일 후 Glacier로 바로. IA 단계는 `log_transition_ia_days`를 지정할 때만) | `log_retention_days`. **최종 보관일은 고객 협의 후 결정**. Glacier 전환일 + 90일 이상이어야 함 (Glacier 최소 보관 90일, 더 일찍 지우면 조기 삭제 요금) |
 
 ```text
-모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose (iac-cwlogs-to-s3) ─→ S3 로그 버킷
+모든 로그 그룹 ─(계정 단위 구독 필터)→ Firehose (<접두어>-fh-cwlogs-01) ─→ S3 로그 버킷
 ```
 
 ### 로그 경로 규칙 (모든 로그는 VPC 이름으로 시작)

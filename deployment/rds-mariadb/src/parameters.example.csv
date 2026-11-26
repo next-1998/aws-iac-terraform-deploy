@@ -1,0 +1,6 @@
+no,name,value,apply_method,memo
+1,slow_query_log,1,immediate,느린 쿼리 로그 켜기
+2,long_query_time,1,immediate,1초 넘는 쿼리를 느린 쿼리로
+3,require_secure_transport,ON,immediate,SSL 접속 강제 (MariaDB 10.5 이상)
+4,character_set_server,utf8mb4,pending-reboot,서버 문자셋
+5,time_zone,Asia/Seoul,immediate,서버 시간대

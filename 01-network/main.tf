@@ -12,7 +12,14 @@ data "aws_ssm_parameter" "bootstrap_logs" {
   name  = "/iac/_account/00-bootstrap/logs"
 }
 
+# 이름 규칙 앞부분 (00-bootstrap이 남긴 값: <회사>-<서비스>-<환경>-<리전 코드>)
+data "aws_ssm_parameter" "bootstrap_naming" {
+  name = "/iac/_account/00-bootstrap/naming"
+}
+
 locals {
+  name_prefix = jsondecode(data.aws_ssm_parameter.bootstrap_naming.insecure_value).prefix
+
   log_bucket_arn = var.central_log_bucket_arn != null ? var.central_log_bucket_arn : (
     length(data.aws_ssm_parameter.bootstrap_logs) > 0 ? jsondecode(data.aws_ssm_parameter.bootstrap_logs[0].insecure_value).bucket_arn : null
   )
@@ -22,7 +29,8 @@ module "network_base" {
   source = "../deployment/network-base"
 
   site           = var.site
-  vpc_name       = "${var.site}-vpc"
+  name_prefix    = local.name_prefix
+  vpc_name       = "${local.name_prefix}-vpc-${var.site}-01" # VPC 이름의 리소스 이름 = site
   common_tags    = var.common_tags
   layout_version = var.layout_version
 

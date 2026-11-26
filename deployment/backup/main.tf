@@ -19,7 +19,7 @@ module "kms_key" {
   source = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/key"
   count  = contains(keys(var.central_kms_key_arns), "backup") ? 0 : 1
 
-  key_name                = "${var.site}-backup"
+  key_name                = "${var.name_prefix}-kms-backup-01"
   description             = "${var.site} AWS Backup vault"
   enable_key_rotation     = true
   deletion_window_in_days = var.protect_kms_keys ? 30 : 7
@@ -39,7 +39,7 @@ module "kms_alias" {
   source = "../../../aws-iac-terraform-module/module/security/aws-kms-workload/alias"
   count  = length(module.kms_key)
 
-  name          = "iac/${var.site}/backup"
+  name          = "${var.name_prefix}-kms-backup-01"
   target_key_id = module.kms_key[0].key_id
 }
 
@@ -51,7 +51,7 @@ locals {
 module "vault" {
   source = "../../../aws-iac-terraform-module/module/management/aws-backup-workload/vault"
 
-  name            = "${var.vpc_name}-backup-vault"
+  name            = "${var.name_prefix}-bku-vault-main-01"
   kms_key_arn     = local.kms_key_arn
   prevent_destroy = var.protect
   force_destroy   = !var.protect # 테스트: destroy 때 남은 백업까지 삭제
@@ -78,7 +78,7 @@ module "vault_lock" {
 module "role" {
   source = "../../../aws-iac-terraform-module/module/security/aws-iam-workload/role"
 
-  name               = "${local.prefix}-role"
+  name               = "${var.name_prefix}-role-backup-01"
   description        = "AWS Backup service role for ${var.site}"
   assume_role_policy = templatefile("${path.module}/policies/backup-trust.json.tftpl", {})
 
@@ -106,7 +106,7 @@ module "plan" {
   source   = "../../../aws-iac-terraform-module/module/management/aws-backup-workload/plan"
   for_each = var.plans
 
-  name       = "${local.prefix}-${each.key}"
+  name       = "${var.name_prefix}-bku-plan-${each.key}-01"
   vault_name = module.vault.name
   rules      = { (each.key) = each.value }
 
@@ -123,7 +123,7 @@ module "selection" {
   for_each = var.plans
 
   # 역할 권한은 백업이 실행될 때(다음 스케줄) 필요하므로 정책 연결과 순서를 맞출 필요 없음
-  name           = "${local.prefix}-${each.key}"
+  name           = "${var.name_prefix}-bku-sel-${each.key}-01"
   plan_id        = module.plan[each.key].id
   iam_role_arn   = module.role.arn
   resources      = ["*"]

@@ -1,4 +1,9 @@
 # 버킷에 prevent_destroy가 있어서 apply 후 정리(destroy)를 할 수 없으므로 plan으로만 검사합니다.
+# 이름 규칙 앞부분 (테스트 값)
+variables {
+  naming = { company = "hw", service = "iac", env = "dev" }
+}
+
 mock_provider "aws" {
   mock_data "aws_caller_identity" {
     defaults = { account_id = "111111111111" }
@@ -17,11 +22,11 @@ mock_provider "aws" {
 run "defaults" {
   command = plan
   assert {
-    condition     = module.state_bucket.bucket == "iac-tfstate-111111111111-ap-northeast-2"
+    condition     = module.state_bucket.bucket == "hw-iac-dev-an2-s3-tfstate-01"
     error_message = "state bucket: ${module.state_bucket.bucket}"
   }
   assert {
-    condition     = module.log_bucket["this"].bucket == "iac-logs-111111111111-ap-northeast-2"
+    condition     = module.log_bucket["this"].bucket == "hw-iac-dev-an2-s3-logs-01"
     error_message = "log bucket: ${module.log_bucket["this"].bucket}"
   }
   assert {
@@ -58,7 +63,7 @@ run "account_security_defaults" {
     error_message = "계정 S3 퍼블릭 차단 4개 모두 true여야 함: ${jsonencode(module.s3_account_public_access_block[0].settings)}"
   }
   assert {
-    condition     = toset(keys(module.parameters.names)) == toset(["state", "logs", "kms"])
+    condition     = toset(keys(module.parameters.names)) == toset(["state", "logs", "kms", "naming"])
     error_message = "파라미터: ${jsonencode(keys(module.parameters.names))}"
   }
 }
@@ -231,7 +236,7 @@ run "elb_log_policy_restricted_to_own_load_balancers" {
   override_resource {
     target          = module.log_bucket["this"].aws_s3_bucket.this[0]
     override_during = plan
-    values          = { arn = "arn:aws:s3:::iac-logs-111111111111-ap-northeast-2", id = "iac-logs-111111111111-ap-northeast-2", bucket = "iac-logs-111111111111-ap-northeast-2" }
+    values          = { arn = "arn:aws:s3:::hw-iac-dev-an2-s3-logs-01", id = "hw-iac-dev-an2-s3-logs-01", bucket = "hw-iac-dev-an2-s3-logs-01" }
   }
   assert {
     # 예전 방식(리전 ELB 계정 주체)은 없고, 새 방식은 이 계정 로드밸런서로 출처 제한
@@ -283,4 +288,21 @@ run "retention_at_glacier_minimum_ok" {
     condition     = module.log_lifecycle["this"].rules[0].expiration_days == 120
     error_message = "Glacier 전환 + 90일 = 120일은 허용"
   }
+}
+
+run "naming_prefix_published" {
+  # 이름 앞부분: <회사>-<서비스>-<환경>-<리전 코드>, 리전 코드는 리전에서 자동 (ap-northeast-2 → an2)
+  command = plan
+  assert {
+    condition     = local.name_prefix == "hw-iac-dev-an2" && local.cwlogs_name == "hw-iac-dev-an2-fh-cwlogs-01"
+    error_message = "접두어: ${local.name_prefix}"
+  }
+}
+
+run "reject_hyphen_in_naming_parts" {
+  command = plan
+  variables {
+    naming = { company = "hw-x", service = "iac", env = "dev" }
+  }
+  expect_failures = [var.naming]
 }

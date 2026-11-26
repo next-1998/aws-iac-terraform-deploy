@@ -72,7 +72,7 @@ module "alarm_topic" {
   source = "../../../aws-iac-terraform-module/module/monitor_log/aws-sns-workload/topic"
   count  = var.enable_alarm_topic ? 1 : 0
 
-  name = "${local.site}-alarm"
+  name = "${local.base.name_prefix}-sns-alarm-01"
   # 알림 토픽 CMK (kms.tf: 중앙 키 또는 이 계정 키)
   kms_master_key_id = local.kms_key_arns.sns
 

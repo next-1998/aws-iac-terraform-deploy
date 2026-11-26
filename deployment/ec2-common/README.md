@@ -59,7 +59,7 @@ common,1,ingress,tcp,22,22,pl:access_ctl,server access control,서버 접근제�
 ec2-<용도>에서 `root_auto_grow` 또는 `ebs_volumes[].auto_grow`를 켜면 03-compute가 `enable_ebs_auto_grow = true`로 넘깁니다. 사이트에 Lambda 하나를 만듭니다 (`ebs_grow.tf`, 코드 `src/ebs_grow.py`).
 
 ```text
-CloudWatch Agent (disk_used_percent, InstanceId·path) → 알람 <site>-<용도>-ebs-grow-<root|장치>
+CloudWatch Agent (disk_used_percent, InstanceId·path) → 알람 <접두어>-alm-<용도>-ebsgrow-<root|장치>-01
   → Lambda: 볼륨 크기 늘림 → SSM: 파일시스템 확장 → 알람 OK로 되돌림 → SNS 알림 (02-shared 알림 토픽)
 스케줄 (1시간마다) → ALARM 상태로 남은 증설 알람 다시 확인 (6시간 제한 대기, 늘린 뒤에도 높은 경우)
 ```

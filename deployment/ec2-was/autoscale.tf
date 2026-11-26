@@ -10,9 +10,8 @@
 #   줄일 때: 가장 최근에 뜬 서버부터 / 이미지가 바뀌면: 확장 서버만 순차 교체 (고정 서버는 그대로)
 ############################################################
 locals {
-  autoscale     = var.autoscale.enabled
-  make_image    = local.autoscale && var.autoscale.ami == null
-  service_group = local.prefix
+  autoscale  = var.autoscale.enabled
+  make_image = local.autoscale && var.autoscale.ami == null
 }
 
 # ── 최초 이미지 (고정 서버로 한 번만) ──────────────────────────
@@ -20,7 +19,7 @@ module "initial_image" {
   source = "../../../aws-iac-terraform-module/module/computing/aws-ami-workload/from-instance"
   count  = local.make_image ? 1 : 0
 
-  name        = "${local.prefix}-initial"
+  name        = "${local.np}-ami-${local.purpose}-01"
   description = "initial image of ${local.prefix} for autoscaling (created once by Terraform)"
   # 마운트·Agent 설치 SSM 연결이 성공한 뒤에 찍히도록 그 결과를 참조 (값은 서버 ID)
   source_instance_id = length(merge(module.volume_mount.association_ids, module.cwagent.association_ids)) >= 0 ? module.ec2.ec2_instance.id : null
@@ -53,7 +52,7 @@ module "asg_lt" {
   source = "../../../aws-iac-terraform-module/module/computing/aws-lt-workload/launch-template"
   count  = local.autoscale ? 1 : 0
 
-  name                      = "${local.prefix}-lt"
+  name                      = "${local.np}-lt-${local.purpose}-01"
   description               = "${local.prefix} autoscale servers"
   image_id                  = local.asg_ami
   instance_type             = coalesce(var.autoscale.instance_type, var.instance_type)
@@ -61,7 +60,7 @@ module "asg_lt" {
   key_name                  = one(data.aws_key_pair.this[*].key_name)
   vpc_security_group_ids    = [var.common.common_sg_id, module.sg.securitygroup_id]
   user_data                 = var.user_data == null ? null : base64encode(var.user_data)
-  instance_name             = "${local.prefix}-asg"
+  instance_name             = "${local.np}-ec2-${local.purpose}-asg"
 
   # 이미지에 들어 있는 EBS 볼륨(루트, 데이터)을 모두 "종료 시 삭제" + 암호화로 덮어씀 (줄일 때 볼륨이 남지 않게)
   block_device_mappings = [
@@ -89,7 +88,7 @@ module "asg" {
   source = "../../../aws-iac-terraform-module/module/computing/aws-asg-workload/asg"
   count  = local.autoscale ? 1 : 0
 
-  name                = "${local.prefix}-asg"
+  name                = "${local.np}-asg-${local.purpose}-01"
   min_size            = 0
   max_size            = var.autoscale.max_extra
   desired_capacity    = 0
@@ -129,8 +128,8 @@ module "asg_policy" {
 
   autoscaling_group_name = module.asg[0].name
   policies = {
-    "${local.prefix}-scale-out" = { adjustment = 1 }
-    "${local.prefix}-scale-in"  = { adjustment = -1 }
+    "${local.np}-asg-pol-${local.purpose}out-01" = { adjustment = 1 }
+    "${local.np}-asg-pol-${local.purpose}in-01"  = { adjustment = -1 }
   }
 }
 
@@ -146,9 +145,9 @@ module "asg_alarm" {
   source = "../../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/metric-alarm"
   count  = local.autoscale ? 1 : 0
 
-  name = "${local.prefix}-scaling"
+  name = "${local.np}-alm-${local.purpose}-scaling"
   alarms = {
-    "${local.prefix}-high" = {
+    "${local.np}-alm-${local.purpose}-cpumemhigh-01" = {
       description         = "CPU or memory above ${var.autoscale.scale_out}% for 5 minutes -> add 1 server"
       metrics             = local.scale_metrics
       expression          = "MAX([cpu, mem])"
@@ -157,9 +156,9 @@ module "asg_alarm" {
       threshold           = var.autoscale.scale_out
       evaluation_periods  = 5
       treat_missing_data  = "notBreaching"
-      alarm_actions       = [module.asg_policy[0].arns["${local.prefix}-scale-out"]]
+      alarm_actions       = [module.asg_policy[0].arns["${local.np}-asg-pol-${local.purpose}out-01"]]
     }
-    "${local.prefix}-low" = {
+    "${local.np}-alm-${local.purpose}-cpumemlow-01" = {
       description         = "CPU and memory below ${var.autoscale.scale_in}% for 15 minutes -> remove 1 server"
       metrics             = local.scale_metrics
       expression          = "MAX([cpu, mem])"
@@ -168,7 +167,7 @@ module "asg_alarm" {
       threshold           = var.autoscale.scale_in
       evaluation_periods  = 15
       treat_missing_data  = "notBreaching"
-      alarm_actions       = [module.asg_policy[0].arns["${local.prefix}-scale-in"]]
+      alarm_actions       = [module.asg_policy[0].arns["${local.np}-asg-pol-${local.purpose}in-01"]]
     }
   }
 
@@ -186,12 +185,12 @@ module "asg_schedule" {
 
   autoscaling_group_name = module.asg[0].name
   schedules = {
-    "${local.prefix}-weekend-stop" = {
+    "${local.np}-asg-sch-${local.purpose}stop-01" = {
       recurrence = var.autoscale.weekend_stop.stop_schedule
       time_zone  = var.autoscale.weekend_stop.time_zone
       min_size   = 0, max_size = 0, desired_capacity = 0
     }
-    "${local.prefix}-weekend-start" = {
+    "${local.np}-asg-sch-${local.purpose}start-01" = {
       recurrence = var.autoscale.weekend_stop.start_schedule
       time_zone  = var.autoscale.weekend_stop.time_zone
       min_size   = 0, max_size = var.autoscale.max_extra, desired_capacity = 0

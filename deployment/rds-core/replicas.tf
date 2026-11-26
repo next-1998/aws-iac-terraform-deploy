@@ -4,7 +4,8 @@
 #   로그 그룹도 복제본마다 미리 만듭니다 (/aws/rds/instance/<복제본 identifier>/<로그>)
 ############################################################
 locals {
-  replicas = { for k, r in var.replicas : k => merge(r, { identifier = "${local.identifier}-${k}" }) }
+  # 복제본 이름: <np>-rds-<엔진>-<DB 키>-ro-<순번> (키 이름순으로 01, 02 …)
+  replicas = { for k, r in var.replicas : k => merge(r, { identifier = format("%s-rds-%s-%s-ro-%02d", local.np, local.engine_defaults[var.engine].code, local.db_key, index(sort(keys(var.replicas)), k) + 1) }) }
   replica_logs = {
     for pair in setproduct(keys(local.replicas), local.log_exports) : "${pair[0]}|${pair[1]}" => { replica = pair[0], log = pair[1] }
   }

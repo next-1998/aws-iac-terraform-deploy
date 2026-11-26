@@ -21,7 +21,7 @@ variable "enable_backup" {
 
 variable "backup_plans" {
   description = <<-EOT
-    백업 플랜 (플랜 이름 → 규칙). 백업 종류마다 플랜 하나 (규칙 하나). 볼트는 VPC마다 하나 (<VPC 이름>-backup-vault)
+    백업 플랜 (플랜 이름 → 규칙). 백업 종류마다 플랜 하나 (규칙 하나). 볼트는 하나 (<접두어>-bku-vault-main-01)
     대상: 리소스 태그 Backup-<플랜> = true 이고 Site = <site>인 리소스 (여러 플랜이면 태그도 여러 개: Backup-daily = true, Backup-pitr = true)
     원칙: AWS Backup이 지원하는 리소스는 AWS Backup만 사용 (지원하지 않을 때만 자체 백업)
       schedule                : cron(분 시 일 월 요일 년), timezone 기준 (기본 Asia/Seoul)

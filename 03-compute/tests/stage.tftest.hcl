@@ -23,7 +23,7 @@ mock_provider "aws" {
 
 override_data {
   target = data.aws_ssm_parameter.network["base"]
-  values = { insecure_value = "{\"contract_version\":1,\"site\":\"simple\",\"layout_version\":\"v1\",\"vpc_id\":\"vpc-1\",\"vpc_name\":\"simple-vpc\",\"azs\":[\"ap-northeast-2a\",\"ap-northeast-2b\"],\"az_short\":{\"ap-northeast-2a\":\"a\",\"ap-northeast-2b\":\"b\"},\"vpc_cidrs\":[\"10.227.0.0/23\"],\"primary_cidr\":\"10.227.0.0/23\",\"extra_routable\":[],\"internal_cidr\":null,\"enable_public\":false,\"resource_tags\":{\"VpcName\":\"simple-vpc\"}}" }
+  values = { insecure_value = "{\"contract_version\":1,\"site\":\"simple\",\"layout_version\":\"v1\",\"vpc_id\":\"vpc-1\",\"vpc_name\":\"hw-iac-dev-an2-vpc-simple-01\",\"name_prefix\":\"hw-iac-dev-an2\",\"azs\":[\"ap-northeast-2a\",\"ap-northeast-2b\"],\"az_short\":{\"ap-northeast-2a\":\"a\",\"ap-northeast-2b\":\"b\"},\"vpc_cidrs\":[\"10.227.0.0/23\"],\"primary_cidr\":\"10.227.0.0/23\",\"extra_routable\":[],\"internal_cidr\":null,\"enable_public\":false,\"resource_tags\":{\"VpcName\":\"simple-vpc\"}}" }
 }
 override_data {
   target = data.aws_ssm_parameter.network["subnets"]
@@ -114,11 +114,11 @@ run "ebs_auto_grow" {
     values = { size = 60, tags = { ResourceKey = "ec2_was_data_sdf_vol" } }
   }
   assert {
-    condition     = module.ec2_common.ebs_grow == "simple-ec2-common-ebs-grow"
+    condition     = module.ec2_common.ebs_grow == "hw-iac-dev-an2-lbd-ebsgrow-01"
     error_message = "증설 Lambda: ${jsonencode(module.ec2_common.ebs_grow)}"
   }
   assert {
-    condition     = toset(module.ec2_was[0].auto_grow.alarms) == toset(["simple-ec2-was-ebs-grow-root", "simple-ec2-was-ebs-grow-sdf"])
+    condition     = toset(module.ec2_was[0].auto_grow.alarms) == toset(["hw-iac-dev-an2-alm-was-ebsgrow-root-01", "hw-iac-dev-an2-alm-was-ebsgrow-sdf-01"])
     error_message = "알람: ${jsonencode(module.ec2_was[0].auto_grow.alarms)}"
   }
   assert {
@@ -140,14 +140,14 @@ run "key_pair_by_name" {
   # 미리 만든 key pair를 이름으로 지정 (WAS만), webide는 key pair 없음
   command = plan
   variables {
-    was = { ami = "ami-0123456789abcdef0", key_pair_name = "iactest-was-key", autoscale = { enabled = true } }
+    was = { ami = "ami-0123456789abcdef0", key_pair_name = "hw-iac-dev-an2-kp-was-01", autoscale = { enabled = true } }
   }
   override_data {
     target = module.ec2_was[0].data.aws_key_pair.this[0]
-    values = { key_name = "iactest-was-key" }
+    values = { key_name = "hw-iac-dev-an2-kp-was-01" }
   }
   assert {
-    condition     = module.ec2_was[0].key_pair == "iactest-was-key" && module.ec2_webide[0].key_pair == null
+    condition     = module.ec2_was[0].key_pair == "hw-iac-dev-an2-kp-was-01" && module.ec2_webide[0].key_pair == null
     error_message = "key pair: ${jsonencode([module.ec2_was[0].key_pair, module.ec2_webide[0].key_pair])}"
   }
 }

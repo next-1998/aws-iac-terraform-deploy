@@ -1,5 +1,5 @@
 ############################################################
-# rds-db 입력 (03-database가 DB마다 한 번씩 호출)
+# rds-core 입력 (엔진 조합 rds-postgres, rds-mysql, rds-mariadb가 DB마다 한 번씩 호출)
 ############################################################
 variable "common" {
   description = "rds-common contract (network, subnet_group_name, kms_key_arn …)"
@@ -30,18 +30,18 @@ variable "logs_kms_key_arn" {
 
 # ── 엔진 ──────────────────────────────────────────────────────
 variable "engine" {
-  description = "postgres | mysql"
+  description = "postgres | mysql | mariadb"
   type        = string
   default     = "postgres"
 
   validation {
-    condition     = contains(["postgres", "mysql"], var.engine)
-    error_message = "engine은 postgres 또는 mysql이어야 합니다."
+    condition     = contains(["postgres", "mysql", "mariadb"], var.engine)
+    error_message = "engine은 postgres, mysql, mariadb 중 하나여야 합니다."
   }
 }
 
 variable "engine_version" {
-  description = "엔진 버전. 주 버전만 쓰면 만들 때 그 안의 기본 부 버전 (예: postgres 16, mysql 8.0). 부 버전 자동 업그레이드는 auto_minor_version_upgrade (기본 끔)"
+  description = "엔진 버전. 주 버전만 쓰면 만들 때 그 안의 기본 부 버전 (예: postgres 16, mysql 8.0, mariadb 10.11). 부 버전 자동 업그레이드는 auto_minor_version_upgrade (기본 끔)"
   type        = string
   default     = "16"
 }
@@ -77,7 +77,7 @@ variable "username" {
 }
 
 variable "port" {
-  description = "포트. null이면 엔진 기본 (postgres 5432, mysql 3306)"
+  description = "포트. null이면 엔진 기본 (postgres 5432, mysql·mariadb 3306)"
   type        = number
   default     = null
 }
@@ -119,7 +119,7 @@ variable "performance_insights" {
 
 # ── 로그 ──────────────────────────────────────────────────────
 variable "log_exports" {
-  description = "CloudWatch로 보낼 DB 로그. null이면 엔진 기본 (postgres: postgresql, upgrade / mysql: error, slowquery)"
+  description = "CloudWatch로 보낼 DB 로그. null이면 엔진 기본 (postgres: postgresql, upgrade / mysql·mariadb: error, slowquery)"
   type        = list(string)
   default     = null
 }
@@ -221,4 +221,14 @@ variable "backup_plans" {
     condition     = alltrue([for p in var.backup_plans : can(regex("^[a-z0-9-]{1,20}$", p))])
     error_message = "backup_plans는 02-shared 플랜 이름(소문자, 숫자, '-')이어야 합니다."
   }
+}
+
+variable "src_dir" {
+  description = "CSV(<name>.parameters.csv, <name>.sg_rules.csv)를 읽을 폴더. 엔진 조합(rds-postgres 등)이 자기 src 폴더를 넘김"
+  type        = string
+}
+
+variable "src_label" {
+  description = "오류 메시지에 보일 CSV 위치 (예: rds-postgres/src)"
+  type        = string
 }

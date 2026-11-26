@@ -5,8 +5,8 @@ locals {
   account_id = data.aws_caller_identity.current.account_id
   region     = data.aws_region.current.region
 
-  state_bucket = coalesce(var.state_bucket_name, "iac-tfstate-${local.account_id}-${local.region}")
-  log_bucket   = coalesce(var.log_bucket_name, "iac-logs-${local.account_id}-${local.region}")
+  state_bucket = coalesce(var.state_bucket_name, local.n.state_bucket)
+  log_bucket   = coalesce(var.log_bucket_name, local.n.log_bucket)
 
   # 계정 단위 리소스라 사이트 대신 account를 씀 (Stack 태그 = account/00-bootstrap)
   tag = {
@@ -200,6 +200,14 @@ module "parameters" {
       kms = {
         key_arns = local.kms_key_arns
         source   = local.kms_key_source
+      }
+      # 이름 규칙 앞부분 (다른 단계가 읽어 <접두어>-<유형>-<이름>-<순번>[-<AZ>]로 씀)
+      naming = {
+        prefix      = local.name_prefix
+        company     = var.naming.company
+        service     = var.naming.service
+        env         = var.naming.env
+        region_code = local.region_code
       }
     },
     var.create_log_bucket ? {

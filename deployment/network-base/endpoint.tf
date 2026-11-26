@@ -16,7 +16,7 @@ module "vpce_sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   count  = length(var.interface_endpoints) > 0 ? 1 : 0
 
-  name        = "${var.site}-vpce-sg"
+  name        = "${var.name_prefix}-sg-vpce-01"
   description = "interface endpoints (HTTPS from VPC)"
   vpc_id      = module.vpc.vpc.id
 
@@ -45,7 +45,8 @@ module "vpce" {
   source = "../../../aws-iac-terraform-module/module/network/aws-vpce-workload"
   count  = length(local.endpoint_map) > 0 ? 1 : 0
 
-  name               = "${var.site}-vpce"
+  name               = "${var.name_prefix}-vpce"
+  name_suffix        = "-01"
   vpc_id             = module.vpc.vpc.id
   endpoints          = local.endpoint_map
   subnet_ids         = [for az in local.layout_azs : local.subnet_ids.vpce[az]]

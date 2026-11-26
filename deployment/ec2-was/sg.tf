@@ -22,7 +22,7 @@ data "aws_prefix_list" "gateway" {
 module "sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
 
-  name        = "${local.prefix}-sg"
+  name        = "${local.np}-sg-${local.purpose}-01"
   description = "${local.prefix} service (rules from ${var.name}/src/sg_rules.csv)"
   vpc_id      = local.base.vpc_id
 

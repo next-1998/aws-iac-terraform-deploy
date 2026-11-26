@@ -8,6 +8,10 @@ workspace/
 └── aws-iac-terraform-deploy/   ← 이 repo
 ```
 
+## 이름 규칙
+
+리소스 이름은 코드가 `<회사>-<서비스>-<환경>-<리전 코드>-<유형>-<이름>-<순번>[-<AZ>]`로 만듭니다. 접두어는 00-bootstrap `naming`에서 한 번 정합니다. 유형 코드와 예시: [NAMING.md](NAMING.md)
+
 ## 단계 구성
 
 | 단계 | 범위 | 하는 일 | 상태 |
@@ -16,7 +20,7 @@ workspace/
 | `01-network` | 사이트 | VPC, 공통 서브넷(edge/vpce/transit/public), NAT, VPC endpoint, DNS, prefix list, Flow Logs, 기존 TGW/peering 연결 | 구현 |
 | `02-shared` | 사이트 | 여러 유형이 같이 쓰는 것: 사이트 인증서, 알림 토픽 (`shared-common`) | 구현 |
 | `03-compute` | 사이트 | EC2 유형: `ec2-common` + 용도별 (`ec2-was`, `ec2-webide` …) | 구현 |
-| `03-database` | 사이트 | DB 유형: `rds-common` + `rds-db`(DB마다). RDS PostgreSQL·MySQL, 비밀번호는 Secrets Manager 관리 | 구현 (RDS) |
+| `03-database` | 사이트 | DB 유형: `rds-common` + 엔진 조합(`rds-postgres`·`rds-mysql`·`rds-mariadb` → `rds-core`, DB마다). RDS PostgreSQL·MySQL·MariaDB, 비밀번호는 Secrets Manager 관리 | 구현 (RDS) |
 | `04-eks` | 사이트 | EKS | 예정 (README에 설계) |
 | `05-pod` | 사이트 | 애드온, Helm, 워크로드 | 예정 |
 

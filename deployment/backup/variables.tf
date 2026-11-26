@@ -6,8 +6,8 @@ variable "site" {
   type        = string
 }
 
-variable "vpc_name" {
-  description = "VPC 이름 (볼트 이름 <VPC 이름>-backup-vault). 사이트 = VPC 하나"
+variable "name_prefix" {
+  description = "이름 앞부분 <회사>-<서비스>-<환경>-<리전 코드> (00-bootstrap naming). 볼트 <name_prefix>-bku-vault-main-01"
   type        = string
 }
 

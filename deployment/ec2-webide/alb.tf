@@ -60,7 +60,7 @@ module "alb_sg" {
   source = "../../../aws-iac-terraform-module/module/security/aws-securitygroup-workload/security-group"
   count  = var.enable_alb ? 1 : 0
 
-  name        = "${local.prefix}-alb-sg"
+  name        = "${local.np}-sg-${local.purpose}alb-01"
   description = "ALB for ${local.prefix}"
   vpc_id      = local.base.vpc_id
 
@@ -75,7 +75,7 @@ module "alb" {
   source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/lb"
   count  = var.enable_alb ? 1 : 0
 
-  name                             = "${local.prefix}-alb"
+  name                             = "${local.np}-alb-${local.purpose}-01"
   load_balancer_type               = "application"
   internal                         = var.alb_internal
   subnet_id_list                   = local.alb_subnet_ids
@@ -87,7 +87,7 @@ module "alb" {
   # 접근 로그: <버킷>/<VPC 이름>/elb/<ALB 이름>/access-logs/AWSLogs/... (로그 경로 규칙)
   access_logs = var.access_log_bucket != null ? {
     bucket  = var.access_log_bucket
-    prefix  = "${local.base.vpc_name}/elb/${local.prefix}-alb/access-logs"
+    prefix  = "${local.base.vpc_name}/elb/${local.np}-alb-${local.purpose}-01/access-logs"
     enabled = "true"
   } : {}
 
@@ -114,7 +114,7 @@ module "alb_tg" {
   vpc_id = local.base.vpc_id
   target_groups = {
     app = {
-      name     = "${local.prefix}-tg"
+      name     = "${local.np}-tg-${local.purpose}-01"
       port     = var.app_port
       protocol = "HTTP"
       health_check = {

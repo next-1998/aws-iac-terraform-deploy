@@ -11,7 +11,7 @@ module "subnet" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-sbn-workload"
   for_each = local.all_subnets
 
-  name                    = "${local.prefix}-${each.key}-subnet"
+  name                    = contains(keys(local.standard_subnets), each.key) ? "${local.np}-sbn-ec2-01-${local.base.az_short[each.value.az]}" : "${local.np}-sbn-${each.key}-01"
   vpc_id                  = local.base.vpc_id
   azs                     = each.value.az
   subnet_cidr_block       = [each.value.cidr]
@@ -29,7 +29,7 @@ module "rt" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
   for_each = toset(local.azs)
 
-  name   = "${local.prefix}-${local.base.az_short[each.key]}-rt"
+  name   = "${local.np}-rtb-ec2-01-${local.base.az_short[each.key]}"
   vpc_id = local.base.vpc_id
 
   common_tags   = var.common_tags

@@ -38,7 +38,7 @@ module "backup" {
   count  = var.enable_backup ? 1 : 0
 
   site                 = var.site
-  vpc_name             = local.network.base.vpc_name
+  name_prefix          = local.network.base.name_prefix
   resource_tags        = local.network.base.resource_tags
   plans                = var.backup_plans
   vault_lock           = var.backup_vault_lock

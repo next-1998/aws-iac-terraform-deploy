@@ -83,7 +83,7 @@ module "kms_key" {
   source   = "../../aws-iac-terraform-module/module/security/aws-kms-workload/key"
   for_each = local.local_keys
 
-  key_name                = "iac-account-${each.key}"
+  key_name                = "${local.name_prefix}-kms-${each.key}-01"
   description             = each.value.description
   enable_key_rotation     = true
   deletion_window_in_days = local.protect.kms_keys ? 30 : 7
@@ -104,7 +104,7 @@ module "kms_alias" {
   source   = "../../aws-iac-terraform-module/module/security/aws-kms-workload/alias"
   for_each = local.local_keys
 
-  name          = "iac/account/${each.key}"
+  name          = "${local.name_prefix}-kms-${each.key}-01"
   target_key_id = module.kms_key[each.key].key_id
 }
 

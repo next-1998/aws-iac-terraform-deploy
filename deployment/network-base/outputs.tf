@@ -12,6 +12,7 @@ locals {
       layout_version   = var.layout_version
       vpc_id           = module.vpc.vpc.id
       vpc_name         = var.vpc_name
+      name_prefix      = var.name_prefix # 이름 앞부분 (다음 단계가 <name_prefix>-<유형>-<이름>-<순번>[-<AZ>]로 씀)
       azs              = local.azs
       az_short         = local.az_short
       vpc_cidrs        = local.vpc_cidrs

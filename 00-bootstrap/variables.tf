@@ -14,7 +14,7 @@ variable "common_tags" {
 # state 버킷 (계정당 하나, 사이트는 경로로 구분: <site>/<단계>/terraform.tfstate)
 ############################################################
 variable "state_bucket_name" {
-  description = "state 버킷 이름. null이면 iac-tfstate-<계정ID>-<리전>"
+  description = "state 버킷 이름. null이면 <접두어>-s3-tfstate-01 (naming.tf)"
   type        = string
   default     = null
 }
@@ -61,7 +61,7 @@ variable "create_log_bucket" {
 }
 
 variable "log_bucket_name" {
-  description = "로그 버킷 이름. null이면 iac-logs-<계정ID>-<리전>"
+  description = "로그 버킷 이름. null이면 <접두어>-s3-logs-01 (naming.tf)"
   type        = string
   default     = null
 }
@@ -245,4 +245,29 @@ variable "manage_rds_os_metrics_log_group" {
   EOT
   type        = bool
   default     = true
+}
+
+variable "naming" {
+  description = <<-EOT
+    이름 규칙의 앞부분 (모든 단계 공통, 계정에서 한 번 정함). 결과: <company>-<service>-<env>-<리전 코드>
+      company     : 회사 코드 (예: hw)
+      service     : 서비스 코드 (예: iac)
+      env         : 환경 코드 (예: dev, stg, prd)
+      region_code : 리전 코드. null이면 리전에서 자동 (ap-northeast-2 → an2). 표에 없는 리전만 지정
+  EOT
+  type = object({
+    company     = string
+    service     = string
+    env         = string
+    region_code = optional(string)
+  })
+
+  validation {
+    condition     = alltrue([for v in [var.naming.company, var.naming.service, var.naming.env] : can(regex("^[a-z0-9]{1,8}$", v))])
+    error_message = "naming의 company, service, env는 소문자·숫자 1~8자여야 합니다 (하이픈 불가: 이름을 하이픈으로 나누기 때문)."
+  }
+  validation {
+    condition     = var.naming.region_code == null || can(regex("^[a-z0-9]{2,5}$", coalesce(var.naming.region_code, "x")))
+    error_message = "naming.region_code는 소문자·숫자 2~5자여야 합니다."
+  }
 }

@@ -17,7 +17,7 @@ module "data_volume" {
   source   = "../../../aws-iac-terraform-module/module/computing/aws-ebs-workload/volume"
   for_each = local.data_volumes
 
-  name              = "${local.prefix}-data-${basename(each.key)}"
+  name              = "${local.np}-vol-${local.purpose}${basename(each.key)}-01-${local.base.az_short[local.instance_az]}"
   availability_zone = local.instance_az
   volume_size       = local.data_volume_size[each.key] # 자동 증설 볼륨은 실제 크기가 더 크면 그 값 (autogrow.tf)
   volume_type       = each.value.volume_type
@@ -63,7 +63,7 @@ module "volume_mount" {
   source = "../../../aws-iac-terraform-module/module/management/aws-ssm-association-workload"
 
   associations = length(local.mount_volumes) > 0 ? {
-    "${local.prefix}-mount" = {
+    "${local.np}-ssa-${local.purpose}mount-01" = {
       instance_ids = [module.ec2.ec2_instance.id]
       parameters = {
         commands = join("\n", [
