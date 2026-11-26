@@ -12,6 +12,7 @@ output "contract" {
     # NLB (고정 IP 용도). DB(rds-core)가 리스너·대상 그룹을 붙일 때 씀
     nlb = {
       sync_tag_key    = local.nlb_sync_tag
+      sync_dns_tag_key = local.nlb_sync_dns_tag
       db_subnet_by_az = local.db_subnet_by_az
       shared = var.shared_nlb == null ? null : {
         arn         = module.shared_nlb[0].elb.arn

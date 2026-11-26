@@ -11,6 +11,7 @@ data "aws_caller_identity" "current" {}
 
 locals {
   nlb_sync_tag    = "RdsNlbSyncSg"
+  nlb_sync_dns_tag = "RdsNlbSyncDns" # Aurora: 값 = 클러스터 쓰기 주소 (DNS로 쓰기 인스턴스 IP 하나만)
   db_subnet_by_az = { for az in local.azs : az => module.subnet[az].vpc_subnet[0].id }
 
   # Lambda가 쓰는 AWS API는 VPC endpoint로만 (워크로드는 private 기본)
@@ -119,6 +120,7 @@ module "ns_role_sync" {
       region     = data.aws_region.current.region
       account_id = data.aws_caller_identity.current.account_id
       tag_key    = local.nlb_sync_tag
+      dns_tag_key = local.nlb_sync_dns_tag
     })
   }
 }
@@ -166,6 +168,7 @@ module "ns_lambda" {
 
   environment_variables = {
     TAG_KEY = local.nlb_sync_tag
+    DNS_TAG_KEY = local.nlb_sync_dns_tag
     VPC_ID  = local.base.vpc_id
     DRY_RUN = "false"
   }

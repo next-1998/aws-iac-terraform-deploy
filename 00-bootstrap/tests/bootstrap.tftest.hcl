@@ -1,7 +1,7 @@
 # 버킷에 prevent_destroy가 있어서 apply 후 정리(destroy)를 할 수 없으므로 plan으로만 검사합니다.
 # 이름 규칙 앞부분 (테스트 값)
 variables {
-  naming = { company = "hw", service = "iac", env = "dev" }
+  naming = { company = "hw", service = "iac", env = "dev", vpc = "simple" }
 }
 
 mock_provider "aws" {
@@ -302,7 +302,32 @@ run "naming_prefix_published" {
 run "reject_hyphen_in_naming_parts" {
   command = plan
   variables {
-    naming = { company = "hw-x", service = "iac", env = "dev" }
+    naming = { company = "hw-x", service = "iac", env = "dev", vpc = "simple" }
+  }
+  expect_failures = [var.naming]
+}
+
+run "log_path_query_puts_vpc_first" {
+  # S3 경로 <VPC 이름>/<유형>/…: AWS가 정하는 로그 그룹(/aws/…, RDSOSMetrics)에는 VPC 이름을 앞에 붙임
+  command = plan
+  assert {
+    condition     = local.vpc_name == "hw-iac-dev-an2-vpc-simple-01"
+    error_message = "VPC 이름: ${local.vpc_name}"
+  }
+  assert {
+    condition = alltrue([
+      strcontains(local.cwlogs_path_query, "\"hw-iac-dev-an2-vpc-simple-01/\" + ($g | ltrimstr(\"/aws/\"))"),
+      strcontains(local.cwlogs_path_query, "\"hw-iac-dev-an2-vpc-simple-01/rds/RDSOSMetrics\""),
+      strcontains(local.cwlogs_path_query, "then \"_control\""),
+    ])
+    error_message = "경로 식: ${local.cwlogs_path_query}"
+  }
+}
+
+run "reject_hyphen_in_vpc_name" {
+  command = plan
+  variables {
+    naming = { company = "hw", service = "iac", env = "dev", vpc = "ia-test" }
   }
   expect_failures = [var.naming]
 }

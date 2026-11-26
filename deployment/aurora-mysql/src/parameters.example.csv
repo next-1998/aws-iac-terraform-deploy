@@ -1,0 +1,3 @@
+no,name,value,apply_method,memo
+1,slow_query_log,1,immediate,느린 쿼리 로그 켜기
+2,long_query_time,1,immediate,1초 넘는 쿼리를 느린 쿼리로

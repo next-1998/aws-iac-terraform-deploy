@@ -5,7 +5,7 @@
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
-#     DB 엔진·버전           고객 (서비스 담당)   엔진별 목록 rds_postgres | rds_mysql | rds_mariadb, engine_version
+#     DB 엔진·버전           고객 (서비스 담당)   엔진별 목록 rds_postgres | rds_mysql | rds_mariadb | aurora_postgres | aurora_mysql, engine_version (RDS·Aurora 선택)
 #     사양·저장소            고객 (서비스 담당)   instance_class, allocated_storage, max_allocated_storage
 #     이중화 (Multi-AZ)      고객 운영팀          multi_az (기본: operation_mode = "enable"이면 켬. 비용 약 2배)
 #     백업 보관              고객 운영팀          backup_retention_days (기본 7일)
@@ -81,6 +81,33 @@ rds_mysql = {
 # MariaDB (기본 버전 10.11, 포트 3306, 기본 로그 error·slowquery, general·audit 선택). 항목은 rds_postgres와 같음. CSV: deployment/rds-mariadb/src/
 rds_mariadb = {
   # shop = { engine_version = "10.11", db_name = "shop", backup_plans = ["daily", "pitr"] }
+}
+
+# ── Aurora (클러스터) ─────────────────────────────────────────
+# 항목은 RDS(rds_postgres 등)와 같은 이름입니다. Aurora라서 다른 것:
+#   - 용량 항목(allocated_storage 등) 없음 (저장소 자동 확장). instance_class 최소 db.t4g.medium
+#   - serverless_v2 = { min_acu, max_acu } 를 넣으면 Serverless v2 (instance_class 무시)
+#   - storage_type = "aurora"(기본) | "aurora-iopt1"(I/O 포함 요금)
+#   - multi_az = true → 다른 AZ에 장애 조치용 읽기 인스턴스, replicas → 읽기 인스턴스 추가 (모두 클러스터 안)
+#   - 비밀번호는 RDS가 Secrets Manager로 관리 (읽기 인스턴스가 있어도 rds_master_passwords 불필요)
+#   - 파라미터 CSV 두 개: deployment/aurora-<엔진>/src/rds-<DB 키>.cluster-parameters.csv, rds-<DB 키>.parameters.csv
+#   - nlb = { allowed_cidrs } → 쓰기 인스턴스만 연결 (쓰기 주소 DNS 기준, 장애 조치 뒤 1분 안에 대상 교체)
+# 이름: 클러스터 <접두어>-rds-cl-<apg|amy>-<DB 키>-01, 인스턴스 …-rds-<apg|amy>-<DB 키>-01, 읽기 …-ro-NN
+# 출력: rds.<DB 키>.address = 쓰기 주소, reader_address = 읽기 주소. DB 키는 RDS·Aurora 전체에서 겹치면 안 됨
+aurora_postgres = {
+  # app2 = {
+  #   engine_version = "16"
+  #   instance_class = "db.t4g.medium"
+  #   # serverless_v2 = { min_acu = 0.5, max_acu = 4 }
+  #   db_name        = "app2"
+  #   multi_az       = true
+  #   backup_plans   = ["daily", "pitr"]
+  #   replicas       = { r1 = {} }
+  # }
+}
+
+aurora_mysql = {
+  # orders2 = { engine_version = "8.0", db_name = "orders" }
 }
 
 # ── RDS NLB (고정 IP 용도, 특수 상황에만) ─────────────────────

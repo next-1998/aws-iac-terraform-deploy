@@ -36,17 +36,18 @@
 | PostgreSQL | `pg` | `pg16` |
 | MySQL | `my` | `my80` |
 | MariaDB | `mdb` | `mdb1011` |
-| Aurora PostgreSQL / MySQL (예정) | `apg` / `amy` | `apg16` / `amy80` |
+| Aurora PostgreSQL / MySQL | `apg` / `amy` | `apg16` / `amy80` |
 
 - DB: `<접두어>-rds-pg-app-01`, 읽기 복제본: `<접두어>-rds-pg-app-ro-01`, `-ro-02` (복제본 키 이름순)
 - 파라미터 그룹: `<접두어>-rds-pagrp-pg16-app-01`. 주 버전을 올리면 family가 바뀌어 새 파라미터 그룹이 됨
 - DB 이름에는 버전을 넣지 않음 (버전을 올려도 접속 주소가 바뀌지 않게)
+- Aurora: 클러스터 `<접두어>-rds-cl-apg-app-01`, 인스턴스 `<접두어>-rds-apg-app-01`(처음 쓰기), 읽기 `…-ro-01`, 파라미터 그룹 클러스터 `<접두어>-rds-cpar-apg16-app-01` + 인스턴스 `<접두어>-rds-pagrp-apg16-app-01`
 
 ## 예시 (접두어 `hw-iac-dev-an2`)
 
 | 리소스 | 이름 |
 |---|---|
-| VPC | `hw-iac-dev-an2-vpc-<site>-01` |
+| VPC | `hw-iac-dev-an2-vpc-<naming.vpc>-01` |
 | 서브넷 (EC2, AZ a) | `hw-iac-dev-an2-sbn-ec2-01-a` |
 | EC2 (WAS) | `hw-iac-dev-an2-ec2-was-01-a` |
 | EBS (WAS 데이터) | `hw-iac-dev-an2-vol-wasxvdb-01-a` |
@@ -57,7 +58,23 @@
 | state 버킷 | `hw-iac-dev-an2-s3-tfstate-01` |
 
 ## 예외
-- **AWS가 정하는 이름:** RDS 로그 그룹 `/aws/rds/instance/<DB 이름>/<로그>`, `RDSOSMetrics`, Route53 존·레코드(도메인)
+- **AWS가 정하는 이름:** RDS 로그 그룹 `/aws/rds/instance/<DB 이름>/<로그>`, `/aws/rds/cluster/<클러스터>/<로그>`, `RDSOSMetrics`, Route53 존·레코드(도메인)
 - **로그 그룹 경로:** `/<VPC 이름>/<유형>/<리소스 이름>/<로그>` (이름 규칙 값을 경로에 씀)
+- **VPC 이름:** `<접두어>-vpc-<naming.vpc>-01`. 00-bootstrap `naming.vpc`로 정해 Parameter Store에 남기고 01-network가 읽음
+
+## S3 로그 경로 (모든 로그 같은 규칙: `<VPC 이름>/<리소스 유형>/…`)
+| 로그 | S3 폴더 (로그 버킷 `<접두어>-s3-logs-01`) |
+|---|---|
+| EC2 에이전트 | `<VPC>/ec2/<접두어>-ec2-<용도>/messages/YYYY/MM/DD/` (`secure`도 같음) |
+| Lambda | `<VPC>/lambda/<접두어>-lbd-<이름>-01/function/YYYY/MM/DD/` |
+| RDS | `<VPC>/rds/instance/<DB 이름>/<로그>/YYYY/MM/DD/` |
+| Aurora | `<VPC>/rds/cluster/<클러스터 이름>/<로그>/YYYY/MM/DD/` |
+| RDS 확장 모니터링 | `<VPC>/rds/RDSOSMetrics/YYYY/MM/DD/` |
+| VPC Flow Logs | `<VPC>/vpc/<VPC>/flow-logs/AWSLogs/<계정>/vpcflowlogs/<리전>/YYYY/MM/DD/HH/` |
+| ALB 접근 로그 | `<VPC>/elb/<ALB 이름>/access-logs/AWSLogs/<계정>/elasticloadbalancing/<리전>/YYYY/MM/DD/` |
+| Firehose 처리 실패 | `firehose-errors/cwlogs/<오류 유형>/YYYY/MM/DD/` |
+| 로그 그룹 없는 레코드 (구독 연결 확인) | `_control/` |
+
+AWS가 이름을 정하는 로그 그룹(`/aws/…`, `RDSOSMetrics`)은 이름에 VPC가 없어 Firehose가 00-bootstrap의 VPC 이름을 앞에 붙입니다 (계정당 VPC 하나 기준).
 - **AWS가 자동으로 만드는 ENI:** 이름을 정할 수 없어 `Name` 태그만 붙임
 - **길이 한도:** ALB·대상 그룹 32자, RDS 식별자 63자. 접두어 14자 + 이름 8자 이내면 ALB·대상 그룹도 들어감

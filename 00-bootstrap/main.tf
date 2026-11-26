@@ -208,6 +208,7 @@ module "parameters" {
         service     = var.naming.service
         env         = var.naming.env
         region_code = local.region_code
+        vpc_name    = local.vpc_name
       }
     },
     var.create_log_bucket ? {

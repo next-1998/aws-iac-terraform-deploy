@@ -373,3 +373,69 @@ run "reject_unknown_backup_plan" {
   }
   expect_failures = [output.backup_plan_check]
 }
+
+run "aurora_postgres_cluster" {
+  # 클러스터 + 쓰기 1 + multi_az 읽기 1(다른 AZ, 우선순위 0) + 읽기 r1, 이름·파라미터 그룹 2개, 비밀번호는 RDS 관리(평문 불필요)
+  command = plan
+  variables {
+    rds_postgres    = {}
+    aurora_postgres = { app2 = { multi_az = true, replicas = { r1 = {} }, backup_plans = ["daily", "pitr"] } }
+  }
+  assert {
+    condition = (
+      module.aurora_postgres["app2"].settings.cluster_identifier == "hw-iac-dev-an2-rds-cl-apg-app2-01" &&
+      module.aurora_postgres["app2"].settings.instances["w"].identifier == "hw-iac-dev-an2-rds-apg-app2-01" &&
+      module.aurora_postgres["app2"].settings.instances["__multi_az"].identifier == "hw-iac-dev-an2-rds-apg-app2-ro-01" &&
+      module.aurora_postgres["app2"].settings.instances["__multi_az"].tier == 0 &&
+      module.aurora_postgres["app2"].settings.instances["__multi_az"].az != module.aurora_postgres["app2"].settings.instances["w"].az &&
+      module.aurora_postgres["app2"].settings.instances["r1"].identifier == "hw-iac-dev-an2-rds-apg-app2-ro-02" &&
+      module.aurora_postgres["app2"].settings.parameter_group_name == "hw-iac-dev-an2-rds-pagrp-apg16-app2-01" &&
+      module.aurora_postgres["app2"].settings.cluster_parameter_group_name == "hw-iac-dev-an2-rds-cpar-apg16-app2-01" &&
+      module.aurora_postgres["app2"].settings.parameter_group_family == "aurora-postgresql16" &&
+      jsonencode(module.aurora_postgres["app2"].settings.backup_tags) == jsonencode({ Backup-daily = "true", Backup-pitr = "true" }) &&
+      toset(values(module.aurora_postgres["app2"].log_groups)) == toset(["/aws/rds/cluster/hw-iac-dev-an2-rds-cl-apg-app2-01/postgresql"])
+    )
+    error_message = "Aurora: ${jsonencode(module.aurora_postgres["app2"].settings)}"
+  }
+}
+
+run "aurora_mysql_serverless" {
+  # Serverless v2: 인스턴스는 db.serverless, family aurora-mysql8.0
+  command = plan
+  variables {
+    rds_postgres = {}
+    aurora_mysql = { orders2 = { serverless_v2 = { min_acu = 0.5, max_acu = 4 } } }
+  }
+  assert {
+    condition = (
+      module.aurora_mysql["orders2"].settings.instances["w"].instance_class == "db.serverless" &&
+      module.aurora_mysql["orders2"].settings.parameter_group_family == "aurora-mysql8.0" &&
+      module.aurora_mysql["orders2"].settings.cluster_identifier == "hw-iac-dev-an2-rds-cl-amy-orders2-01" &&
+      module.aurora_mysql["orders2"].db.port == 3306
+    )
+    error_message = "Aurora MySQL: ${jsonencode(module.aurora_mysql["orders2"].settings)}"
+  }
+}
+
+run "aurora_nlb_writer_only" {
+  # Aurora NLB: 쓰기 주소(DNS) 기준 동기화 (RDS SG 방식과 다른 태그)
+  command = plan
+  variables {
+    rds_nlb         = { mode = "dedicated" }
+    rds_postgres    = {}
+    aurora_postgres = { app2 = { replicas = { r1 = {} }, nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  assert {
+    condition     = module.aurora_postgres["app2"].db.nlb.mode == "dedicated" && module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+    error_message = "Aurora NLB: ${jsonencode(module.aurora_postgres["app2"].db.nlb)}"
+  }
+}
+
+run "reject_same_key_rds_and_aurora" {
+  command = plan
+  variables {
+    rds_postgres    = { app = {} }
+    aurora_postgres = { app = {} }
+  }
+  expect_failures = [var.aurora_mysql]
+}

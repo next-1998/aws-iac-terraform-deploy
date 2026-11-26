@@ -20,6 +20,15 @@
       "Condition": {
         "StringLike": { "aws:ResourceTag/${tag_key}": "sg-*" }
       }
+    },
+    {
+      "Sid": "SyncDnsTaggedTargetGroupsOnly",
+      "Effect": "Allow",
+      "Action": ["elasticloadbalancing:RegisterTargets", "elasticloadbalancing:DeregisterTargets"],
+      "Resource": "arn:${partition}:elasticloadbalancing:${region}:${account_id}:targetgroup/*",
+      "Condition": {
+        "StringLike": { "aws:ResourceTag/${dns_tag_key}": "*.rds.amazonaws.com" }
+      }
     }
   ]
 }

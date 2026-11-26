@@ -206,7 +206,7 @@ variable "rds_nlb" {
   }
   validation {
     # DB에 nlb를 적었으면 사이트 방식이 있어야 함
-    condition     = var.rds_nlb != null || !anytrue([for k, v in merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb) : v.nlb != null])
+    condition     = var.rds_nlb != null || !anytrue([for k, v in merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb, var.aurora_postgres, var.aurora_mysql) : v.nlb != null])
     error_message = "DB 설정에 nlb가 있는데 rds_nlb(개별/통합 방식)가 없습니다. rds_nlb = { mode = \"dedicated\" } 또는 { mode = \"shared\" }를 넣으세요."
   }
   validation {
@@ -221,14 +221,132 @@ variable "rds_nlb" {
         { for k, v in var.rds_postgres : k => merge(v, { default_port = 5432 }) },
         { for k, v in var.rds_mysql : k => merge(v, { default_port = 3306 }) },
         { for k, v in var.rds_mariadb : k => merge(v, { default_port = 3306 }) },
+        { for k, v in var.aurora_postgres : k => merge(v, { default_port = 5432 }) },
+        { for k, v in var.aurora_mysql : k => merge(v, { default_port = 3306 }) },
       ) : [tostring(coalesce(v.port, v.default_port))] if v.nlb != null
       ])) == length(distinct(flatten([
         for k, v in merge(
           { for k, v in var.rds_postgres : k => merge(v, { default_port = 5432 }) },
           { for k, v in var.rds_mysql : k => merge(v, { default_port = 3306 }) },
           { for k, v in var.rds_mariadb : k => merge(v, { default_port = 3306 }) },
+          { for k, v in var.aurora_postgres : k => merge(v, { default_port = 5432 }) },
+          { for k, v in var.aurora_mysql : k => merge(v, { default_port = 3306 }) },
         ) : [tostring(coalesce(v.port, v.default_port))] if v.nlb != null
     ])))
     error_message = "통합 NLB(shared)에 연결한 DB끼리 리스너 포트(port)가 겹칩니다. DB마다 port를 다르게 지정하세요 (예: app 5432, orders 3306, shop 3307)."
   }
 }
+
+variable "aurora_postgres" {
+  description = "Aurora PostgreSQL 클러스터 목록 (DB 키 → 설정, deployment/aurora-postgres). 비우면 만들지 않음. 항목은 RDS(rds_postgres 등)와 같은 이름. 클러스터 <접두어>-rds-cl-<엔진 코드>-<DB 키>-01"
+  type = map(object({
+    engine_version = optional(string, "16")
+    instance_class = optional(string, "db.t4g.medium") # Aurora 최소 사양
+    serverless_v2 = optional(object({                  # (Aurora 전용) 넣으면 Serverless v2 (instance_class 무시)
+      min_acu = number
+      max_acu = number
+    }))
+    storage_type = optional(string, "aurora") # (Aurora 전용) aurora | aurora-iopt1
+    db_name      = optional(string)
+    username     = optional(string, "dbadmin")
+    port         = optional(number)
+    parameters = optional(list(object({
+      name         = string
+      value        = string
+      apply_method = optional(string, "pending-reboot")
+    })), [])
+    multi_az                   = optional(bool) # null이면 operation_mode = "enable"일 때만. true면 다른 AZ에 장애 조치용 읽기 인스턴스
+    backup_retention_days      = optional(number, 7)
+    performance_insights       = optional(bool, false)
+    monitoring_interval        = optional(number, 60)
+    auto_minor_version_upgrade = optional(bool, false)
+    apply_immediately          = optional(bool, false)
+    backup_plans               = optional(list(string), [])
+    log_exports                = optional(list(string))
+    log_retention_days         = optional(number, 14)
+    allowed_cidrs              = optional(list(string))
+    snapshot_identifier        = optional(string) # 클러스터 스냅샷 (처음 한 번만)
+    nlb = optional(object({                       # NLB 연결 (기본 없음). 쓰기 인스턴스만 (쓰기 주소 DNS 기준)
+      allowed_cidrs = list(string)
+      private_ips   = optional(map(string), {})
+    }))
+    replicas = optional(map(object({ # 클러스터 안 읽기 인스턴스 (키 → 설정)
+      instance_class       = optional(string)
+      performance_insights = optional(bool)
+    })), {})
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.aurora_postgres : can(regex("^[a-z][a-z0-9]{0,11}$", k))])
+    error_message = "aurora_postgres의 키(DB 키)는 소문자로 시작하는 소문자·숫자 12자 이하여야 합니다."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.aurora_postgres : v.backup_retention_days >= 1 && v.backup_retention_days <= 35])
+    error_message = "Aurora backup_retention_days는 1~35여야 합니다 (Aurora는 자동 백업을 끌 수 없음)."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.aurora_postgres : v.serverless_v2 == null || try(v.serverless_v2.min_acu >= 0 && v.serverless_v2.max_acu >= v.serverless_v2.min_acu && v.serverless_v2.max_acu <= 256, false)])
+    error_message = "serverless_v2는 0 <= min_acu <= max_acu <= 256 이어야 합니다."
+  }
+}
+
+variable "aurora_mysql" {
+  description = "Aurora MySQL 클러스터 목록 (DB 키 → 설정, deployment/aurora-mysql). 비우면 만들지 않음. 항목은 RDS(rds_postgres 등)와 같은 이름. 클러스터 <접두어>-rds-cl-<엔진 코드>-<DB 키>-01"
+  type = map(object({
+    engine_version = optional(string, "8.0")
+    instance_class = optional(string, "db.t4g.medium") # Aurora 최소 사양
+    serverless_v2 = optional(object({                  # (Aurora 전용) 넣으면 Serverless v2 (instance_class 무시)
+      min_acu = number
+      max_acu = number
+    }))
+    storage_type = optional(string, "aurora") # (Aurora 전용) aurora | aurora-iopt1
+    db_name      = optional(string)
+    username     = optional(string, "dbadmin")
+    port         = optional(number)
+    parameters = optional(list(object({
+      name         = string
+      value        = string
+      apply_method = optional(string, "pending-reboot")
+    })), [])
+    multi_az                   = optional(bool) # null이면 operation_mode = "enable"일 때만. true면 다른 AZ에 장애 조치용 읽기 인스턴스
+    backup_retention_days      = optional(number, 7)
+    performance_insights       = optional(bool, false)
+    monitoring_interval        = optional(number, 60)
+    auto_minor_version_upgrade = optional(bool, false)
+    apply_immediately          = optional(bool, false)
+    backup_plans               = optional(list(string), [])
+    log_exports                = optional(list(string))
+    log_retention_days         = optional(number, 14)
+    allowed_cidrs              = optional(list(string))
+    snapshot_identifier        = optional(string) # 클러스터 스냅샷 (처음 한 번만)
+    nlb = optional(object({                       # NLB 연결 (기본 없음). 쓰기 인스턴스만 (쓰기 주소 DNS 기준)
+      allowed_cidrs = list(string)
+      private_ips   = optional(map(string), {})
+    }))
+    replicas = optional(map(object({ # 클러스터 안 읽기 인스턴스 (키 → 설정)
+      instance_class       = optional(string)
+      performance_insights = optional(bool)
+    })), {})
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k, v in var.aurora_mysql : can(regex("^[a-z][a-z0-9]{0,11}$", k))])
+    error_message = "aurora_mysql의 키(DB 키)는 소문자로 시작하는 소문자·숫자 12자 이하여야 합니다."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.aurora_mysql : v.backup_retention_days >= 1 && v.backup_retention_days <= 35])
+    error_message = "Aurora backup_retention_days는 1~35여야 합니다 (Aurora는 자동 백업을 끌 수 없음)."
+  }
+  validation {
+    # DB 키는 RDS·Aurora 전체에서 겹치면 안 됨 (다음 단계로 넘기는 값이 DB 키 하나로 묶임)
+    condition     = length(concat(keys(var.rds_postgres), keys(var.rds_mysql), keys(var.rds_mariadb), keys(var.aurora_postgres), keys(var.aurora_mysql))) == length(distinct(concat(keys(var.rds_postgres), keys(var.rds_mysql), keys(var.rds_mariadb), keys(var.aurora_postgres), keys(var.aurora_mysql))))
+    error_message = "RDS·Aurora 목록 사이에 같은 DB 키가 있습니다. DB 키는 엔진이 달라도 겹치면 안 됩니다."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.aurora_mysql : v.serverless_v2 == null || try(v.serverless_v2.min_acu >= 0 && v.serverless_v2.max_acu >= v.serverless_v2.min_acu && v.serverless_v2.max_acu <= 256, false)])
+    error_message = "serverless_v2는 0 <= min_acu <= max_acu <= 256 이어야 합니다."
+  }
+}
+

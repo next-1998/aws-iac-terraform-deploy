@@ -18,7 +18,10 @@ data "aws_ssm_parameter" "bootstrap_naming" {
 }
 
 locals {
-  name_prefix = jsondecode(data.aws_ssm_parameter.bootstrap_naming.insecure_value).prefix
+  naming      = jsondecode(data.aws_ssm_parameter.bootstrap_naming.insecure_value)
+  name_prefix = local.naming.prefix
+  # VPC 이름도 00-bootstrap이 정함 (naming.vpc). 로그 S3 경로(<VPC 이름>/…)와 같은 이름이어야 하므로 여기서 만들지 않음
+  vpc_name = local.naming.vpc_name
 
   log_bucket_arn = var.central_log_bucket_arn != null ? var.central_log_bucket_arn : (
     length(data.aws_ssm_parameter.bootstrap_logs) > 0 ? jsondecode(data.aws_ssm_parameter.bootstrap_logs[0].insecure_value).bucket_arn : null
@@ -30,7 +33,7 @@ module "network_base" {
 
   site           = var.site
   name_prefix    = local.name_prefix
-  vpc_name       = "${local.name_prefix}-vpc-${var.site}-01" # VPC 이름의 리소스 이름 = site
+  vpc_name       = local.vpc_name # 00-bootstrap naming.vpc → <접두어>-vpc-<vpc>-01
   common_tags    = var.common_tags
   layout_version = var.layout_version
 

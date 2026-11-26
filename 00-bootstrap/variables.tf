@@ -254,17 +254,25 @@ variable "naming" {
       service     : 서비스 코드 (예: iac)
       env         : 환경 코드 (예: dev, stg, prd)
       region_code : 리전 코드. null이면 리전에서 자동 (ap-northeast-2 → an2). 표에 없는 리전만 지정
+      vpc         : VPC 이름의 리소스 이름 (예: iactest). VPC 이름 = <접두어>-vpc-<vpc>-01
+                    01-network가 이 이름으로 VPC를 만들고, 로그 S3 경로 <VPC 이름>/… 에도 씀
+                    (AWS가 정하는 로그 그룹 이름 /aws/rds/… 등은 VPC 이름이 없어 이 값으로 앞에 붙임)
   EOT
   type = object({
     company     = string
     service     = string
     env         = string
+    vpc         = string
     region_code = optional(string)
   })
 
   validation {
     condition     = alltrue([for v in [var.naming.company, var.naming.service, var.naming.env] : can(regex("^[a-z0-9]{1,8}$", v))])
     error_message = "naming의 company, service, env는 소문자·숫자 1~8자여야 합니다 (하이픈 불가: 이름을 하이픈으로 나누기 때문)."
+  }
+  validation {
+    condition     = can(regex("^[a-z0-9]{1,16}$", var.naming.vpc))
+    error_message = "naming.vpc는 소문자·숫자 1~16자여야 합니다 (하이픈 불가)."
   }
   validation {
     condition     = var.naming.region_code == null || can(regex("^[a-z0-9]{2,5}$", coalesce(var.naming.region_code, "x")))

@@ -30,8 +30,8 @@ data "aws_ssm_parameter" "bootstrap_kms" {
 locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
 
-  # 엔진과 관계없이 모든 DB (DB 키 → 설정)
-  all_dbs = merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb)
+  # 엔진과 관계없이 모든 DB (RDS + Aurora, DB 키 → 설정)
+  all_dbs = merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb, var.aurora_postgres, var.aurora_mysql)
   any_db  = length(local.all_dbs) > 0
 
   # RDS는 서브넷 그룹에 2개 AZ 이상 필요
@@ -109,12 +109,44 @@ module "rds_mariadb" {
   common_tags      = var.common_tags
 }
 
+############################################################
+# Aurora 클러스터 (엔진 조합 → aurora-core). 항목은 RDS와 같은 이름
+#   비밀번호는 RDS가 Secrets Manager로 관리 (읽기 인스턴스가 클러스터 안이라 rds_master_passwords 불필요)
+############################################################
+module "aurora_postgres" {
+  source   = "../deployment/aurora-postgres"
+  for_each = var.aurora_postgres
+
+  common           = module.rds_common[0].contract
+  name             = "rds-${each.key}"
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect          = local.protect.rds
+  logs_kms_key_arn = local.logs_kms_key_arn
+  common_tags      = var.common_tags
+}
+
+module "aurora_mysql" {
+  source   = "../deployment/aurora-mysql"
+  for_each = var.aurora_mysql
+
+  common           = module.rds_common[0].contract
+  name             = "rds-${each.key}"
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
+  protect          = local.protect.rds
+  logs_kms_key_arn = local.logs_kms_key_arn
+  common_tags      = var.common_tags
+}
+
 locals {
   # 엔진과 관계없이 DB 키 → 접속 정보 (다음 단계로 넘기는 값)
   rds_dbs = merge(
     { for k, m in module.rds_postgres : k => m.db },
     { for k, m in module.rds_mysql : k => m.db },
     { for k, m in module.rds_mariadb : k => m.db },
+    { for k, m in module.aurora_postgres : k => m.db },
+    { for k, m in module.aurora_mysql : k => m.db },
   )
 }
 

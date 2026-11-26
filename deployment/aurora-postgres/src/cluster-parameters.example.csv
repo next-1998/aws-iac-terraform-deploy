@@ -1,0 +1,3 @@
+no,name,value,apply_method,memo
+1,rds.force_ssl,1,pending-reboot,SSL 접속 강제
+2,timezone,Asia/Seoul,pending-reboot,서버 시간대

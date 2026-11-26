@@ -34,19 +34,20 @@ locals {
 
   cwlogs_name = "${local.name_prefix}-fh-cwlogs-01"
 
-  # S3 경로 = 로그 그룹 이름 (앞의 / 제거)
-  #   예외: RDS 로그 그룹은 AWS가 /aws/rds/instance/<DB>/<로그>로 고정 → 다른 리소스처럼 <VPC 이름>/rds/<DB>/<로그>
-  #         DB 이름 <site>-rds-<용도>[-<복제본>]에서 site를 뽑고, VPC 이름 규칙 <site>-vpc (01-network)를 씀
-  #   예) /iactest-vpc/ec2/iactest-ec2-was/messages      → iactest-vpc/ec2/iactest-ec2-was/messages/
-  #       /aws/rds/instance/iactest-rds-app/postgresql   → iactest-vpc/rds/iactest-rds-app/postgresql/
-  #   계정 단위 로그 그룹(VPC 없음): RDSOSMetrics → _account/rds/RDSOSMetrics/
-  #   로그 그룹 이름이 빈 레코드(구독을 만들 때 CloudWatch Logs가 보내는 연결 확인 메시지) → _control/
+  # S3 경로 규칙: <VPC 이름>/<리소스 유형>/… (모든 로그 동일)
+  #   /<VPC 이름>/…로 시작하는 로그 그룹 → 앞의 / 만 제거
+  #     예) /<VPC>/ec2/…/messages                → <VPC>/ec2/…/messages/
+  #   AWS가 이름을 정하는 로그 그룹(VPC 이름 없음) → 앞에 VPC 이름(naming.vpc, local.vpc_name)을 붙임
+  #     예) /aws/rds/instance/<DB>/postgresql    → <VPC>/rds/instance/<DB>/postgresql/
+  #         /aws/rds/cluster/<클러스터>/postgresql → <VPC>/rds/cluster/<클러스터>/postgresql/
+  #         RDSOSMetrics                         → <VPC>/rds/RDSOSMetrics/
+  #   로그 그룹 이름이 없는 레코드(구독을 만들 때 CloudWatch Logs가 보내는 연결 확인 메시지)만 _control/ (폴더를 만들 수 없어 오류로 쌓이지 않게)
   cwlogs_path_query = join("", [
     "{log_group: (.logGroup as $g",
     " | if (($g // \"\") == \"\") then \"_control\"",
-    " elif $g == \"RDSOSMetrics\" then \"_account/rds/RDSOSMetrics\"",
-    " else ((($g | capture(\"^/aws/rds/instance/(?<id>(?<site>[a-z0-9-]+?)-rds-[^/]+)/(?<log>[^/]+)$\")) // null) as $m",
-    " | if $m then \"\\($m.site)-vpc/rds/\\($m.id)/\\($m.log)\" else ($g | ltrimstr(\"/\")) end) end)}",
+    " elif ($g | startswith(\"/aws/\")) then \"${local.vpc_name}/\" + ($g | ltrimstr(\"/aws/\"))",
+    " elif $g == \"RDSOSMetrics\" then \"${local.vpc_name}/rds/RDSOSMetrics\"",
+    " else ($g | ltrimstr(\"/\")) end)}",
   ])
 
   # policies/*.json.tftpl 에 넣는 값
@@ -175,7 +176,7 @@ module "cwlogs_account_subscription" {
 ############################################################
 # RDS 향상된 모니터링 로그 그룹 (계정·리전에 하나, 이름은 AWS가 RDSOSMetrics로 고정)
 #   미리 만들지 않으면 RDS가 보관 30일·기본 암호화로 만듦 → 다른 로그와 같게 보관 기간·logs CMK를 정함
-#   S3로 보내는 방식은 다른 로그와 같음 (경로 _account/rds/RDSOSMetrics/, local.cwlogs_path_query)
+#   S3로 보내는 방식은 다른 로그와 같음 (S3 폴더 <VPC 이름>/rds/RDSOSMetrics/, local.cwlogs_path_query)
 ############################################################
 module "rds_os_metrics_log" {
   source = "../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/loggroup"

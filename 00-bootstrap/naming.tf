@@ -18,6 +18,9 @@ locals {
   # 이름 앞부분 (모든 단계 공통)
   name_prefix = join("-", [var.naming.company, var.naming.service, var.naming.env, local.region_code])
 
+  # VPC 이름 (01-network가 Parameter Store에서 읽어 VPC를 만듦, 로그 S3 경로 앞부분)
+  vpc_name = "${local.name_prefix}-vpc-${var.naming.vpc}-01"
+
   # 이 단계 리소스 이름: <접두어>-<유형>-<이름>-01
   n = {
     state_bucket = "${local.name_prefix}-s3-tfstate-01"

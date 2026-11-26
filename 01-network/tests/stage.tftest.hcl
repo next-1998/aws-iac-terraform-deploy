@@ -10,7 +10,7 @@ mock_provider "aws" {
 
 override_data {
   target = data.aws_ssm_parameter.bootstrap_naming
-  values = { insecure_value = "{\"prefix\":\"hw-iac-dev-an2\"}" }
+  values = { insecure_value = "{\"prefix\":\"hw-iac-dev-an2\",\"vpc_name\":\"hw-iac-dev-an2-vpc-simple-01\"}" }
 }
 
 run "writes_contract_bundles" {

@@ -24,6 +24,7 @@ naming = {
   company = "hw"  # 회사 코드
   service = "iac" # 서비스 코드
   env     = "dev" # 환경 코드 (dev, stg, prd …)
+  vpc     = "app" # VPC 이름의 리소스 이름 → VPC <접두어>-vpc-app-01. 로그 S3 경로 앞부분도 이 이름 (소문자·숫자, 하이픈 불가)
   # region_code = "an2" # 리전 코드 표에 없는 리전만
 }
 

@@ -1,0 +1,4 @@
+no,name,value,apply_method,memo
+1,require_secure_transport,ON,immediate,SSL 접속 강제
+2,character_set_server,utf8mb4,pending-reboot,서버 문자셋
+3,time_zone,Asia/Seoul,immediate,서버 시간대

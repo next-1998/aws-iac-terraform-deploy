@@ -6,6 +6,7 @@ DB 유형 전체를 하나의 state로 만듭니다. 03-compute와 같은 번호
 |---|---|---|
 | `rds_common` | `deployment/rds-common` (1차 조합) | DB 서브넷(AZ별, 01-network가 계산한 db CIDR), 라우트(사내망 TGW 응답 경로), DB 서브넷 그룹, RDS 키 |
 | `rds_postgres["<DB 키>"]` / `rds_mysql[…]` / `rds_mariadb[…]` | `deployment/rds-postgres`, `rds-mysql`, `rds-mariadb` (엔진 조합: 엔진 고정값·엔진 전용 검사·CSV) | → `deployment/rds-core` (공통 코어): 파라미터 그룹, DB 인스턴스, 복제본, SG, DB 로그 그룹 |
+| `aurora_postgres["<DB 키>"]` / `aurora_mysql[…]` | `deployment/aurora-postgres`, `aurora-mysql` (엔진 조합) | → `deployment/aurora-core`: 클러스터, 인스턴스(쓰기 1 + 읽기 N), 파라미터 그룹 2개(클러스터·인스턴스), SG, 로그 그룹, 백업 태그(클러스터), NLB(쓰기 주소 DNS 기준) |
 
 ```bash
 cp backend.hcl.example backend.hcl   # 값 입력
