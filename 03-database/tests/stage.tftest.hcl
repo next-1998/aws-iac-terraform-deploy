@@ -348,3 +348,15 @@ run "no_nlb_by_default" {
     error_message = "기본은 NLB 없음이어야 합니다."
   }
 }
+
+run "apply_immediately_default_off" {
+  # 기본은 유지 관리 시간에 적용, DB별로 바로 적용 가능
+  command = plan
+  variables {
+    rds_postgres = { app = {}, now = { apply_immediately = true } }
+  }
+  assert {
+    condition     = !module.rds_postgres["app"].settings.apply_immediately && module.rds_postgres["now"].settings.apply_immediately
+    error_message = "apply_immediately: ${jsonencode([module.rds_postgres["app"].settings.apply_immediately, module.rds_postgres["now"].settings.apply_immediately])}"
+  }
+}

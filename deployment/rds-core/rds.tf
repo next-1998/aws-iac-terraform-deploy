@@ -38,6 +38,8 @@ module "parameter_group" {
 module "db" {
   source = "../../../aws-iac-terraform-module/module/database/aws-rds-workload/instance"
 
+  apply_immediately = var.apply_immediately
+
   identifier = local.identifier
   # 스냅샷으로 만들 때 (처음 한 번만. 이후 값 변경은 무시)
   snapshot_identifier = var.snapshot_identifier

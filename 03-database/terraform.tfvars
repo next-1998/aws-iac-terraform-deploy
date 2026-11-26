@@ -45,6 +45,7 @@ rds_postgres = {
     performance_insights       = false             # 일부 작은 클래스는 지원 안 함
     monitoring_interval        = 60                # 향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같음
     auto_minor_version_upgrade = false             # 마이너 버전 자동 업그레이드 (기본 끔. 올릴 때는 engine_version을 바꿔 apply)
+    apply_immediately          = false             # 변경을 바로 적용. 기본 false: Multi-AZ·인스턴스 클래스·파라미터 그룹 변경은 다음 유지 관리 시간에 적용 (운영 권장)
     backup_plans               = ["daily", "pitr"] # AWS Backup 플랜 (02-shared backup_plans). 태그 Backup-daily, Backup-pitr = true (일간 스냅샷 + 시점 복구). 빈 목록이면 RDS 자동 백업만
     # log_exports         = ["postgresql", "upgrade"]  # null이면 엔진 기본 (postgresql, upgrade)
     log_retention_days = 14 # DB 로그 CloudWatch 보관 일수

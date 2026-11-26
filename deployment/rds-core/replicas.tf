@@ -30,6 +30,8 @@ module "replica" {
   source   = "../../../aws-iac-terraform-module/module/database/aws-rds-workload/instance"
   for_each = local.replicas
 
+  apply_immediately = var.apply_immediately
+
   identifier          = each.value.identifier
   replicate_source_db = module.db.identifier
   instance_class      = coalesce(each.value.instance_class, var.instance_class)

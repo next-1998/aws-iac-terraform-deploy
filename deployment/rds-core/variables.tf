@@ -254,3 +254,9 @@ variable "nlb" {
     error_message = "nlb.allowed_cidrs(NLB로 접속할 고객 접근제어 대역)를 하나 이상 넣어야 합니다."
   }
 }
+
+variable "apply_immediately" {
+  description = "변경을 바로 적용 (기본 false: Multi-AZ·인스턴스 클래스·파라미터 그룹 변경 등은 다음 유지 관리 시간에 적용). 복제본도 같은 값"
+  type        = bool
+  default     = false
+}

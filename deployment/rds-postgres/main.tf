@@ -28,6 +28,7 @@ module "core" {
   performance_insights       = var.db.performance_insights
   monitoring_interval        = var.db.monitoring_interval
   auto_minor_version_upgrade = var.db.auto_minor_version_upgrade
+  apply_immediately          = var.db.apply_immediately
   backup_plans               = var.db.backup_plans
 
   log_exports        = var.db.log_exports
