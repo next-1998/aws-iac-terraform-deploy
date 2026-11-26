@@ -27,7 +27,7 @@ module "ec2" {
   resource_tags = merge(local.resource_tags, {
     WEEKEND_STOP_ENABLE = tostring(var.weekend_stop_enable)
     ServiceGroup        = local.prefix
-  }, local.grow_any ? { (local.grow_tag) = "true" } : {}, var.backup_plan == null ? {} : { Backup = var.backup_plan })
+  }, local.grow_any ? { (local.grow_tag) = "true" } : {}, length(var.backup_plans) == 0 ? {} : { Backup = join(",", var.backup_plans) })
   site       = local.site
   stack      = var.name
   key_target = local.key

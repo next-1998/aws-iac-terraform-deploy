@@ -82,14 +82,14 @@ run "no_alarm_topic_no_shared_key" {
 }
 
 run "backup_default_plans_and_tag_selection" {
-  # 기본: daily(7일)·monthly(365일), 대상은 태그 Backup=<플랜> AND Site=<site>, 볼트 잠금 없음, 테스트 모드는 볼트 강제 삭제
+  # 기본: daily(7일)·monthly(365일)·pitr(연속 7일), 볼트 <VPC>-backup-vault, 대상은 태그 Backup 값에 플랜 이름 포함 AND Site=<site>, 볼트 잠금 없음
   command = plan
   assert {
     condition     = jsonencode(sort(keys(module.backup[0].contract.plans))) == jsonencode(["daily", "monthly", "pitr"])
     error_message = "플랜: ${jsonencode(module.backup[0].contract.plans)}"
   }
   assert {
-    condition     = module.backup[0].contract.plans["monthly"].rules["monthly"].retention_days == 365 && module.backup[0].contract.plans["pitr"].pitr_days == 7 && module.backup[0].contract.plans["daily"].pitr_days == null
+    condition     = module.backup[0].contract.plans["monthly"].retention_days == 365 && module.backup[0].contract.plans["pitr"].continuous_backup && module.backup[0].contract.vault_name == "simple-vpc-backup-vault"
     error_message = "monthly 보관: ${jsonencode(module.backup[0].contract.plans)}"
   }
   assert {
@@ -101,8 +101,8 @@ run "backup_default_plans_and_tag_selection" {
     error_message = "중앙 backup 키가 없으면 이 계정에 백업 키를 만들어야 합니다."
   }
   assert {
-    condition     = jsonencode(module.backup[0].settings.tag_conditions["daily"]) == jsonencode({ Backup = "daily", Site = "simple" })
-    error_message = "대상 조건: ${jsonencode(module.backup[0].settings.tag_conditions["daily"])}"
+    condition     = jsonencode(module.backup[0].settings.selection["daily"]) == jsonencode({ like = { Backup = "*daily*" }, equals = { Site = "simple" } })
+    error_message = "대상 조건: ${jsonencode(module.backup[0].settings.selection["daily"])}"
   }
 }
 
@@ -121,7 +121,7 @@ run "backup_invalid_cold_storage_rejected" {
   # 콜드 스토리지는 보관 일수 ≥ 이동 일수 + 90
   command = plan
   variables {
-    backup_plans = { weekly = { weekly = { schedule = "cron(0 3 ? * SUN *)", retention_days = 60, cold_storage_after_days = 30 } } }
+    backup_plans = { weekly = { schedule = "cron(0 3 ? * SUN *)", retention_days = 60, cold_storage_after_days = 30 } }
   }
   expect_failures = [var.backup_plans]
 }
@@ -137,13 +137,14 @@ run "backup_protected_keeps_vault" {
   }
 }
 
-run "backup_reject_two_continuous_rules" {
+run "backup_reject_overlapping_plan_names" {
+  # 태그 값 패턴(*daily*)으로 고르므로 daily와 daily-long은 겹침
   command = plan
   variables {
-    backup_plans = { pitr = {
-      a = { schedule = "cron(0 3 * * ? *)", retention_days = 7, continuous_backup = true }
-      b = { schedule = "cron(0 4 * * ? *)", retention_days = 7, continuous_backup = true }
-    } }
+    backup_plans = {
+      daily      = { schedule = "cron(0 3 * * ? *)", retention_days = 7 }
+      daily-long = { schedule = "cron(0 3 * * ? *)", retention_days = 30 }
+    }
   }
   expect_failures = [var.backup_plans]
 }

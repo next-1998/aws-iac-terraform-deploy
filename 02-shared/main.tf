@@ -38,6 +38,8 @@ module "backup" {
   count  = var.enable_backup ? 1 : 0
 
   site                 = var.site
+  vpc_name             = local.network.base.vpc_name
+  resource_tags        = local.network.base.resource_tags
   plans                = var.backup_plans
   vault_lock           = var.backup_vault_lock
   central_kms_key_arns = var.central_kms_key_arns
@@ -58,12 +60,10 @@ module "contract" {
     shared = {
       certificate_arn = module.shared_common.certificate_arn
       alarm_topic_arn = module.shared_common.alarm_topic_arn
-      # 리소스에 붙일 백업 태그 (<backup_tag_key> = <backup_plans 중 하나>). 백업을 안 쓰면 null / []
+      # 리소스에 붙일 백업 태그 (<backup_tag_key> = <backup_plans 이름, 쉼표로 여러 개>). 백업을 안 쓰면 null / []
       backup_tag_key = try(module.backup[0].contract.tag_key, null)
       backup_plans   = try(keys(module.backup[0].contract.plans), [])
       backup_vault   = try(module.backup[0].contract.vault_name, null)
-      # 플랜별 시점 복구(연속 백업) 보관 일수 (없으면 null). 03-database가 RDS 자동 백업 보관 기간을 맞춤
-      backup_pitr_days = try({ for k, p in module.backup[0].contract.plans : k => p.pitr_days }, {})
     }
   }
 

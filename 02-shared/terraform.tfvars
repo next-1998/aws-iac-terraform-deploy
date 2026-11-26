@@ -23,27 +23,29 @@ alarm_emails = []
 
 # ── AWS Backup ────────────────────────────────────────────────
 # 볼트·플랜·IAM 역할을 만들고, 태그가 붙은 리소스만 백업합니다 (AWS Backup이 지원하는 모든 유형: EC2·EBS·RDS·EFS·S3·DynamoDB 등).
-#   대상 지정: 리소스에 태그 Backup = <플랜 이름> (예: Backup = daily). 03-database·03-compute는 backup_plan 값으로 태그를 붙임
-#   원칙: AWS Backup이 지원하는 리소스는 AWS Backup만 사용 (지원하지 않을 때만 자체 백업). Site 태그가 이 사이트여야 함 (모든 모듈이 자동으로 붙임)
+#   볼트: VPC마다 하나 (<VPC 이름>-backup-vault)
+#   대상 지정: 리소스 태그 Backup = <플랜 이름, 쉼표로 여러 개> + Site = <site>
+#     Terraform 리소스: 03-database·03-compute의 backup_plans = ["daily", "pitr"] 로 Backup 태그를 붙임 (Site는 자동)
+#     직접 만든 리소스: Backup, Site 태그를 둘 다 직접 붙임
+#   원칙: AWS Backup이 지원하는 리소스는 AWS Backup만 사용 (지원하지 않을 때만 자체 백업).
 #   비용: 볼트·플랜은 무료. 백업 데이터 저장량만큼 과금 + 백업 키 월 $1 (중앙 backup 키를 쓰면 없음)
 #   리소스 유형 사용 설정은 00-bootstrap이 합니다
+#   서드파티 백업을 쓰는 사이트: enable_backup = false (00-bootstrap manage_backup_region_settings = false도 같이)
+#     이때 RDS는 자체 자동 백업(03-database backup_retention_days)만 남고, backup_plans 태그는 붙어도 아무 동작 안 함
 enable_backup = true
 
-# 플랜 이름 → 규칙 이름 → 규칙. 플랜 이름이 태그 값이 됩니다 (리소스는 플랜 하나에만 들어가므로 같이 받을 규칙은 한 플랜에). 시간은 Asia/Seoul 기준 (timezone으로 변경)
+# 플랜 이름 → 규칙. 백업 종류마다 플랜 하나. 리소스 태그 Backup에 받을 플랜 이름을 쉼표로 나열 (예: RDS Backup = daily,pitr)
+#   플랜 이름이 다른 플랜 이름 안에 들어가면 안 됨 (예: daily와 daily-long). 시간은 Asia/Seoul 기준 (timezone으로 변경)
+#   RDS에 pitr을 쓰면 03-database backup_retention_days를 pitr retention_days와 같게 둡니다 (AWS Backup이 RDS 자동 백업 보관 기간을 이 값으로 바꿈)
 #   schedule                : cron(분 시 일 월 요일 년)
 #   retention_days          : 보관 일수
 #   cold_storage_after_days : 콜드 스토리지로 옮길 일수 (선택. 보관 일수 ≥ 이 값 + 90)
 #   continuous_backup       : 시점 복구 (선택. RDS·S3, 보관 35일 이하)
 backup_plans = {
-  daily   = { daily = { schedule = "cron(0 3 * * ? *)", retention_days = 7 } }     # 매일 03:00, 7일 보관
-  monthly = { monthly = { schedule = "cron(0 3 1 * ? *)", retention_days = 365 } } # 매월 1일 03:00, 12개월 보관
-  # 시점 복구(연속 백업) + 일간 스냅샷. RDS·S3 등 연속 백업 지원 리소스에 태그 Backup = "pitr" (03-database rds.<용도>.backup_plan)
-  #   시점 복구 보관 일수는 03-database backup_retention_days와 같게 둡니다 (AWS Backup이 RDS 자동 백업 보관 기간을 이 값으로 바꿈)
-  pitr = {
-    pitr  = { schedule = "cron(0 3 * * ? *)", retention_days = 7, continuous_backup = true }
-    daily = { schedule = "cron(0 3 * * ? *)", retention_days = 7 }
-  }
-  # weekly = { weekly = { schedule = "cron(0 3 ? * SUN *)", retention_days = 35 } }
+  daily   = { schedule = "cron(0 3 * * ? *)", retention_days = 7 }                           # 매일 03:00, 7일 보관
+  monthly = { schedule = "cron(0 3 1 * ? *)", retention_days = 365 }                         # 매월 1일 03:00, 12개월 보관
+  pitr    = { schedule = "cron(0 3 * * ? *)", retention_days = 7, continuous_backup = true } # 시점 복구 7일 (RDS·S3)
+  # weekly = { schedule = "cron(0 3 ? * SUN *)", retention_days = 35 }
 }
 
 # 볼트 잠금 (기본 끔). 켜면 보관 기간 전에는 관리자도 백업을 지울 수 없습니다.

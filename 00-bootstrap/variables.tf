@@ -225,3 +225,9 @@ variable "backup_resource_types" {
     "RDS", "Redshift", "Redshift Serverless", "S3", "SAP HANA on Amazon EC2", "Storage Gateway", "VirtualMachine",
   ]
 }
+
+variable "manage_backup_region_settings" {
+  description = "AWS Backup 리전 설정(백업할 리소스 유형 켜기)을 이 단계에서 관리. 서드파티 백업을 쓰는 사이트는 false (02-shared enable_backup = false와 같이)"
+  type        = bool
+  default     = true
+}

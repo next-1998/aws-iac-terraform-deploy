@@ -212,8 +212,13 @@ variable "auto_minor_version_upgrade" {
   default     = false
 }
 
-variable "backup_plan" {
-  description = "AWS Backup 플랜 이름 (02-shared backup_plans 중 하나, 예: pitr). 넣으면 DB(원본)에 태그 Backup = <플랜>을 붙여 백업 대상이 됨. null이면 태그 없음 (RDS 자동 백업만)"
-  type        = string
-  default     = null
+variable "backup_plans" {
+  description = "AWS Backup 플랜 이름 목록 (02-shared backup_plans). DB(원본)에 태그 Backup = <플랜,플랜>을 붙여 백업 대상이 됨. 빈 목록이면 태그 없음 (RDS 자동 백업만). 예: [daily, pitr]"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for p in var.backup_plans : can(regex("^[a-z0-9-]{1,20}$", p))])
+    error_message = "backup_plans는 02-shared 플랜 이름(소문자, 숫자, '-')이어야 합니다."
+  }
 }

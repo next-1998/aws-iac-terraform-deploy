@@ -67,7 +67,7 @@ module "rds_db" {
   performance_insights       = each.value.performance_insights
   monitoring_interval        = each.value.monitoring_interval
   auto_minor_version_upgrade = each.value.auto_minor_version_upgrade
-  backup_plan                = each.value.backup_plan
+  backup_plans               = each.value.backup_plans
 
   log_exports        = each.value.log_exports
   log_retention_days = each.value.log_retention_days
