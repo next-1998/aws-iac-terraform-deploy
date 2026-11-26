@@ -1,8 +1,8 @@
 ############################################################
 # AWS Backup (사이트)
 #   볼트(VPC마다 하나, 전용 KMS) + 플랜(백업 종류마다 하나, 규칙 하나) + 대상 선택(태그) + IAM 역할
-#   대상: AWS Backup이 지원하는 모든 리소스 유형 중 태그 <tag_key> 값에 플랜 이름이 들어 있고 Site = <site>
-#         예) Backup = daily,pitr → daily 플랜과 pitr 플랜 둘 다. 같은 계정에 사이트(VPC)가 여러 개여도 서로의 리소스를 백업하지 않음
+#   대상: AWS Backup이 지원하는 모든 리소스 유형 중 태그 <tag_key>-<플랜> = true 이고 Site = <site>
+#         예) Backup-daily = true, Backup-pitr = true → daily 플랜과 pitr 플랜 둘 다. 같은 계정에 사이트(VPC)가 여러 개여도 서로의 리소스를 백업하지 않음
 #   리소스 유형 사용 설정(리전 설정)은 계정·리전 단위라 00-bootstrap이 합니다.
 #   비용: 볼트·플랜은 무료, 백업 데이터 저장량만큼 + 키 월 $1
 #   참고: EBS·RDS 등은 원본 리소스의 키로 암호화된 스냅샷이 그대로 보관됨 (볼트 키는 EFS, DynamoDB, S3 등 완전 관리형 유형에 적용)
@@ -123,10 +123,9 @@ module "selection" {
   for_each = var.plans
 
   # 역할 권한은 백업이 실행될 때(다음 스케줄) 필요하므로 정책 연결과 순서를 맞출 필요 없음
-  name                = "${local.prefix}-${each.key}"
-  plan_id             = module.plan[each.key].id
-  iam_role_arn        = module.role.arn
-  resources           = ["*"]
-  tag_like_conditions = { (var.tag_key) = "*${each.key}*" }
-  tag_conditions      = { Site = var.site }
+  name           = "${local.prefix}-${each.key}"
+  plan_id        = module.plan[each.key].id
+  iam_role_arn   = module.role.arn
+  resources      = ["*"]
+  tag_conditions = { "${var.tag_key}-${each.key}" = "true", Site = var.site }
 }

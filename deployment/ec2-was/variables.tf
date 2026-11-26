@@ -348,7 +348,7 @@ variable "root_auto_grow" {
 }
 
 variable "backup_plans" {
-  description = "AWS Backup 플랜 이름 목록 (02-shared backup_plans). 고정 서버에 태그 Backup = <플랜,플랜>을 붙여 백업 대상이 됨 (서버 + 붙은 볼륨 전체 이미지, 확장 서버는 제외). 빈 목록이면 태그 없음. 예: [daily]"
+  description = "AWS Backup 플랜 이름 목록 (02-shared backup_plans). 고정 서버에 태그 Backup-<플랜> = true를 플랜마다 붙여 백업 대상이 됨 (서버 + 붙은 볼륨 전체 이미지, 확장 서버는 제외). 빈 목록이면 태그 없음. 예: [daily]"
   type        = list(string)
   default     = []
 

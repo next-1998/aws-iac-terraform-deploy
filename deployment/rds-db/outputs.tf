@@ -46,7 +46,7 @@ output "settings" {
     log_exports                 = local.log_exports
     from_snapshot               = var.snapshot_identifier != null
     replicas                    = keys(local.replicas)
-    backup_tag                  = length(var.backup_plans) == 0 ? null : join(",", var.backup_plans)
+    backup_tags                 = { for p in var.backup_plans : "Backup-${p}" => "true" }
   }
 }
 

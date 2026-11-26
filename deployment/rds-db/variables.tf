@@ -213,7 +213,7 @@ variable "auto_minor_version_upgrade" {
 }
 
 variable "backup_plans" {
-  description = "AWS Backup 플랜 이름 목록 (02-shared backup_plans). DB(원본)에 태그 Backup = <플랜,플랜>을 붙여 백업 대상이 됨. 빈 목록이면 태그 없음 (RDS 자동 백업만). 예: [daily, pitr]"
+  description = "AWS Backup 플랜 이름 목록 (02-shared backup_plans). DB(원본)에 태그 Backup-<플랜> = true를 플랜마다 붙여 백업 대상이 됨. 빈 목록이면 태그 없음 (RDS 자동 백업만). 예: [daily, pitr]"
   type        = list(string)
   default     = []
 

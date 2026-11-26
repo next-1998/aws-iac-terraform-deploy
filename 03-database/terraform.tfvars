@@ -43,7 +43,7 @@ rds = {
     performance_insights       = false             # 일부 작은 클래스는 지원 안 함
     monitoring_interval        = 60                # 향상된 모니터링 간격(초): 0(끔), 1, 5, 10, 15, 30, 60. 복제본도 같음
     auto_minor_version_upgrade = false             # 마이너 버전 자동 업그레이드 (기본 끔. 올릴 때는 engine_version을 바꿔 apply)
-    backup_plans               = ["daily", "pitr"] # AWS Backup 플랜 (02-shared backup_plans). 태그 Backup = daily,pitr (일간 스냅샷 + 시점 복구). 빈 목록이면 RDS 자동 백업만
+    backup_plans               = ["daily", "pitr"] # AWS Backup 플랜 (02-shared backup_plans). 태그 Backup-daily, Backup-pitr = true (일간 스냅샷 + 시점 복구). 빈 목록이면 RDS 자동 백업만
     # log_exports         = ["postgresql", "upgrade"]  # null이면 엔진 기본 (mysql: error, slowquery)
     log_retention_days = 14 # DB 로그 CloudWatch 보관 일수
     # allowed_cidrs      = ["10.227.0.128/26"]          # null이면 EC2 서브넷 대역 전체

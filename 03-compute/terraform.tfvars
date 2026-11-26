@@ -67,7 +67,7 @@ was = {
   #   01-network interface_endpoints에 ec2, ssm, monitoring(+ 알림 시 sns) 필요 (public 여부와 무관, VPC endpoint로만)
   #   데이터 볼륨은 ebs_volumes 항목에 auto_grow = { max_size = 200 } (mount_point 필요)
   # root_auto_grow = { max_size = 100 } # threshold = 80, increase_percent = 20, min_increase = 10 (기본값)
-  # backup_plans   = ["daily"]          # AWS Backup 플랜 목록 (02-shared backup_plans). 고정 서버에 태그 Backup = daily (서버 + 볼륨 이미지). 확장 서버는 제외
+  # backup_plans   = ["daily"]          # AWS Backup 플랜 목록 (02-shared backup_plans). 고정 서버에 태그 Backup-daily = true (서버 + 볼륨 이미지). 확장 서버는 제외
   # 데이터 볼륨 (기본 없음). 서버를 만든 뒤 따로 만들어 붙임. volume_type 기본 gp3
   #   크기는 여기서만 바꿈 (서버 교체 없이 늘어남, 줄일 수 없음). 장치 이름을 바꾸면 볼륨이 다시 만들어짐
   #   마운트 (mount_point가 있는 볼륨만. 붙인 뒤 SSM이 서버 안에서 deployment/ec2-<용도>/src/mount_volumes.sh 실행)

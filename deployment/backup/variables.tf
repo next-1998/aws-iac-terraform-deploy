@@ -32,7 +32,7 @@ variable "resource_tags" {
 variable "plans" {
   description = <<-EOT
     백업 플랜 (플랜 이름 → 규칙 하나). 백업 종류마다 플랜 하나 (예: daily, monthly, pitr)
-    대상: 태그 Backup 값에 플랜 이름이 들어 있고(쉼표로 여러 개, 예: Backup = daily,pitr) Site = <site>인 리소스
+    대상: 태그 Backup-<플랜> = true 이고 Site = <site>인 리소스 (여러 플랜이면 태그도 여러 개, 예: Backup-daily = true, Backup-pitr = true)
       schedule                : cron(분 시 일 월 요일 년), timezone 기준 (기본 Asia/Seoul)
       retention_days          : 보관 일수
       cold_storage_after_days : 콜드 스토리지로 옮길 일수 (null이면 안 옮김)
@@ -50,15 +50,10 @@ variable "plans" {
     condition     = alltrue([for k, p in var.plans : can(regex("^[a-z0-9-]{1,20}$", k))])
     error_message = "플랜 이름(태그 값)은 소문자, 숫자, '-'로 20자 이하여야 합니다."
   }
-  validation {
-    # 태그 값 패턴(*<이름>*)으로 고르므로 다른 플랜 이름 안에 들어가는 이름은 겹쳐 선택됨 (예: daily와 daily-long)
-    condition     = alltrue([for a in keys(var.plans) : alltrue([for b in keys(var.plans) : a == b || strcontains(b, a) == false])])
-    error_message = "플랜 이름이 다른 플랜 이름 안에 들어 있으면 안 됩니다 (예: daily와 daily-long). 태그 값 패턴으로 고르기 때문에 겹쳐 선택됩니다."
-  }
 }
 
 variable "tag_key" {
-  description = "백업 대상 태그 키 (리소스에 <tag_key> = <플랜 이름>)"
+  description = "백업 대상 태그 키 앞부분 (리소스에 <tag_key>-<플랜> = true, 예: Backup-daily = true)"
   type        = string
   default     = "Backup"
 }

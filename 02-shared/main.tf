@@ -60,10 +60,10 @@ module "contract" {
     shared = {
       certificate_arn = module.shared_common.certificate_arn
       alarm_topic_arn = module.shared_common.alarm_topic_arn
-      # 리소스에 붙일 백업 태그 (<backup_tag_key> = <backup_plans 이름, 쉼표로 여러 개>). 백업을 안 쓰면 null / []
-      backup_tag_key = try(module.backup[0].contract.tag_key, null)
-      backup_plans   = try(keys(module.backup[0].contract.plans), [])
-      backup_vault   = try(module.backup[0].contract.vault_name, null)
+      # 리소스에 붙일 백업 태그 (플랜 → 태그 키, 값은 "true". 예: daily → Backup-daily). 백업을 안 쓰면 {}
+      backup_tag_keys = try(module.backup[0].contract.tag_keys, {})
+      backup_plans    = try(keys(module.backup[0].contract.plans), [])
+      backup_vault    = try(module.backup[0].contract.vault_name, null)
     }
   }
 

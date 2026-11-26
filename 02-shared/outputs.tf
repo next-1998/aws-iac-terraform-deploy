@@ -12,6 +12,6 @@ output "parameters" {
 }
 
 output "backup" {
-  description = "AWS Backup (볼트, 태그 키, 플랜). 대상 리소스에 태그 <tag_key> = <플랜 이름>"
+  description = "AWS Backup (볼트, 태그 키, 플랜). 대상 리소스에 태그 Backup-<플랜> = true"
   value       = try(module.backup[0].contract, null)
 }

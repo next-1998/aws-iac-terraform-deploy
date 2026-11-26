@@ -3,7 +3,7 @@ output "contract" {
   value = {
     vault_name  = module.vault.name
     vault_arn   = module.vault.arn
-    tag_key     = var.tag_key
+    tag_keys    = { for k, p in var.plans : k => "${var.tag_key}-${k}" }
     plans       = { for k, p in var.plans : k => { schedule = p.schedule, retention_days = p.retention_days, continuous_backup = p.continuous_backup } }
     kms_key_arn = local.kms_key_arn
   }
@@ -15,6 +15,6 @@ output "settings" {
     local_kms_key = length(module.kms_key) > 0
     vault_lock    = length(module.vault_lock) > 0
     force_destroy = !var.protect
-    selection     = { for k, p in var.plans : k => { like = { (var.tag_key) = "*${k}*" }, equals = { Site = var.site } } }
+    selection     = { for k, p in var.plans : k => { "${var.tag_key}-${k}" = "true", Site = var.site } }
   }
 }

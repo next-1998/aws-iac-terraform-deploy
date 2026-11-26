@@ -204,13 +204,13 @@ run "no_monitoring_role_when_all_off" {
 }
 
 run "backup_tag_from_plan" {
-  # backup_plans를 넣은 DB만 태그 Backup = <플랜,플랜> (02-shared AWS Backup이 태그 값 패턴으로 선택)
+  # backup_plans를 넣은 DB만 플랜마다 태그 Backup-<플랜> = true (02-shared AWS Backup이 태그로 선택)
   command = plan
   variables {
     rds = { app = { backup_plans = ["daily", "pitr"] }, etc = {} }
   }
   assert {
-    condition     = module.rds_db["app"].settings.backup_tag == "daily,pitr" && module.rds_db["etc"].settings.backup_tag == null
-    error_message = "백업 플랜: ${jsonencode([module.rds_db["app"].settings.backup_tag, module.rds_db["etc"].settings.backup_tag])}"
+    condition     = jsonencode(module.rds_db["app"].settings.backup_tags) == jsonencode({ Backup-daily = "true", Backup-pitr = "true" }) && length(module.rds_db["etc"].settings.backup_tags) == 0
+    error_message = "백업 플랜: ${jsonencode([module.rds_db["app"].settings.backup_tags, module.rds_db["etc"].settings.backup_tags])}"
   }
 }

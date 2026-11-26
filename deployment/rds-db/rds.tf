@@ -84,7 +84,7 @@ module "db" {
 
   common_tags = var.common_tags
   # 백업 태그는 DB(원본)에만. 복제본은 원본이 백업되므로 제외
-  resource_tags = merge(local.resource_tags, length(var.backup_plans) == 0 ? {} : { Backup = join(",", var.backup_plans) })
+  resource_tags = merge(local.resource_tags, { for p in var.backup_plans : "Backup-${p}" => "true" })
   site          = local.site
   stack         = var.name
   key_target    = local.key

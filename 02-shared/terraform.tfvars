@@ -24,7 +24,7 @@ alarm_emails = []
 # ── AWS Backup ────────────────────────────────────────────────
 # 볼트·플랜·IAM 역할을 만들고, 태그가 붙은 리소스만 백업합니다 (AWS Backup이 지원하는 모든 유형: EC2·EBS·RDS·EFS·S3·DynamoDB 등).
 #   볼트: VPC마다 하나 (<VPC 이름>-backup-vault)
-#   대상 지정: 리소스 태그 Backup = <플랜 이름, 쉼표로 여러 개> + Site = <site>
+#   대상 지정: 리소스 태그 Backup-<플랜> = true + Site = <site> (여러 플랜이면 태그도 여러 개)
 #     Terraform 리소스: 03-database·03-compute의 backup_plans = ["daily", "pitr"] 로 Backup 태그를 붙임 (Site는 자동)
 #     직접 만든 리소스: Backup, Site 태그를 둘 다 직접 붙임
 #   원칙: AWS Backup이 지원하는 리소스는 AWS Backup만 사용 (지원하지 않을 때만 자체 백업).
@@ -34,8 +34,8 @@ alarm_emails = []
 #     이때 RDS는 자체 자동 백업(03-database backup_retention_days)만 남고, backup_plans 태그는 붙어도 아무 동작 안 함
 enable_backup = true
 
-# 플랜 이름 → 규칙. 백업 종류마다 플랜 하나. 리소스 태그 Backup에 받을 플랜 이름을 쉼표로 나열 (예: RDS Backup = daily,pitr)
-#   플랜 이름이 다른 플랜 이름 안에 들어가면 안 됨 (예: daily와 daily-long). 시간은 Asia/Seoul 기준 (timezone으로 변경)
+# 플랜 이름 → 규칙. 백업 종류마다 플랜 하나. 받을 플랜마다 리소스에 태그 Backup-<플랜> = true (예: RDS Backup-daily = true, Backup-pitr = true)
+#   시간은 Asia/Seoul 기준 (timezone으로 변경)
 #   RDS에 pitr을 쓰면 03-database backup_retention_days를 pitr retention_days와 같게 둡니다 (AWS Backup이 RDS 자동 백업 보관 기간을 이 값으로 바꿈)
 #   schedule                : cron(분 시 일 월 요일 년)
 #   retention_days          : 보관 일수
