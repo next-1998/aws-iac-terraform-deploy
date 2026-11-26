@@ -286,36 +286,59 @@ run "reject_mariadb_replicas_with_managed_password" {
   expect_failures = [var.rds_master_passwords]
 }
 
-run "nlb_dedicated_and_shared" {
-  # 전용 NLB(app, 복제본 읽기 포트 포함) + 공유 NLB(orders 3306, shop 3307), 대상 동기화 Lambda
+run "nlb_dedicated" {
+  # 개별 NLB: nlb를 적은 DB(app)만, 리스너 = DB port (원본·대기만, 복제본은 연결 안 함). 대상 동기화 Lambda
   command = plan
   variables {
-    rds_postgres         = { app = { replicas = { r1 = {} }, nlb = { mode = "dedicated", allowed_cidrs = ["10.10.0.0/16"], read_port = 5433 } } }
-    rds_mysql            = { orders = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
-    rds_mariadb          = { shop = { port = 3307, nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_nlb              = { mode = "dedicated" }
+    rds_postgres         = { app = { replicas = { r1 = {} }, nlb = { allowed_cidrs = ["10.10.0.0/16"] } }, etc = {} }
     rds_master_passwords = { app = "Test-Passw0rd-123" }
   }
   assert {
     condition = (
-      module.rds_postgres["app"].db.nlb.port == 5432 && module.rds_postgres["app"].db.nlb.read_port == 5433 &&
-      toset(module.rds_postgres["app"].settings.nlb_listener_ports) == toset([5432, 5433]) &&
-      module.rds_postgres["app"].settings.replica_sg &&
-      module.rds_mysql["orders"].db.nlb.mode == "shared" && module.rds_mariadb["shop"].db.nlb.port == 3307 &&
-      module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+      module.rds_postgres["app"].db.nlb.mode == "dedicated" && module.rds_postgres["app"].db.nlb.port == 5432 &&
+      toset(module.rds_postgres["app"].settings.nlb_listener_ports) == toset([5432]) &&
+      module.rds_postgres["etc"].db.nlb == null &&
+      module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01" && module.rds_common[0].contract.nlb.shared == null
     )
-    error_message = "NLB: ${jsonencode([module.rds_postgres["app"].db.nlb, module.rds_mysql["orders"].db.nlb, module.rds_mariadb["shop"].db.nlb])}"
+    error_message = "개별 NLB: ${jsonencode([module.rds_postgres["app"].db.nlb, module.rds_postgres["etc"].db.nlb])}"
+  }
+}
+
+run "nlb_shared" {
+  # 통합 NLB: DB마다 리스너 포트(DB port)를 다르게 (orders 3306, shop 3307)
+  command = plan
+  variables {
+    rds_nlb      = { mode = "shared" }
+    rds_postgres = {}
+    rds_mysql    = { orders = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_mariadb  = { shop = { port = 3307, nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  assert {
+    condition     = module.rds_mysql["orders"].db.nlb.mode == "shared" && module.rds_mariadb["shop"].db.nlb.port == 3307
+    error_message = "통합 NLB: ${jsonencode([module.rds_mysql["orders"].db.nlb, module.rds_mariadb["shop"].db.nlb])}"
   }
 }
 
 run "reject_shared_nlb_port_overlap" {
-  # 공유 NLB를 쓰는 MySQL·MariaDB가 둘 다 3306 → 리스너 포트 충돌
+  # 통합 NLB에 MySQL·MariaDB가 둘 다 3306 → 리스너 포트 충돌
   command = plan
   variables {
+    rds_nlb      = { mode = "shared" }
     rds_postgres = {}
-    rds_mysql    = { orders = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
-    rds_mariadb  = { shop = { nlb = { mode = "shared", allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_mysql    = { orders = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+    rds_mariadb  = { shop = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
   }
-  expect_failures = [var.rds_shared_nlb]
+  expect_failures = [var.rds_nlb]
+}
+
+run "reject_db_nlb_without_site_mode" {
+  # DB에 nlb를 적었는데 사이트 방식(rds_nlb)이 없음
+  command = plan
+  variables {
+    rds_postgres = { app = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  expect_failures = [var.rds_nlb]
 }
 
 run "no_nlb_by_default" {

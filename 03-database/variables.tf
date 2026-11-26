@@ -34,11 +34,9 @@ variable "rds_postgres" {
     log_retention_days         = optional(number, 14)
     allowed_cidrs              = optional(list(string))
     snapshot_identifier        = optional(string)
-    nlb = optional(object({                     # RDS 앞 NLB (고정 IP 용도, 기본 없음). 쓰기 리스너 = DB port
-      mode          = string                    # dedicated (DB 전용 NLB) | shared (사이트 공유 NLB)
+    nlb = optional(object({                     # 이 DB를 NLB에 연결 (기본 없음). 개별/통합은 사이트의 rds_nlb.mode. 쓰기 리스너 = DB port
       allowed_cidrs = list(string)              # NLB로 접속할 고객 접근제어 대역 (필수)
-      read_port     = optional(number)          # 읽기(복제본) 리스너 포트. 복제본이 있으면 필수
-      private_ips   = optional(map(string), {}) # AZ → 고정 IP (dedicated만, 비우면 자동)
+      private_ips   = optional(map(string), {}) # AZ → 고정 IP (개별 NLB일 때만, 비우면 자동)
     }))
     replicas = optional(map(object({
       instance_class       = optional(string)
@@ -84,11 +82,9 @@ variable "rds_mysql" {
     log_retention_days         = optional(number, 14)
     allowed_cidrs              = optional(list(string))
     snapshot_identifier        = optional(string)
-    nlb = optional(object({                     # RDS 앞 NLB (고정 IP 용도, 기본 없음). 쓰기 리스너 = DB port
-      mode          = string                    # dedicated (DB 전용 NLB) | shared (사이트 공유 NLB)
+    nlb = optional(object({                     # 이 DB를 NLB에 연결 (기본 없음). 개별/통합은 사이트의 rds_nlb.mode. 쓰기 리스너 = DB port
       allowed_cidrs = list(string)              # NLB로 접속할 고객 접근제어 대역 (필수)
-      read_port     = optional(number)          # 읽기(복제본) 리스너 포트. 복제본이 있으면 필수
-      private_ips   = optional(map(string), {}) # AZ → 고정 IP (dedicated만, 비우면 자동)
+      private_ips   = optional(map(string), {}) # AZ → 고정 IP (개별 NLB일 때만, 비우면 자동)
     }))
     replicas = optional(map(object({
       instance_class       = optional(string)
@@ -134,11 +130,9 @@ variable "rds_mariadb" {
     log_retention_days         = optional(number, 14)
     allowed_cidrs              = optional(list(string))
     snapshot_identifier        = optional(string)
-    nlb = optional(object({                     # RDS 앞 NLB (고정 IP 용도, 기본 없음). 쓰기 리스너 = DB port
-      mode          = string                    # dedicated (DB 전용 NLB) | shared (사이트 공유 NLB)
+    nlb = optional(object({                     # 이 DB를 NLB에 연결 (기본 없음). 개별/통합은 사이트의 rds_nlb.mode. 쓰기 리스너 = DB port
       allowed_cidrs = list(string)              # NLB로 접속할 고객 접근제어 대역 (필수)
-      read_port     = optional(number)          # 읽기(복제본) 리스너 포트. 복제본이 있으면 필수
-      private_ips   = optional(map(string), {}) # AZ → 고정 IP (dedicated만, 비우면 자동)
+      private_ips   = optional(map(string), {}) # AZ → 고정 IP (개별 NLB일 때만, 비우면 자동)
     }))
     replicas = optional(map(object({
       instance_class       = optional(string)
@@ -190,32 +184,48 @@ variable "rds_master_passwords" {
   }
 }
 
-variable "rds_shared_nlb" {
+variable "rds_nlb" {
   description = <<-EOT
-    공유 NLB 설정 (nlb.mode = shared인 DB가 있을 때만 만들어짐, 이름 <접두어>-nlb-rds-01)
-      private_ips : AZ → 고정 IP (비우면 AWS가 정하고 NLB를 지울 때까지 유지)
-    공유 NLB를 쓰는 DB끼리는 리스너 포트(DB port, read_port)가 겹치면 안 됩니다
+    RDS 앞 NLB (고정 IP 용도, 특수 상황에만). null(기본)이면 NLB를 만들지 않음
+      mode        : dedicated (nlb를 적은 DB마다 개별 NLB) | shared (사이트 통합 NLB 하나에 DB마다 리스너). 한 사이트에서 섞지 않음
+      private_ips : 통합 NLB의 AZ → 고정 IP (shared만. 비우면 AWS가 정하고 NLB를 지울 때까지 유지)
+    연결할 DB는 DB 설정에 nlb = { allowed_cidrs } 를 적음 (원본·대기만 연결, 읽기 복제본은 연결하지 않음)
   EOT
   type = object({
+    mode        = string
     private_ips = optional(map(string), {})
   })
-  default = {}
+  default = null
 
   validation {
-    # 공유 NLB 리스너 포트 = 각 DB의 port(없으면 엔진 기본)와 read_port. 겹치면 리스너를 만들 수 없음
-    condition = var.rds_shared_nlb != null && length(flatten([
+    condition     = var.rds_nlb == null || contains(["dedicated", "shared"], try(var.rds_nlb.mode, ""))
+    error_message = "rds_nlb.mode는 dedicated(개별 NLB) 또는 shared(통합 NLB)여야 합니다."
+  }
+  validation {
+    # DB에 nlb를 적었으면 사이트 방식이 있어야 함
+    condition     = var.rds_nlb != null || !anytrue([for k, v in merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb) : v.nlb != null])
+    error_message = "DB 설정에 nlb가 있는데 rds_nlb(개별/통합 방식)가 없습니다. rds_nlb = { mode = \"dedicated\" } 또는 { mode = \"shared\" }를 넣으세요."
+  }
+  validation {
+    # 개별 고정 IP는 개별 NLB에만
+    condition     = try(var.rds_nlb.mode, "") != "shared" || !anytrue([for k, v in merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb) : length(try(v.nlb.private_ips, {})) > 0])
+    error_message = "통합 NLB(shared)는 DB별 nlb.private_ips를 쓸 수 없습니다. 고정 IP는 rds_nlb.private_ips에 넣으세요."
+  }
+  validation {
+    # 통합 NLB 리스너 포트 = 각 DB의 port(없으면 엔진 기본). 겹치면 리스너를 만들 수 없음
+    condition = try(var.rds_nlb.mode, "") != "shared" || length(flatten([
       for k, v in merge(
         { for k, v in var.rds_postgres : k => merge(v, { default_port = 5432 }) },
         { for k, v in var.rds_mysql : k => merge(v, { default_port = 3306 }) },
         { for k, v in var.rds_mariadb : k => merge(v, { default_port = 3306 }) },
-      ) : compact([tostring(coalesce(v.port, v.default_port)), try(tostring(v.nlb.read_port), "")]) if try(v.nlb.mode, "") == "shared"
+      ) : [tostring(coalesce(v.port, v.default_port))] if v.nlb != null
       ])) == length(distinct(flatten([
         for k, v in merge(
           { for k, v in var.rds_postgres : k => merge(v, { default_port = 5432 }) },
           { for k, v in var.rds_mysql : k => merge(v, { default_port = 3306 }) },
           { for k, v in var.rds_mariadb : k => merge(v, { default_port = 3306 }) },
-        ) : compact([tostring(coalesce(v.port, v.default_port)), try(tostring(v.nlb.read_port), "")]) if try(v.nlb.mode, "") == "shared"
+        ) : [tostring(coalesce(v.port, v.default_port))] if v.nlb != null
     ])))
-    error_message = "공유 NLB(nlb.mode = shared)를 쓰는 DB끼리 리스너 포트(port, nlb.read_port)가 겹칩니다. DB마다 port를 다르게 지정하세요 (예: app 5432, orders 3306, shop 3307)."
+    error_message = "통합 NLB(shared)에 연결한 DB끼리 리스너 포트(port)가 겹칩니다. DB마다 port를 다르게 지정하세요 (예: app 5432, orders 3306, shop 3307)."
   }
 }

@@ -11,7 +11,7 @@ output "db" {
     readers    = { for k, r in module.replica : k => r.address }
     sg_id      = module.sg.securitygroup_id
     # NLB (고정 IP 용도, 없으면 null): 접속 주소, 쓰기 포트(DB port), 읽기 포트
-    nlb = local.nlb_on ? { mode = var.nlb.mode, dns_name = local.nlb_dns, private_ips = local.nlb_ips, port = local.port, read_port = local.read_on ? var.nlb.read_port : null } : null
+    nlb = local.nlb_on ? { mode = var.nlb.mode, dns_name = local.nlb_dns, private_ips = local.nlb_ips, port = local.port } : null
   }
 }
 

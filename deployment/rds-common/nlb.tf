@@ -3,7 +3,7 @@
 #   - 공유 NLB: 사이트에 하나(여기). 리스너(DB port)·대상 그룹은 각 DB(rds-core)가 만듦 → DB끼리 참조 없음
 #   - 전용 NLB: DB마다 rds-core가 만듦
 #   - 대상 동기화 Lambda: 태그 RdsNlbSyncSg = <SG>인 대상 그룹에 그 SG의 ENI IP를 1분마다 맞춤
-#       쓰기 = 원본 + 대기(Multi-AZ) IP, NLB 상태 확인이 활성 쪽만 사용 / 읽기 = 복제본 IP
+#       원본 + 대기(Multi-AZ) IP, NLB 상태 확인이 활성 쪽만 사용 (읽기 복제본은 연결하지 않음)
 #   NLB는 DB 서브넷에 둠 (AZ별 IP는 NLB를 지울 때까지 고정. private_ips로 지정 가능)
 ############################################################
 data "aws_region" "current" {}

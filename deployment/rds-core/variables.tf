@@ -238,28 +238,19 @@ variable "nlb" {
     RDS 앞 NLB (null이면 없음). 고객 DB 접근제어가 IP로만 허용할 때 고정 IP 용도 (nlb.tf)
       mode          : dedicated (이 DB 전용 NLB) | shared (rds-common 공유 NLB에 리스너만)
       allowed_cidrs : NLB로 접속할 수 있는 대역 (고객 접근제어 대역, 필수)
-      read_port     : 읽기(복제본) 리스너 포트. 복제본이 있으면 필수, DB port와 달라야 함
       private_ips   : AZ → 고정 IP (dedicated만. 비우면 AWS가 정하고 NLB를 지울 때까지 유지)
     쓰기 리스너 포트 = DB port
   EOT
-  type = object({
-    mode          = string
-    allowed_cidrs = list(string)
-    read_port     = optional(number)
-    private_ips   = optional(map(string), {})
-  })
+  # 형식은 03-database DB 설정 nlb + 사이트 방식 mode. 03-database가 타입을 검사하므로 여기서는 any
+  type    = any
   default = null
 
   validation {
-    condition     = var.nlb == null || contains(["dedicated", "shared"], try(var.nlb.mode, ""))
+    condition     = try(var.nlb.allowed_cidrs, null) == null || contains(["dedicated", "shared"], try(var.nlb.mode, ""))
     error_message = "nlb.mode는 dedicated 또는 shared여야 합니다."
   }
   validation {
-    condition     = var.nlb == null || length(try(var.nlb.allowed_cidrs, [])) > 0
+    condition     = try(var.nlb.allowed_cidrs, null) == null || length(try(var.nlb.allowed_cidrs, [])) > 0
     error_message = "nlb.allowed_cidrs(NLB로 접속할 고객 접근제어 대역)를 하나 이상 넣어야 합니다."
-  }
-  validation {
-    condition     = var.nlb == null || length(var.replicas) == 0 || try(var.nlb.read_port != null, false)
-    error_message = "복제본이 있는 DB에 NLB를 쓰면 nlb.read_port(읽기 리스너 포트)가 필요합니다."
   }
 }
