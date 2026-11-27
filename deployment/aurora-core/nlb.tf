@@ -85,15 +85,13 @@ module "nlb_tg" {
 }
 
 # ── 대상 등록: apply 방식 (기본) ───────────────────────────────
-#   Terraform이 읽어 온 쓰기 인스턴스(writer = true)의 주소를 조회. 처음 만들 때는 인스턴스가 생긴 뒤(apply 중)에 조회
-#   장애 조치 뒤 다시 apply하면 새 쓰기 인스턴스 IP로 바뀜
-locals {
-  writer_address = try([for k, i in module.instance : i.address if i.writer][0], module.instance["w"].address)
-}
-
+#   클러스터 쓰기 주소(DNS, 늘 지금 쓰기 인스턴스를 가리킴)를 조회. 장애 조치 뒤 다시 apply하면 새 쓰기 인스턴스 IP로 바뀜
+#   처음 인스턴스(01)를 만들 때만 apply 중에 조회 (쓰기 인스턴스가 생기기 전에는 주소가 풀리지 않음)
+#   그 밖에는 plan 때 조회 → 읽기 인스턴스를 바꿔도 IP가 같으면 대상을 건드리지 않음
+#   (인스턴스별 writer 값으로 고르면 바뀌는 인스턴스가 하나라도 있을 때 값을 몰라 대상이 교체됨)
 data "dns_a_record_set" "nlb_target" {
   count = local.nlb_on && !local.nlb_lambda ? 1 : 0
-  host  = local.writer_address
+  host  = module.instance["w"].identifier != "" ? module.cluster.endpoint : module.cluster.endpoint
 }
 
 module "nlb_target" {
