@@ -80,9 +80,11 @@ module "db" {
   security_group_ids   = [module.sg.securitygroup_id]
 
   # 보호(운영): 삭제 보호 + 삭제 시 최종 스냅샷 / 테스트: 바로 삭제
-  deletion_protection     = var.protect
-  skip_final_snapshot     = !var.protect
-  backup_retention_period = var.backup_retention_days
+  deletion_protection = var.protect
+  skip_final_snapshot = !var.protect
+  # AWS Backup 대상이면 자동 백업을 남김 (실시간 백업이 걸린 DB는 true면 삭제가 거부됨. 남은 자동 백업은 보관 기간이 지나면 사라짐)
+  delete_automated_backups = length(var.backup_plans) == 0
+  backup_retention_period  = var.backup_retention_days
 
   common_tags = var.common_tags
   # 백업 태그는 DB(원본)에만. 복제본은 원본이 백업되므로 제외

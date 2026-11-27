@@ -235,6 +235,11 @@ run "backup_tag_from_plan" {
     condition     = jsonencode(module.rds_postgres["app"].settings.backup_tags) == jsonencode({ Backup-daily = "true", Backup-pitr = "true" }) && length(module.rds_postgres["etc"].settings.backup_tags) == 0
     error_message = "백업 플랜: ${jsonencode([module.rds_postgres["app"].settings.backup_tags, module.rds_postgres["etc"].settings.backup_tags])}"
   }
+  assert {
+    # 실시간 백업(pitr)이 걸린 DB는 자동 백업을 지우면 삭제가 거부됨 (실계정 확인 2026-11-27) → AWS Backup 대상은 남김
+    condition     = module.rds_postgres["app"].settings.keep_automated_backups == true && module.rds_postgres["etc"].settings.keep_automated_backups == false
+    error_message = "자동 백업 남김: ${jsonencode([module.rds_postgres["app"].settings.keep_automated_backups, module.rds_postgres["etc"].settings.keep_automated_backups])}"
+  }
 }
 
 run "mariadb_engine_defaults" {

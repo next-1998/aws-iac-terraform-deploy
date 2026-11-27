@@ -80,7 +80,9 @@ module "cluster" {
   backup_retention_period = var.backup_retention_days
   deletion_protection     = var.protect
   skip_final_snapshot     = !var.protect
-  apply_immediately       = var.apply_immediately
+  # AWS Backup 대상이면 자동 백업을 남김 (실시간 백업이 걸린 DB는 true면 삭제가 거부됨. 남은 자동 백업은 보관 기간이 지나면 사라짐)
+  delete_automated_backups = length(var.backup_plans) == 0
+  apply_immediately        = var.apply_immediately
 
   common_tags = var.common_tags
   # 백업 태그는 클러스터에 (AWS Backup이 Aurora는 클러스터 단위로 백업)

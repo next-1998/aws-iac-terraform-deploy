@@ -56,6 +56,7 @@ output "settings" {
     from_snapshot               = var.snapshot_identifier != null
     replicas                    = keys(local.replicas)
     backup_tags                 = { for p in var.backup_plans : "Backup-${p}" => "true" }
+    keep_automated_backups      = length(var.backup_plans) > 0 # AWS Backup 대상이면 삭제 때 자동 백업을 남김 (실시간 백업 DB 삭제 조건)
   }
 }
 

@@ -38,6 +38,7 @@ output "settings" {
     auto_minor_version_upgrade   = var.auto_minor_version_upgrade
     apply_immediately            = var.apply_immediately
     backup_tags                  = { for p in var.backup_plans : "Backup-${p}" => "true" }
+    keep_automated_backups       = length(var.backup_plans) > 0
     log_exports                  = local.log_exports
     from_snapshot                = var.snapshot_identifier != null
     nlb_mode                     = try(var.nlb.mode, null)
