@@ -78,3 +78,15 @@ variable "ec2_weekend_stop" {
   })
   default = {}
 }
+
+variable "ec2_subnet_cidrs" {
+  description = "EC2 서브넷 CIDR (AZ 끝 글자 → CIDR). null이면 01-network 배치 규칙 계산값. 고객 네트워크 설계서 값을 그대로. 대역이 모자라면 01-network vpc_cidrs에 secondary 추가"
+  type        = map(string)
+  default     = null
+}
+
+variable "ec2_subnet_access" {
+  description = "EC2 서브넷에서 접근할 종류 (서브넷 태그 Access-<종류> = true → DB·EFS 등이 이 대역을 SG 기본 허용에 넣음)"
+  type        = list(string)
+  default     = ["db", "efs"]
+}

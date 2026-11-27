@@ -5,6 +5,7 @@
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
+#   ★ DB 서브넷 CIDR         고객 네트워크팀      db_subnet_cidrs (설계서 값. 비우면 01-network 배치 규칙, 01-network 공용 서브넷 use = db가 있으면 그것)
 #     DB 엔진·버전           고객 (서비스 담당)   엔진별 목록 rds_postgres | rds_mysql | rds_mariadb | aurora_postgres | aurora_mysql, engine_version (RDS·Aurora 선택)
 #     사양·저장소            고객 (서비스 담당)   instance_class, allocated_storage, max_allocated_storage
 #     이중화 (Multi-AZ)      고객 운영팀          multi_az (기본: operation_mode = "enable"이면 켬. 비용 약 2배)
@@ -26,6 +27,12 @@ site        = "simple"
 environment = "dev"
 region      = "ap-northeast-2"
 common_tags = {}
+
+# ── DB 서브넷 ─────────────────────────────────────────────────
+# null(기본): 01-network 배치 규칙 계산값. 01-network shared_subnets에 use = ["db", …] 서브넷이 있으면 그 서브넷을 씀
+# 설계서가 있으면 AZ 끝 글자 → CIDR. vpc_cidrs 안, 기존 서브넷과 겹치면 plan에서 막힘
+# DB 접근 기본 허용: 배치 규칙의 EC2 대역 + 태그 Access-db = true 서브넷 (03-compute ec2_subnet_access). 03-compute를 먼저 배포
+db_subnet_cidrs = null
 
 # ── RDS: 엔진별 목록 (DB 키 → 설정) ───────────────────────────
 # DB 목록은 CSV로도 넣을 수 있습니다: 03-database/src/databases.csv (열 설명: src/README.md, 예: src/databases.example.csv)

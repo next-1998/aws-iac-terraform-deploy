@@ -26,7 +26,7 @@ module "subnet" {
 
 module "rt" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/routetable"
-  for_each = toset(local.azs)
+  for_each = toset(local.rt_azs)
 
   name   = "${local.np}-rtb-db-01-${local.base.az_short[each.key]}"
   vpc_id = local.base.vpc_id
@@ -40,7 +40,7 @@ module "rt" {
 
 module "rt_corp" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/route"
-  for_each = local.corp_routes ? toset(local.azs) : toset([])
+  for_each = local.corp_routes ? toset(local.rt_azs) : toset([])
 
   vpc_rt_id        = module.rt[each.key].vpc_rt.id
   route_cidr_block = local.routing.corp_cidrs
@@ -51,7 +51,7 @@ module "rt_corp" {
 module "rt_peering" {
   source = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/route"
   for_each = {
-    for pair in setproduct(local.azs, keys(local.routing.peerings)) : "${pair[0]}_${pair[1]}" => { az = pair[0], peering = pair[1] }
+    for pair in setproduct(local.rt_azs, keys(local.routing.peerings)) : "${pair[0]}_${pair[1]}" => { az = pair[0], peering = pair[1] }
   }
 
   vpc_rt_id        = module.rt[each.value.az].vpc_rt.id
@@ -62,7 +62,7 @@ module "rt_peering" {
 
 module "rt_association" {
   source   = "../../../aws-iac-terraform-module/module/network/aws-rt-workload/association"
-  for_each = toset(local.azs)
+  for_each = toset(local.rt_azs)
 
   route_table_id = module.rt[each.key].vpc_rt.id
   subnet_ids     = { for k, s in local.all_subnets : k => module.subnet[k].vpc_subnet[0].id if s.az == each.key }
@@ -73,11 +73,42 @@ module "subnet_group" {
   source = "../../../aws-iac-terraform-module/module/database/aws-rds-workload/subnet-group"
 
   name       = "${local.np}-rds-sng-main-01"
-  subnet_ids = [for k, s in local.all_subnets : module.subnet[k].vpc_subnet[0].id]
+  subnet_ids = concat(values(local.db_subnet_ids), [for k, s in local.manual_subnets : module.subnet[k].vpc_subnet[0].id])
 
   common_tags   = var.common_tags
   resource_tags = local.resource_tags
   site          = local.site
   stack         = var.name
   key_target    = local.key
+}
+
+# 서브넷 CIDR 검사 (이 단계가 서브넷을 만들고 subnet_cidrs를 직접 넣었을 때만): 모든 AZ, VPC 대역 안, 기존 서브넷과 겹침
+module "subnet_check" {
+  source = "../../../aws-iac-terraform-module/module/_subnet_cidr_check"
+  count  = !local.use_shared && var.subnet_cidrs != null ? 1 : 0
+
+  label           = "DB 서브넷 (03-database db_subnet_cidrs)"
+  vpc_id          = local.base.vpc_id
+  vpc_cidrs       = local.base.vpc_cidrs
+  azs             = local.azs
+  cidrs           = { for az, s in local.standard_subnets : az => s.cidr }
+  own_name_prefix = "${local.np}-sbn-db-"
+}
+
+# 접근 허용 대역: 이 VPC에서 태그 Access-db = true 인 서브넷 (ec2-common 등이 붙임). plan 때 조회
+#   그 서브넷이 나중에 생기면 03-database를 다시 apply해야 SG 규칙에 들어감
+data "aws_subnets" "access_db" {
+  filter {
+    name   = "vpc-id"
+    values = [local.base.vpc_id]
+  }
+  filter {
+    name   = "tag:Access-db"
+    values = ["true"]
+  }
+}
+
+data "aws_subnet" "access_db" {
+  for_each = toset(data.aws_subnets.access_db.ids)
+  id       = each.value
 }

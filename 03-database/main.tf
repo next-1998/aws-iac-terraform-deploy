@@ -49,6 +49,7 @@ module "rds_common" {
   count  = local.any_db ? 1 : 0
 
   network                = local.network
+  subnet_cidrs           = var.db_subnet_cidrs # 비우면 01-network 배치 규칙. 01-network 공용 서브넷(use = db)이 있으면 그 서브넷
   central_kms_key_arns   = var.central_kms_key_arns
   kms_key_administrators = var.kms_key_administrators
   # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성

@@ -46,6 +46,16 @@ variable "manual_subnets" {
   default = []
 }
 
+variable "subnet_cidrs" {
+  type    = map(map(string))
+  default = null
+}
+
+variable "shared_subnets" {
+  type    = any
+  default = {}
+}
+
 variable "interface_endpoints" {
   type    = list(string)
   default = ["ssm", "ssmmessages", "ec2messages", "logs", "monitoring"]
@@ -102,6 +112,8 @@ module "network_base" {
   }
   eks_placement       = var.eks_placement
   manual_subnets      = var.manual_subnets
+  subnet_cidrs        = var.subnet_cidrs
+  shared_subnets      = var.shared_subnets
   interface_endpoints = var.interface_endpoints
   gateway_endpoints   = ["s3"]
   root_domain         = "example.com"

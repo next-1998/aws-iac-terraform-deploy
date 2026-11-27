@@ -19,11 +19,15 @@ locals {
 
   ############################################################
   # 서브넷
-  #   표준: 01-network가 계산한 ec2 CIDR (AZ마다 하나, 키 = AZ)
+  #   표준: subnet_cidrs(03-compute tfvars, AZ 끝 글자 → CIDR). 비우면 01-network 배치 규칙 계산값 (AZ마다 하나, 키 = AZ)
   #   수동: 01-network manual_subnets 중 purpose = "ec2" (키 = 이름)
   ############################################################
   standard_subnets = {
-    for az in local.azs : az => { az = az, cidr = local.subnets.cidrs.ec2[az], key = "${local.key}_${local.base.az_short[az]}" }
+    for az in local.azs : az => {
+      az   = az
+      cidr = var.subnet_cidrs != null ? lookup(var.subnet_cidrs, local.base.az_short[az], null) : try(local.subnets.cidrs.ec2[az], null)
+      key  = "${local.key}_${local.base.az_short[az]}"
+    } if(var.subnet_cidrs != null ? lookup(var.subnet_cidrs, local.base.az_short[az], null) : try(local.subnets.cidrs.ec2[az], null)) != null
   }
   manual_subnets = {
     for name, s in local.subnets.manual : name => { az = s.az, cidr = s.cidr, key = "${local.key}_${replace(name, "-", "_")}" }

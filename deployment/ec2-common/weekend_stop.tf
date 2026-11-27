@@ -131,7 +131,7 @@ module "ws_lambda" {
     DRY_RUN = tostring(var.weekend_stop.dry_run)
   }
 
-  subnet_ids         = [for az in local.azs : module.subnet[az].vpc_subnet[0].id]
+  subnet_ids         = [for az, s in local.standard_subnets : module.subnet[az].vpc_subnet[0].id]
   security_group_ids = [module.ws_sg[each.key].securitygroup_id]
   log_group_name     = module.ws_log[each.key].name
 

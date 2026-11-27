@@ -71,6 +71,21 @@ variable "manual_subnets" {
   default = []
 }
 
+variable "subnet_cidrs" {
+  description = "서브넷 CIDR 직접 입력 (용도 → { AZ 끝 글자 → CIDR }). null이면 layout_version 배치 규칙으로 계산. 설명: deployment/network-base/variables.tf"
+  type        = map(map(string))
+  default     = null
+}
+
+variable "shared_subnets" {
+  description = "공용 서브넷 (이름 → { cidrs = { AZ 끝 글자 → CIDR }, use = [종류] }). 여러 종류의 리소스가 함께 씀. 설명: deployment/network-base/variables.tf"
+  type = map(object({
+    cidrs = map(string)
+    use   = list(string)
+  }))
+  default = {}
+}
+
 variable "interface_endpoints" {
   type    = list(string)
   default = []

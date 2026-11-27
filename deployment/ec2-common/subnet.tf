@@ -18,8 +18,9 @@ module "subnet" {
   tier                    = "private"
   map_public_ip_on_launch = false
 
-  common_tags   = var.common_tags
-  resource_tags = local.resource_tags
+  common_tags = var.common_tags
+  # Access-<종류> = true: 이 서브넷에서 그 종류(db, efs …)에 접근 → 그 리소스가 이 대역을 SG에서 허용
+  resource_tags = merge(local.resource_tags, { for a in var.subnet_access : "Access-${a}" => "true" })
   site          = local.site
   stack         = var.name
   key_target    = each.value.key
@@ -89,4 +90,17 @@ module "rt_gateway_endpoint" {
 
   route_table_id = module.rt[each.key].vpc_rt.id
   endpoint_ids   = var.network.endpoints.gateway
+}
+
+# 서브넷 CIDR 검사 (subnet_cidrs를 직접 넣었을 때만. 배치 규칙 계산값은 01-network가 겹치지 않게 계산): 모든 AZ, VPC 대역 안, 기존 서브넷과 겹침 (plan 때)
+module "subnet_check" {
+  source = "../../../aws-iac-terraform-module/module/_subnet_cidr_check"
+  count  = var.subnet_cidrs != null ? 1 : 0
+
+  label           = "EC2 서브넷 (03-compute ec2_subnet_cidrs)"
+  vpc_id          = local.base.vpc_id
+  vpc_cidrs       = local.base.vpc_cidrs
+  azs             = local.azs
+  cidrs           = { for az, s in local.standard_subnets : az => s.cidr }
+  own_name_prefix = "${local.np}-sbn-ec2-"
 }

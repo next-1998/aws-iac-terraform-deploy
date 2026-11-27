@@ -62,6 +62,10 @@ module "ec2_common" {
 
   network = local.network
 
+  # EC2 서브넷: CIDR(비우면 01-network 배치 규칙 계산값), 접근할 종류(서브넷 태그 Access-<종류>)
+  subnet_cidrs  = var.ec2_subnet_cidrs
+  subnet_access = var.ec2_subnet_access
+
   # 암호화: 로그 그룹은 00-bootstrap의 logs 키(또는 중앙 키). EC2 볼륨은 계정 EBS 기본 키(00-bootstrap ebs)
   logs_kms_key_arn = try(jsondecode(data.aws_ssm_parameter.bootstrap_kms.insecure_value).key_arns.logs, null)
 

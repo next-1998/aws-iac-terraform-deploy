@@ -29,10 +29,12 @@ locals {
   family      = local.engine_defaults[var.engine].family
 
   # 접근 허용: 지정하지 않으면 EC2 서브넷 대역 (표준 + 수동 ec2 서브넷)
-  ec2_cidrs = concat(
-    values(local.subnets.cidrs.ec2),
+  #   01-network 배치 규칙의 EC2 대역(있으면) + 수동 ec2 서브넷 + 태그 Access-db = true 서브넷 (rds-common이 조회)
+  ec2_cidrs = distinct(concat(
+    values(try(local.subnets.cidrs.ec2, {})),
     [for n, s in local.subnets.manual : s.cidr if s.purpose == "ec2"],
-  )
+    try(var.common.access_cidrs, []),
+  ))
   allowed_cidrs = var.allowed_cidrs != null ? var.allowed_cidrs : local.ec2_cidrs
 }
 

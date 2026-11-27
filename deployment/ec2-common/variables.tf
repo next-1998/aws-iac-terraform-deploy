@@ -94,3 +94,25 @@ variable "ebs_auto_grow" {
   })
   default = {}
 }
+
+variable "subnet_cidrs" {
+  description = "EC2 서브넷 CIDR (AZ 끝 글자 → CIDR, 예 { a = \"10.10.1.0/25\", c = \"10.10.1.128/25\" }). null이면 01-network 배치 규칙 계산값. 01-network vpc_cidrs 안, 기존 서브넷과 겹치지 않아야 함"
+  type        = map(string)
+  default     = null
+
+  validation {
+    condition     = var.subnet_cidrs == null || alltrue([for k, c in coalesce(var.subnet_cidrs, {}) : can(cidrhost(c, 0)) && cidrsubnet(c, 0, 0) == c && tonumber(split("/", c)[1]) >= 16 && tonumber(split("/", c)[1]) <= 28])
+    error_message = "subnet_cidrs의 CIDR 형식이 올바르지 않습니다 (네트워크 주소로 시작, /16~/28)."
+  }
+}
+
+variable "subnet_access" {
+  description = "EC2 서브넷에서 접근할 종류 (서브넷 태그 Access-<종류> = true). 그 종류(DB, EFS 등)가 이 대역을 SG 기본 허용에 넣음"
+  type        = list(string)
+  default     = ["db", "efs"]
+
+  validation {
+    condition     = alltrue([for a in var.subnet_access : contains(["db", "efs", "cache"], a)])
+    error_message = "subnet_access는 db, efs, cache 중에서 고릅니다."
+  }
+}

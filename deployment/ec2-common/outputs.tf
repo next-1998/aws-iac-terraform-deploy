@@ -12,8 +12,8 @@ output "contract" {
     network = var.network
 
     # EC2 공통 네트워크
-    subnet_ids      = { for az in local.azs : az => module.subnet[az].vpc_subnet[0].id }            # 표준 (AZ → ID)
-    manual_subnets  = { for k, s in local.manual_subnets : k => module.subnet[k].vpc_subnet[0].id } # 수동 (이름 → ID)
+    subnet_ids      = { for az, s in local.standard_subnets : az => module.subnet[az].vpc_subnet[0].id } # 표준 (AZ → ID)
+    manual_subnets  = { for k, s in local.manual_subnets : k => module.subnet[k].vpc_subnet[0].id }      # 수동 (이름 → ID)
     subnet_cidrs    = { for k, s in local.all_subnets : k => s.cidr }
     route_table_ids = { for az in local.azs : az => module.rt[az].vpc_rt.id }
 

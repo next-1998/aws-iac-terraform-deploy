@@ -10,6 +10,7 @@ locals {
       contract_version = 1
       site             = var.site
       layout_version   = var.layout_version
+      subnet_mode      = local.manual_mode ? "manual" : "layout" # manual = subnet_cidrs 직접 입력
       vpc_id           = module.vpc.vpc.id
       vpc_name         = var.vpc_name
       name_prefix      = var.name_prefix # 이름 앞부분 (다음 단계가 <name_prefix>-<유형>-<이름>-<순번>[-<AZ>]로 씀)
@@ -32,6 +33,10 @@ locals {
       eks_cidrs     = local.eks_cidrs
       # 수동 서브넷 (purpose별). 해당 <유형>-common이 생성
       manual = { for s in var.manual_subnets : s.name => s }
+      # 공용 서브넷 (shared_subnets): 이름 → { use, AZ → CIDR·ID }, 종류 → AZ → 서브넷 ID·CIDR (그 종류를 받는 공용 서브넷)
+      shared           = { for n, s in var.shared_subnets : n => { use = s.use, cidrs = { for az in local.azs : az => s.cidrs[local.az_short[az]] if contains(keys(s.cidrs), local.az_short[az]) }, ids = lookup(local.subnet_ids, n, {}) } }
+      shared_for       = local.shared_for
+      shared_cidrs_for = local.shared_cidrs_for
     }
 
     routing = {
@@ -83,14 +88,14 @@ output "sizing" {
     az_block_prefix   = "/${local.az_block_prefix}"
     az_growth_reserve = local.az_growth_reserve
     per_az = {
-      for az, b in local.az_block : az => {
-        az_block = b
+      for az in local.azs : az => {
+        az_block = lookup(local.az_block, az, null) # 직접 입력(subnet_cidrs)이면 null
         subnets = merge(
           {
             for name, m in local.subnet_cidrs : name => {
-              cidr   = m[az]
-              usable = local.usable[split("/", m[az])[1]]
-              owner  = local.layout.subnets[name].owner
+              cidr   = lookup(m, az, null)
+              usable = contains(keys(m), az) ? local.usable[split("/", m[az])[1]] : null
+              owner  = local.purpose_owner[name]
               active = name != "public" || var.enable_public
             }
           },
@@ -98,7 +103,7 @@ output "sizing" {
             eks = { cidr = local.eks_cidrs[az], usable = local.usable[split("/", local.eks_cidrs[az])[1]], owner = "eks-common", active = true }
           } : {},
         )
-        spare = local.spare_cidrs[az]
+        spare = lookup(local.spare_cidrs, az, [])
       }
     }
   }

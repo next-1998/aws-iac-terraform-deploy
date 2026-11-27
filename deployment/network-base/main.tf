@@ -78,11 +78,13 @@ module "default_sg" {
 ############################################################
 locals {
   # 배치가 맞지 않으면(대역이 작음 등) 서브넷을 만들지 않고 checks.tf의 에러 메시지를 보여 줌
-  base_subnets = !local.layout_fits ? {} : merge(
-    { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az, tier = "private" } },
-    { for az in local.layout_azs : "vpce_${az}" => { purpose = "vpce", az = az, tier = "private" } },
-    { for az in local.layout_azs : "transit_${az}" => { purpose = "transit", az = az, tier = "private" } },
-    var.enable_public ? { for az in local.layout_azs : "public_${az}" => { purpose = "public", az = az, tier = "public" } } : {},
+  base_subnets = !local.subnets_ready ? {} : merge(
+    { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az, tier = "private", cidr = null, use = [] } },
+    { for az in local.layout_azs : "vpce_${az}" => { purpose = "vpce", az = az, tier = "private", cidr = null, use = [] } },
+    { for az in local.layout_azs : "transit_${az}" => { purpose = "transit", az = az, tier = "private", cidr = null, use = [] } },
+    var.enable_public ? { for az in local.layout_azs : "public_${az}" => { purpose = "public", az = az, tier = "public", cidr = null, use = [] } } : {},
+    # 공용 서브넷 (shared_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷. 태그 Use-<종류> = true
+    { for k, s in local.shared_map : k => { purpose = s.name, az = s.az, tier = "private", cidr = s.cidr, use = s.use } },
   )
 
   # EKS Load Balancer Controller가 LB 위치를 찾는 태그
@@ -99,12 +101,12 @@ module "subnet" {
   name                    = "${var.name_prefix}-sbn-${each.value.purpose}-01-${local.az_short[each.value.az]}"
   vpc_id                  = module.vpc.vpc.id
   azs                     = each.value.az
-  subnet_cidr_block       = [local.subnet_cidrs[each.value.purpose][each.value.az]]
+  subnet_cidr_block       = [each.value.cidr != null ? each.value.cidr : local.subnet_cidrs[each.value.purpose][each.value.az]]
   tier                    = each.value.tier
   map_public_ip_on_launch = false # EC2는 어디에서도 공인 IP를 받지 않음
 
   common_tags   = var.common_tags
-  resource_tags = merge(local.resource_tags, lookup(local.lb_role_tags, each.value.purpose, {}))
+  resource_tags = merge(local.resource_tags, lookup(local.lb_role_tags, each.value.purpose, {}), { for u in each.value.use : "Use-${u}" => "true" })
   site          = var.site
   stack         = local.stack
   key_target    = "${each.value.purpose}_${local.az_short[each.value.az]}"
@@ -114,7 +116,7 @@ module "subnet" {
 
 locals {
   subnet_ids = {
-    for p in ["edge", "vpce", "transit", "public"] : p => {
+    for p in concat(["edge", "vpce", "transit", "public"], keys(var.shared_subnets)) : p => {
       for az in local.layout_azs : az => module.subnet["${p}_${az}"].vpc_subnet[0].id if contains(keys(local.base_subnets), "${p}_${az}")
     }
   }
@@ -219,6 +221,8 @@ locals {
   route_tables = merge(
     { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az } },
     { for az in local.layout_azs : "transit_${az}" => { purpose = "transit", az = az } },
+    # 공용 서브넷도 AZ별 라우트 테이블 + 사내망·peering 경로 (인터넷 경로 없음)
+    { for k, s in local.shared_map : k => { purpose = s.name, az = s.az } },
   )
 }
 

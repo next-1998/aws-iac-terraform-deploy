@@ -12,7 +12,7 @@ data "aws_caller_identity" "current" {}
 locals {
   nlb_sync_tag     = "RdsNlbSyncSg"
   nlb_sync_dns_tag = "RdsNlbSyncDns" # Aurora: 값 = 클러스터 쓰기 주소 (DNS로 쓰기 인스턴스 IP 하나만)
-  db_subnet_by_az  = { for az in local.azs : az => module.subnet[az].vpc_subnet[0].id }
+  db_subnet_by_az  = local.db_subnet_ids
 
   # Lambda가 쓰는 AWS API는 VPC endpoint로만 (워크로드는 private 기본)
   nlb_sync_endpoints = setsubtract(["ec2", "elasticloadbalancing"], try(var.network.endpoints.interface, []))

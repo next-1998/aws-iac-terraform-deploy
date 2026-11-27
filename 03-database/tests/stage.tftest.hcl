@@ -590,3 +590,46 @@ run "csv_example_file_valid" {
     error_message = "예제 CSV: ${jsonencode(output.errors)}"
   }
 }
+
+############################################################
+# 서브넷: 01-network 공용 서브넷(use = db) 사용, Access-db 태그 대역 허용
+############################################################
+run "db_uses_shared_subnet_and_access_tag" {
+  command = plan
+  override_data {
+    target = data.aws_ssm_parameter.network["subnets"]
+    values = { insecure_value = "{\"ids\":{\"edge\":{},\"vpce\":{},\"transit\":{},\"public\":{}},\"cidrs\":{\"edge\":{},\"vpce\":{},\"transit\":{}},\"eks_placement\":null,\"eks_cidrs\":{},\"manual\":{},\"shared\":{\"data\":{\"use\":[\"db\",\"efs\"]}},\"shared_for\":{\"db\":{\"ap-northeast-2a\":\"subnet-da\",\"ap-northeast-2b\":\"subnet-db\"}},\"shared_cidrs_for\":{\"db\":{\"ap-northeast-2a\":\"100.64.255.0/27\",\"ap-northeast-2b\":\"100.64.255.32/27\"}}}" }
+  }
+  override_data {
+    target = module.rds_common[0].data.aws_subnets.access_db
+    values = { ids = ["subnet-ec2a"] }
+  }
+  override_data {
+    target = module.rds_common[0].data.aws_subnet.access_db
+    values = { cidr_block = "10.40.1.0/25" }
+  }
+  variables {
+    rds_postgres = { app = {} }
+  }
+  assert {
+    condition = (
+      module.rds_common[0].contract.shared_subnet == true &&
+      jsonencode(module.rds_common[0].contract.subnet_cidrs) == jsonencode({ "ap-northeast-2a" = "100.64.255.0/27", "ap-northeast-2b" = "100.64.255.32/27" }) &&
+      toset(module.rds_postgres["app"].allowed_cidrs) == toset(["10.40.1.0/25"])
+    )
+    error_message = "공용 서브넷·Access-db: ${jsonencode(module.rds_common[0].contract.subnet_cidrs)} / ${jsonencode(module.rds_postgres["app"].allowed_cidrs)}"
+  }
+}
+
+run "db_subnet_cidrs_direct" {
+  # 03-database가 DB 서브넷 CIDR을 직접 받음 (규칙 계산값 대신)
+  command = plan
+  variables {
+    rds_postgres    = { app = {} }
+    db_subnet_cidrs = { a = "10.227.0.112/28", b = "10.227.1.112/28" }
+  }
+  assert {
+    condition     = jsonencode(module.rds_common[0].contract.subnet_cidrs) == jsonencode({ "ap-northeast-2a" = "10.227.0.112/28", "ap-northeast-2b" = "10.227.1.112/28" }) && module.rds_common[0].contract.shared_subnet == false
+    error_message = "DB 직접 입력: ${jsonencode(module.rds_common[0].contract.subnet_cidrs)}"
+  }
+}

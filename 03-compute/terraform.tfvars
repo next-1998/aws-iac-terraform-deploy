@@ -5,6 +5,7 @@
 #
 # [구축 전 협의 항목]
 #   항목                     협의 대상            값
+#   ★ EC2 서브넷 CIDR        고객 네트워크팀      ec2_subnet_cidrs (설계서 값. 비우면 01-network 배치 규칙), ec2_subnet_access (DB·EFS 접근 허용)
 #     암호화 키 (CMK)        고객 보안팀          central_kms_key_arns (조직 중앙 CMK를 쓸지, 쓰면 용도별 키 ARN)
 #     SG 규칙 (접근 경로)    고객 보안팀          deployment/ec2-*/src/sg_rules.csv (포트, 출발지 prefix list)
 #     서버 이미지 (AMI)      고객 보안/플랫폼     was/webide.ami (커스텀 이미지, 공유·암호화 키, 루트 볼륨 크기)
@@ -28,6 +29,14 @@ region      = "ap-northeast-2" # 기본 ap-northeast-2
 
 # 사이트 공통 선택 태그 (Owner, CostCenter 등). 고정 태그 키는 넣을 수 없음
 common_tags = {}
+
+# ── EC2 서브넷 ────────────────────────────────────────────────
+# null(기본): 01-network 배치 규칙 계산값. 고객 네트워크 설계서가 있으면 AZ 끝 글자 → CIDR로 그대로
+#   01-network vpc_cidrs 안이어야 하고, VPC의 기존 서브넷과 겹치면 plan에서 막힘. 대역이 모자라면 01-network에 secondary 추가
+ec2_subnet_cidrs = null
+# ec2_subnet_cidrs = { a = "10.10.1.0/25", c = "10.10.1.128/25" }
+# 이 서브넷에서 접근할 종류 → 서브넷 태그 Access-<종류> = true. DB·EFS가 이 대역을 SG 기본 허용에 넣음
+ec2_subnet_access = ["db", "efs"]
 
 # ── 로그 ──────────────────────────────────────────────────────
 # ALB 접근 로그 저장 여부 (기본 true)

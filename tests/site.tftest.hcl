@@ -1025,3 +1025,152 @@ run "reject_rds_parameters_tfvars_and_csv" {
   }
   expect_failures = [output.parameters]
 }
+
+############################################################
+# 서브넷 CIDR 직접 입력 (subnet_cidrs): 고객 대역 모양과 관계없이 설계서 값 그대로
+############################################################
+run "manual_cidrs_single_24_with_shared" {
+  # /24 하나 (AZ 2개, 규칙 배치로는 안 되는 크기): 01-network는 자기 서브넷만 직접 입력 + 공용 서브넷(db·efs)은 내부 대역
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site             = "simple"
+    vpc_name         = "simple-vpc"
+    name_prefix      = "hw-iac-dev-an2"
+    enable_flow_logs = false
+    vpc_cidrs        = [{ cidr = "10.30.0.0/24", role = "routable" }, { cidr = "100.64.0.0/16", role = "internal" }]
+    subnet_cidrs = {
+      edge    = { a = "10.30.0.0/27", b = "10.30.0.32/27" }
+      vpce    = { a = "10.30.0.64/28", b = "10.30.0.80/28" }
+      transit = { a = "10.30.0.96/28", b = "10.30.0.112/28" }
+    }
+    shared_subnets = {
+      data = { cidrs = { a = "100.64.255.0/27", b = "100.64.255.32/27" }, use = ["db", "efs"] }
+    }
+  }
+  assert {
+    condition = (
+      output.contract.base.subnet_mode == "manual" && output.contract.subnets.cidrs.edge["ap-northeast-2a"] == "10.30.0.0/27" &&
+      !contains(keys(output.contract.subnets.cidrs), "ec2") &&
+      jsonencode(output.contract.subnets.shared_cidrs_for.db) == jsonencode({ "ap-northeast-2a" = "100.64.255.0/27", "ap-northeast-2b" = "100.64.255.32/27" }) &&
+      output.contract.subnets.shared_cidrs_for.efs["ap-northeast-2b"] == "100.64.255.32/27" &&
+      jsonencode(output.contract.subnets.shared["data"].use) == jsonencode(["db", "efs"])
+    )
+    error_message = "직접 입력 /24 + 공용: ${jsonencode(output.contract.subnets.cidrs)} / ${jsonencode(output.contract.subnets.shared_cidrs_for)}"
+  }
+}
+
+run "reject_shared_subnet_overlap_with_layout" {
+  # 규칙 배치(v1)를 쓰면서 공용 서브넷이 계산된 db 칸과 겹침
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site           = "simple"
+    vpc_name       = "simple-vpc"
+    name_prefix    = "hw-iac-dev-an2"
+    vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    shared_subnets = { data = { cidrs = { a = "10.227.0.192/28", b = "10.227.0.112/28" }, use = ["db"] } }
+  }
+  expect_failures = [output.input_checks]
+}
+
+run "reject_shared_subnet_bad_use" {
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site           = "simple"
+    vpc_name       = "simple-vpc"
+    name_prefix    = "hw-iac-dev-an2"
+    vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    shared_subnets = { db = { cidrs = { a = "10.227.0.112/28", b = "10.227.1.112/28" }, use = ["ec2"] } }
+  }
+  expect_failures = [var.shared_subnets]
+}
+
+run "ec2_subnet_cidrs_direct" {
+  # 03-compute가 EC2 서브넷 CIDR을 직접 받음 (규칙 계산값 대신). 태그 Access-db·efs
+  command = plan
+  module { source = "../deployment/ec2-common" }
+  variables {
+    network      = run.layout_v1_2az.network_contract
+    name         = "ec2-common"
+    subnet_cidrs = { a = "10.227.0.112/28", b = "10.227.1.112/28" }
+  }
+  assert {
+    condition     = jsonencode(output.subnet_cidrs) == jsonencode({ "ap-northeast-2a" = "10.227.0.112/28", "ap-northeast-2b" = "10.227.1.112/28" })
+    error_message = "EC2 직접 입력: ${jsonencode(output.subnet_cidrs)}"
+  }
+}
+
+run "reject_subnet_cidr_outside_vpc_or_missing_az" {
+  # 검사 도우미 직접: AZ b 없음, VPC 대역 밖
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_subnet_cidr_check" }
+  variables {
+    label           = "EC2 서브넷"
+    vpc_id          = "vpc-1"
+    vpc_cidrs       = ["10.227.0.0/23"]
+    azs             = ["ap-northeast-2a", "ap-northeast-2b"]
+    cidrs           = { "ap-northeast-2a" = "10.99.0.0/28" }
+    own_name_prefix = "hw-iac-dev-an2-sbn-ec2-"
+  }
+  expect_failures = [output.ok]
+}
+
+run "subnet_cidr_check_passes" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_subnet_cidr_check" }
+  variables {
+    label           = "EC2 서브넷"
+    vpc_id          = "vpc-1"
+    vpc_cidrs       = ["10.227.0.0/23", "100.64.0.0/16"]
+    azs             = ["ap-northeast-2a", "ap-northeast-2b"]
+    cidrs           = { "ap-northeast-2a" = "10.227.0.112/28", "ap-northeast-2b" = "100.64.1.0/24" }
+    own_name_prefix = "hw-iac-dev-an2-sbn-ec2-"
+  }
+  assert {
+    condition     = output.ok
+    error_message = "검사 통과해야 함"
+  }
+}
+
+run "reject_manual_cidr_outside_vpc" {
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site         = "simple"
+    vpc_name     = "simple-vpc"
+    name_prefix  = "hw-iac-dev-an2"
+    vpc_cidrs    = [{ cidr = "10.30.0.0/24", role = "routable" }]
+    subnet_cidrs = { edge = { a = "10.30.0.0/27", b = "10.30.0.32/27" }, vpce = { a = "10.30.0.64/28", b = "10.30.0.80/28" }, transit = { a = "10.30.0.96/28", b = "10.99.0.0/28" } }
+  }
+  expect_failures = [output.input_checks]
+}
+
+run "reject_manual_cidr_overlap_and_missing_az" {
+  # 겹침(vpce b와 edge a), AZ 빠짐(transit에 b 없음)
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site         = "simple"
+    vpc_name     = "simple-vpc"
+    name_prefix  = "hw-iac-dev-an2"
+    vpc_cidrs    = [{ cidr = "10.30.0.0/24", role = "routable" }]
+    subnet_cidrs = { edge = { a = "10.30.0.0/27", b = "10.30.0.32/27" }, vpce = { a = "10.30.0.64/28", b = "10.30.0.16/28" }, transit = { a = "10.30.0.96/28" } }
+  }
+  expect_failures = [output.input_checks]
+}
+
+run "reject_manual_missing_required_and_small_edge" {
+  # transit 없음, edge /28 (ALB는 /27 이상)
+  command = plan
+  module { source = "../deployment/network-base" }
+  variables {
+    site         = "simple"
+    vpc_name     = "simple-vpc"
+    name_prefix  = "hw-iac-dev-an2"
+    vpc_cidrs    = [{ cidr = "10.30.0.0/24", role = "routable" }]
+    subnet_cidrs = { edge = { a = "10.30.0.0/28", b = "10.30.0.16/28" }, vpce = { a = "10.30.0.64/28", b = "10.30.0.80/28" } }
+  }
+  expect_failures = [output.input_checks]
+}

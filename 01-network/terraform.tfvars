@@ -4,6 +4,7 @@
 # [구축 전 협의 항목]  (★ = 처음에 정하면 이후 변경 어려움)
 #   항목                     협의 대상            값
 #   ★ VPC routable 대역      고객 네트워크팀      vpc_cidrs (AZ 수에 맞는 크기)
+#   ★ 서브넷 CIDR            고객 네트워크팀      subnet_cidrs (설계서가 있으면 직접 입력. 없으면 비우고 layout_version 규칙으로 계산)
 #   ★ AZ 개수                고객 (가용성/비용)   az_count
 #   ★ 인터넷 사용 여부       고객 보안팀          enable_public (기본 폐쇄망)
 #     NAT 이중화             고객 (비용)          nat_per_az (enable_public일 때만)
@@ -88,6 +89,26 @@ prefix_lists = {
 # null: EKS 없음 / "routable": AZ 블록 뒤쪽 절반 (eks_subnet 크기, /23 이상) / "internal": 100.64.0.0/16 균등 분배
 eks_placement = null
 eks_subnet    = 23
+
+# ── 서브넷 CIDR (VPC 대역은 여기, 서브넷 CIDR은 그 서브넷을 만드는 단계가 각자) ──
+# subnet_cidrs: 01-network가 만드는 서브넷(edge, vpce, transit, public)만. null(기본)이면 layout_version 규칙으로 계산
+#   (규칙 계산은 AZ 블록 /24 이상 필요: AZ 2개면 /23). 고객 설계서가 있으면 AZ 끝 글자 → CIDR로 그대로
+#   ec2 = 03-compute ec2_subnet_cidrs, db = 03-database db_subnet_cidrs, efs = 02-efs, eks = 04-eks (각 단계 tfvars)
+#   대역이 모자라면 vpc_cidrs에 secondary 추가 (VPC 안에서만 쓰는 리소스는 100.64.0.0/16 internal)
+subnet_cidrs = null
+# subnet_cidrs = {
+#   edge    = { a = "10.10.0.0/27",  c = "10.10.0.32/27" }
+#   vpce    = { a = "10.10.0.64/28", c = "10.10.0.80/28" }
+#   transit = { a = "10.10.0.96/28", c = "10.10.0.112/28" }
+# }
+
+# shared_subnets: 공용 서브넷 (선택). 여러 종류(db, efs, cache)가 한 서브넷을 함께 씀. 태그 Use-<종류> = true
+#   그 종류를 받는 공용 서브넷이 있으면 그 단계는 자기 서브넷을 만들지 않고 이 서브넷을 씀. 없으면 각자 만듦
+#   이름 <접두어>-sbn-<이름>-01-<AZ>. 라우팅: 사내망 → TGW, peering (인터넷 경로 없음)
+shared_subnets = {}
+# shared_subnets = {
+#   data = { cidrs = { a = "10.10.2.0/26", c = "10.10.2.64/26" }, use = ["db", "efs", "cache"] }
+# }
 
 # ── 수동 서브넷 (sizing 출력의 spare 또는 추가 routable 대역에만) ──
 manual_subnets = []

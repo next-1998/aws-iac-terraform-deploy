@@ -39,7 +39,7 @@ locals {
     #   .0   /26  edge     network-base  내부용 ALB/NLB (LB는 각 리소스가 생성)
     #   .64  /27  vpce     network-base  인터페이스 endpoint
     #   .96  /28  transit  network-base  TGW attachment, private NAT
-    #   .112 /28  예비
+    #   .112 /28  예비      (EFS 등은 manual_subnets 또는 subnet_cidrs 직접 입력으로)
     #   .128 /26  ec2      ec2-common
     #   .192 /27  db       rds-common 등 (RDS, Aurora, ElastiCache)
     #   .224 /27  public   network-base  외부용 ALB/NLB, public NAT (enable_public일 때만)
@@ -84,8 +84,8 @@ locals {
   azs        = slice(local.region_azs, 0, min(var.az_count, length(local.region_azs)))
   az_index   = { for i, az in local.azs : az => i }
   az_short   = { for az in local.azs : az => substr(az, -1, 1) }
-  # 배치가 맞을 때만 서브넷을 만드는 AZ 목록 (맞지 않으면 checks.tf가 에러 메시지를 보여 줌)
-  layout_azs = local.layout_fits ? local.azs : []
+  # 서브넷 CIDR이 정해졌을 때만 서브넷을 만드는 AZ 목록 (직접 입력, 또는 배치가 맞을 때. 아니면 checks.tf가 에러 메시지를 보여 줌)
+  layout_azs = local.subnets_ready ? local.azs : []
   az_slots   = var.az_count == 1 ? 1 : (var.az_count == 2 ? 2 : 4)
   slot_bits  = { 1 = 0, 2 = 1, 4 = 2 }[local.az_slots]
 
@@ -118,8 +118,8 @@ locals {
     for az, b in local.az_block : az => cidrsubnet(b, local.layout.standard_prefix - local.az_block_prefix, 0)
   }
 
-  # 용도 → AZ → CIDR
-  subnet_cidrs = local.layout_fits ? {
+  # 용도 → AZ → CIDR (배치 규칙으로 계산한 값. subnet_cidrs를 직접 넣으면 그 값을 씀: 아래 "직접 입력")
+  layout_subnet_cidrs = local.layout_fits ? {
     for name, s in local.layout.subnets : name => {
       for az, b in local.standard_block : az => cidrsubnet(b, s.size - local.layout.standard_prefix, s.netnum)
     }
@@ -133,7 +133,7 @@ locals {
   ############################################################
   eks_routable_fits = local.az_block_prefix <= var.eks_subnet - 1
 
-  eks_cidrs = (
+  layout_eks_cidrs = (
     var.eks_placement == "routable" && local.eks_routable_fits ? {
       for az, b in local.az_block : az => cidrsubnet(cidrsubnet(b, 1, 1), var.eks_subnet - (local.az_block_prefix + 1), 0)
     } :
@@ -164,6 +164,28 @@ locals {
     )
   }
 
+  ############################################################
+  # 직접 입력 (subnet_cidrs): 고객 네트워크 설계서의 서브넷 CIDR을 그대로 씀
+  #   넣으면 위 배치 규칙(layout_version)을 쓰지 않음. 비우면(null) 배치 규칙으로 계산
+  #   용도 → { AZ 끝 글자 → CIDR }. 서브넷은 지금처럼 각 용도의 단계가 만듦 (ec2 → 03-compute, db → 03-database …)
+  #   eks는 eks_cidrs로 넘김 (04-eks가 만듦)
+  ############################################################
+  manual_mode = var.subnet_cidrs != null
+  # 직접 입력은 필수 용도·AZ가 맞을 때만 (아니면 서브넷을 만들지 않고 checks.tf가 에러 메시지를 보여 줌)
+  subnets_ready = (local.manual_mode ? length(local.sub_missing) == 0 : local.layout_fits) && length(local.sub_az_mismatch) == 0
+  az_by_short   = { for az in local.azs : local.az_short[az] => az }
+
+  manual_cidrs = !local.manual_mode ? {} : {
+    for p, m in var.subnet_cidrs : p => { for s, c in m : local.az_by_short[s] => c if contains(keys(local.az_by_short), s) }
+  }
+  subnet_cidrs = local.manual_mode ? { for p, m in local.manual_cidrs : p => m if p != "eks" } : local.layout_subnet_cidrs
+  eks_cidrs    = local.manual_mode ? try(local.manual_cidrs["eks"], {}) : local.layout_eks_cidrs
+
+  # 검사용: 모든 직접 입력 서브넷 (이름 = 용도-AZ)
+  manual_list = !local.manual_mode ? [] : flatten([
+    for p, m in var.subnet_cidrs : [for s, c in m : { name = "${p}-${s}", purpose = p, short = s, cidr = c }]
+  ])
+
   # az_count 3일 때 4번째 칸: AZ 증설용 예비 (수동 서브넷 금지)
   az_growth_reserve = var.az_count == 3 && local.layout_fits ? cidrsubnet(local.primary_cidr, 2, 3) : null
 
@@ -181,5 +203,39 @@ data "aws_availability_zones" "this" {
   filter {
     name   = "opt-in-status"
     values = ["opt-in-not-required"]
+  }
+}
+
+locals {
+  # 용도 → 서브넷을 만드는 곳 (sizing 출력용)
+  purpose_owner = {
+    edge = "network-base", vpce = "network-base", transit = "network-base", public = "network-base",
+    ec2  = "ec2-common", db = "rds-common", efs = "efs-common", cache = "cache-common", eks = "eks-common",
+  }
+}
+
+############################################################
+# 공용 서브넷 (shared_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷 (01-network가 미리 만듦)
+#   use에 적은 종류의 리소스가 자기 서브넷 대신 이 서브넷을 씀 (예: db·efs·cache를 한 서브넷에)
+#   그 종류를 받는 공용 서브넷이 없으면 각 단계가 자기 서브넷을 만듦
+############################################################
+locals {
+  shared_map = merge([
+    for name, s in var.shared_subnets : {
+      for short, c in s.cidrs : "${name}_${local.az_by_short[short]}" => { name = name, az = local.az_by_short[short], short = short, cidr = c, use = s.use }
+      if contains(keys(local.az_by_short), short)
+    }
+  ]...)
+
+  # 종류 → AZ → 서브넷 ID (그 종류를 받는 공용 서브넷. 같은 종류를 받는 공용 서브넷이 여러 개면 이름순 첫 번째)
+  shared_for = {
+    for u in distinct(flatten([for n, s in var.shared_subnets : s.use])) : u => {
+      for az in local.layout_azs : az => [for n in sort(keys(var.shared_subnets)) : module.subnet["${n}_${az}"].vpc_subnet[0].id if contains(var.shared_subnets[n].use, u) && contains(keys(local.shared_map), "${n}_${az}")][0]
+    }
+  }
+  shared_cidrs_for = {
+    for u in distinct(flatten([for n, s in var.shared_subnets : s.use])) : u => {
+      for az in local.azs : az => [for n in sort(keys(var.shared_subnets)) : local.shared_map["${n}_${az}"].cidr if contains(var.shared_subnets[n].use, u) && contains(keys(local.shared_map), "${n}_${az}")][0]
+    }
   }
 }
