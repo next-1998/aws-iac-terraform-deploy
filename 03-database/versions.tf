@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.74.0"
     }
+    # NLB 대상 등록(rds_nlb.target_sync = "apply")에서 DB 주소 → IP 조회
+    dns = {
+      source  = "hashicorp/dns"
+      version = "3.4.3"
+    }
   }
 
   # state 저장 위치: 00-bootstrap 버킷의 <site>/<단계>/terraform.tfstate

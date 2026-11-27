@@ -65,7 +65,7 @@ rds_postgres = {
     # NLB 연결 (선택, 기본 없음): 고객 DB 접근제어가 IP로만 허용할 때 고정 IP 용도. 쓰기 리스너 포트 = DB port
     #   개별/통합 방식은 아래 rds_nlb.mode (사이트에서 하나). 통합이면 연결한 DB끼리 port가 겹치면 plan에서 막힘
     #   원본·대기(Multi-AZ)만 연결하고 읽기 복제본은 연결하지 않음
-    #   고정 IP는 출력 rds.<DB 키>.nlb.private_ips (고객 접근제어에 등록). 폐쇄망이면 01-network에 ec2, elasticloadbalancing endpoint 필요
+    #   고정 IP는 출력 rds.<DB 키>.nlb.private_ips (고객 접근제어에 등록). 대상 등록 방법은 아래 rds_nlb.target_sync
     # nlb = { allowed_cidrs = ["10.10.0.0/16"] } # private_ips = { "ap-northeast-2a" = "…" } (개별 NLB만)
     # 파라미터 그룹 값: 보통은 CSV로 넣음 → deployment/rds-postgres/src/rds-app.parameters.csv (열: no,name,value,apply_method,memo)
     #   예제: deployment/rds-postgres/src/parameters.example.csv. 여기(parameters)에 넣어도 되지만 CSV와 둘 다 넣으면 plan에서 막힘
@@ -115,7 +115,14 @@ aurora_mysql = {
 #   mode = "dedicated" : DB마다 개별 NLB (<접두어>-nlb-rds<DB 키>-01). DB별 고정 IP는 nlb.private_ips
 #   mode = "shared"    : 사이트 통합 NLB 하나 (<접두어>-nlb-rds-01)에 DB마다 리스너(DB port). 고정 IP는 private_ips
 #   한 사이트에서 섞어 쓰지 않습니다. 고정 IP는 출력 rds.<DB 키>.nlb.private_ips (고객 접근제어에 등록)
+#   target_sync = NLB 대상(DB IP)을 맞추는 방법 (고객과 협의)
+#     "apply" (기본) : 배포 때 Terraform이 지금 원본(쓰기) 인스턴스 IP 하나를 등록. Lambda 없음
+#                      장애 조치·유지 관리로 IP가 바뀌면 03-database를 다시 apply (그 전까지 NLB는 이전 IP로 보냄)
+#     "lambda"       : 동기화 Lambda가 1분마다 + 클러스터 장애 조치 때 바로 맞춤 (자동, 운영 관리 대상 늘어남)
+#                      RDS는 원본 + 대기 IP를 모두 넣어 장애 조치도 상태 확인이 자동 처리
+#                      폐쇄망이면 01-network에 ec2, elasticloadbalancing endpoint 필요
 rds_nlb = null
+# rds_nlb = { mode = "dedicated", target_sync = "lambda" }
 # rds_nlb = { mode = "shared", private_ips = { "ap-northeast-2a" = "10.227.0.200", "ap-northeast-2c" = "10.227.1.200" } }
 
 # RDS 키 관리자 (비우면 계정 root 정책으로만 관리)

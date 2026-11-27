@@ -21,6 +21,13 @@ mock_provider "aws" {
   }
 }
 
+# NLB 대상 등록(apply 방식)의 DB 주소 → IP 조회
+mock_provider "dns" {
+  mock_data "dns_a_record_set" {
+    defaults = { addrs = ["10.227.0.10"] }
+  }
+}
+
 override_data {
   target = data.aws_ssm_parameter.network["base"]
   values = { insecure_value = "{\"contract_version\":1,\"site\":\"simple\",\"layout_version\":\"v1\",\"vpc_id\":\"vpc-1\",\"vpc_name\":\"hw-iac-dev-an2-vpc-simple-01\",\"name_prefix\":\"hw-iac-dev-an2\",\"azs\":[\"ap-northeast-2a\",\"ap-northeast-2b\"],\"az_short\":{\"ap-northeast-2a\":\"a\",\"ap-northeast-2b\":\"b\"},\"vpc_cidrs\":[\"10.227.0.0/23\"],\"primary_cidr\":\"10.227.0.0/23\",\"extra_routable\":[],\"internal_cidr\":null,\"enable_public\":false,\"resource_tags\":{\"VpcName\":\"simple-vpc\"}}" }
@@ -291,7 +298,8 @@ run "reject_mariadb_replicas_with_managed_password" {
 }
 
 run "nlb_dedicated" {
-  # 개별 NLB: nlb를 적은 DB(app)만, 리스너 = DB port (원본·대기만, 복제본은 연결 안 함). 대상 동기화 Lambda
+  # 개별 NLB: nlb를 적은 DB(app)만, 리스너 = DB port (원본·대기만, 복제본은 연결 안 함)
+  # 대상 등록 기본 = apply (배포 때 Terraform이 등록, 동기화 Lambda 없음)
   command = plan
   variables {
     rds_nlb              = { mode = "dedicated" }
@@ -302,11 +310,34 @@ run "nlb_dedicated" {
     condition = (
       module.rds_postgres["app"].db.nlb.mode == "dedicated" && module.rds_postgres["app"].db.nlb.port == 5432 &&
       toset(module.rds_postgres["app"].settings.nlb_listener_ports) == toset([5432]) &&
+      module.rds_postgres["app"].settings.nlb_target_sync == "apply" &&
       module.rds_postgres["etc"].db.nlb == null &&
-      module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01" && module.rds_common[0].contract.nlb.shared == null
+      module.rds_common[0].nlb_sync == null && module.rds_common[0].contract.nlb.shared == null
     )
     error_message = "개별 NLB: ${jsonencode([module.rds_postgres["app"].db.nlb, module.rds_postgres["etc"].db.nlb])}"
   }
+}
+
+run "nlb_target_sync_lambda_option" {
+  # 선택: 동기화 Lambda로 대상 맞춤 (고객 요청 시). Terraform은 대상을 등록하지 않음
+  command = plan
+  variables {
+    rds_nlb      = { mode = "dedicated", target_sync = "lambda" }
+    rds_postgres = { app = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  assert {
+    condition     = module.rds_postgres["app"].settings.nlb_target_sync == "lambda" && module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+    error_message = "lambda 방식: ${jsonencode(module.rds_postgres["app"].settings)}"
+  }
+}
+
+run "reject_unknown_target_sync" {
+  command = plan
+  variables {
+    rds_nlb      = { mode = "dedicated", target_sync = "cron" }
+    rds_postgres = { app = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  expect_failures = [var.rds_nlb]
 }
 
 run "nlb_shared" {
@@ -418,7 +449,7 @@ run "aurora_mysql_serverless" {
 }
 
 run "aurora_nlb_writer_only" {
-  # Aurora NLB: 쓰기 주소(DNS) 기준 동기화 (RDS SG 방식과 다른 태그)
+  # Aurora NLB: 쓰기 인스턴스 하나만. 기본 apply = 배포 때 쓰기 인스턴스 주소 IP 등록, lambda = 쓰기 주소(DNS) 태그로 동기화
   command = plan
   variables {
     rds_nlb         = { mode = "dedicated" }
@@ -426,8 +457,21 @@ run "aurora_nlb_writer_only" {
     aurora_postgres = { app2 = { replicas = { r1 = {} }, nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
   }
   assert {
-    condition     = module.aurora_postgres["app2"].db.nlb.mode == "dedicated" && module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+    condition     = module.aurora_postgres["app2"].db.nlb.mode == "dedicated" && module.aurora_postgres["app2"].settings.nlb_target_sync == "apply" && module.rds_common[0].nlb_sync == null
     error_message = "Aurora NLB: ${jsonencode(module.aurora_postgres["app2"].db.nlb)}"
+  }
+}
+
+run "aurora_nlb_lambda_option" {
+  command = plan
+  variables {
+    rds_nlb         = { mode = "dedicated", target_sync = "lambda" }
+    rds_postgres    = {}
+    aurora_postgres = { app2 = { nlb = { allowed_cidrs = ["10.10.0.0/16"] } } }
+  }
+  assert {
+    condition     = module.aurora_postgres["app2"].settings.nlb_target_sync == "lambda" && module.rds_common[0].nlb_sync == "hw-iac-dev-an2-lbd-rdsnlbsync-01"
+    error_message = "Aurora NLB lambda: ${jsonencode(module.aurora_postgres["app2"].settings)}"
   }
 }
 

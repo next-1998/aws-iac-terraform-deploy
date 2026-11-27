@@ -49,6 +49,7 @@ output "settings" {
     identifier                  = local.identifier
     nlb_mode                    = try(var.nlb.mode, null)
     nlb_listener_ports          = values(local.nlb_ports)
+    nlb_target_sync             = local.nlb_on ? (local.nlb_lambda ? "lambda" : "apply") : null
     replica_sg                  = length(var.replicas) > 0
     parameters                  = local.parameters
     log_exports                 = local.log_exports

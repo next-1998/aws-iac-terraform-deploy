@@ -27,20 +27,21 @@ output "log_groups" {
 output "settings" {
   description = "주요 설정 (확인·테스트용)"
   value = {
-    cluster_identifier             = local.cluster_id
-    instances                      = { for k, v in local.instances : k => { identifier = v.identifier, az = v.az, tier = v.tier, instance_class = v.instance_class } }
-    serverless_v2                  = var.serverless_v2
-    parameter_group_name           = module.parameter_group.name
-    cluster_parameter_group_name   = module.cluster_parameter_group.name
-    parameter_group_family         = local.ed.family
-    deletion_protection            = var.protect
-    monitoring_interval            = var.monitoring_interval
-    auto_minor_version_upgrade     = var.auto_minor_version_upgrade
-    apply_immediately              = var.apply_immediately
-    backup_tags                    = { for p in var.backup_plans : "Backup-${p}" => "true" }
-    log_exports                    = local.log_exports
-    from_snapshot                  = var.snapshot_identifier != null
-    nlb_mode                       = try(var.nlb.mode, null)
+    cluster_identifier           = local.cluster_id
+    instances                    = { for k, v in local.instances : k => { identifier = v.identifier, az = v.az, tier = v.tier, instance_class = v.instance_class } }
+    serverless_v2                = var.serverless_v2
+    parameter_group_name         = module.parameter_group.name
+    cluster_parameter_group_name = module.cluster_parameter_group.name
+    parameter_group_family       = local.ed.family
+    deletion_protection          = var.protect
+    monitoring_interval          = var.monitoring_interval
+    auto_minor_version_upgrade   = var.auto_minor_version_upgrade
+    apply_immediately            = var.apply_immediately
+    backup_tags                  = { for p in var.backup_plans : "Backup-${p}" => "true" }
+    log_exports                  = local.log_exports
+    from_snapshot                = var.snapshot_identifier != null
+    nlb_mode                     = try(var.nlb.mode, null)
+    nlb_target_sync              = local.nlb_on ? (local.nlb_lambda ? "lambda" : "apply") : null
   }
 }
 

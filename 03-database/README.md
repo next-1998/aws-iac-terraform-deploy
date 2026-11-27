@@ -6,7 +6,7 @@ DB 유형 전체를 하나의 state로 만듭니다. 03-compute와 같은 번호
 |---|---|---|
 | `rds_common` | `deployment/rds-common` (1차 조합) | DB 서브넷(AZ별, 01-network가 계산한 db CIDR), 라우트(사내망 TGW 응답 경로), DB 서브넷 그룹, RDS 키 |
 | `rds_postgres["<DB 키>"]` / `rds_mysql[…]` / `rds_mariadb[…]` | `deployment/rds-postgres`, `rds-mysql`, `rds-mariadb` (엔진 조합: 엔진 고정값·엔진 전용 검사·CSV) | → `deployment/rds-core` (공통 코어): 파라미터 그룹, DB 인스턴스, 복제본, SG, DB 로그 그룹 |
-| `aurora_postgres["<DB 키>"]` / `aurora_mysql[…]` | `deployment/aurora-postgres`, `aurora-mysql` (엔진 조합) | → `deployment/aurora-core`: 클러스터, 인스턴스(쓰기 1 + 읽기 N), 파라미터 그룹 2개(클러스터·인스턴스), SG, 로그 그룹, 백업 태그(클러스터), NLB(쓰기 주소 DNS 기준) |
+| `aurora_postgres["<DB 키>"]` / `aurora_mysql[…]` | `deployment/aurora-postgres`, `aurora-mysql` (엔진 조합) | → `deployment/aurora-core`: 클러스터, 인스턴스(쓰기 1 + 읽기 N), 파라미터 그룹 2개(클러스터·인스턴스), SG, 로그 그룹, 백업 태그(클러스터), NLB(쓰기 인스턴스 하나만) |
 
 ```bash
 cp backend.hcl.example backend.hcl   # 값 입력
@@ -31,6 +31,6 @@ terraform apply
 | 암호화 | 저장소·비밀·Performance Insights 모두 RDS 키 (`alias/<접두어>-kms-rds-01`, 중앙 키면 `central_kms_key_arns.rds`) |
 | 접근 | DB 포트 ← **EC2 서브넷 대역** (03-compute와 병렬이라 SG 대신 대역). 추가는 `deployment/rds-<엔진>/src/rds-<DB 키>.sg_rules.csv` (`sg` = `db`) |
 | 이중화 | `operation_mode = "enable"`이면 Multi-AZ (DB별 `multi_az`로 바꿀 수 있음) |
-| 고정 IP (NLB) | 특수 상황에만 (기본 없음). 사이트에서 `rds_nlb = { mode = "dedicated" }`(개별) 또는 `{ mode = "shared" }`(통합) 하나로 정하고(섞지 않음), 연결할 DB에 `nlb = { allowed_cidrs }`. 리스너 = DB port, 대상은 원본·대기 IP(상태 확인이 활성만 사용). 읽기 복제본은 NLB에 연결하지 않음(용도가 달라 분리, 복제본 SG도 별도). 대상 IP는 rds-common 동기화 Lambda가 DB SG의 ENI로 1분마다 맞춤. 고정 IP는 출력 `nlb.private_ips` |
+| 고정 IP (NLB) | 특수 상황에만 (기본 없음). 사이트에서 `rds_nlb = { mode = "dedicated" }`(개별) 또는 `{ mode = "shared" }`(통합) 하나로 정하고(섞지 않음), 연결할 DB에 `nlb = { allowed_cidrs }`. 리스너 = DB port, 대상은 원본·대기 IP(상태 확인이 활성만 사용). 읽기 복제본은 NLB에 연결하지 않음(용도가 달라 분리, 복제본 SG도 별도). 대상 등록은 `rds_nlb.target_sync`: `"apply"`(기본) = 배포 때 Terraform이 지금 원본(쓰기) IP 하나를 등록, IP가 바뀌면(장애 조치·유지 관리) 다시 apply / `"lambda"`(선택, 고객 요청 시) = rds-common 동기화 Lambda가 1분마다 + 클러스터 장애 조치 때 바로 맞춤(RDS는 원본·대기 IP 모두). 고정 IP는 출력 `nlb.private_ips` |
 | 삭제 보호 | `operation_mode` / `deletion_protection.rds`: 삭제 방지 + 삭제 시 최종 스냅샷. 테스트(기본)는 바로 삭제 |
 | 로그 | DB 로그를 CloudWatch로 보냄 (보관 기간·logs 키). **로그 그룹 이름은 AWS가 `/aws/rds/instance/<identifier>/<로그>`로 고정** → "로그 그룹은 `/<VPC 이름>/…`" 규칙의 예외. 미리 만들어 두어 보관 기간·암호화를 Terraform이 정함 |

@@ -26,7 +26,7 @@
 | DB | `rds` DB 인스턴스, `rds-pagrp` 파라미터 그룹, `rds-og` 옵션 그룹, `rds-sng` 서브넷 그룹, `rds-cl` Aurora 클러스터, `rds-cpar` 클러스터 파라미터 그룹 |
 | 보안·관리 | `kms` KMS 키(별칭), `role` IAM 역할, `ipf` 인스턴스 프로파일, `pol` IAM 정책, `ssa` SSM 연결 |
 | 모니터링·로그 | `alm` CloudWatch 알람, `fh` Firehose, `lpol` 로그 계정 정책 |
-| 기타 | `s3` 버킷, `sns` 토픽, `lbd` Lambda, `sch` EventBridge 스케줄, `bku-vault` / `bku-plan` / `bku-sel` 백업 볼트·플랜·대상 선택 |
+| 기타 | `s3` 버킷, `sns` 토픽, `lbd` Lambda, `sch` EventBridge 스케줄, `evb-rule` EventBridge 규칙, `bku-vault` / `bku-plan` / `bku-sel` 백업 볼트·플랜·대상 선택 |
 
 `ResourceKey` 태그(`<대상>_<약어>`)도 같은 코드를 씁니다.
 

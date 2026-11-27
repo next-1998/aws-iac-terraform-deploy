@@ -10,9 +10,9 @@ data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
 locals {
-  nlb_sync_tag    = "RdsNlbSyncSg"
+  nlb_sync_tag     = "RdsNlbSyncSg"
   nlb_sync_dns_tag = "RdsNlbSyncDns" # Aurora: 값 = 클러스터 쓰기 주소 (DNS로 쓰기 인스턴스 IP 하나만)
-  db_subnet_by_az = { for az in local.azs : az => module.subnet[az].vpc_subnet[0].id }
+  db_subnet_by_az  = { for az in local.azs : az => module.subnet[az].vpc_subnet[0].id }
 
   # Lambda가 쓰는 AWS API는 VPC endpoint로만 (워크로드는 private 기본)
   nlb_sync_endpoints = setsubtract(["ec2", "elasticloadbalancing"], try(var.network.endpoints.interface, []))
@@ -116,10 +116,10 @@ module "ns_role_sync" {
   role_name = module.ns_role[each.key].name
   policies = {
     "${local.ns_name}-sync" = templatefile("${path.module}/policies/nlb-sync.json.tftpl", {
-      partition  = data.aws_partition.current.partition
-      region     = data.aws_region.current.region
-      account_id = data.aws_caller_identity.current.account_id
-      tag_key    = local.nlb_sync_tag
+      partition   = data.aws_partition.current.partition
+      region      = data.aws_region.current.region
+      account_id  = data.aws_caller_identity.current.account_id
+      tag_key     = local.nlb_sync_tag
       dns_tag_key = local.nlb_sync_dns_tag
     })
   }
@@ -167,10 +167,10 @@ module "ns_lambda" {
   timeout          = 60
 
   environment_variables = {
-    TAG_KEY = local.nlb_sync_tag
+    TAG_KEY     = local.nlb_sync_tag
     DNS_TAG_KEY = local.nlb_sync_dns_tag
-    VPC_ID  = local.base.vpc_id
-    DRY_RUN = "false"
+    VPC_ID      = local.base.vpc_id
+    DRY_RUN     = "false"
   }
 
   subnet_ids         = values(local.db_subnet_by_az)
@@ -209,6 +209,52 @@ module "ns_scheduler_invoke" {
   role_name = module.ns_scheduler_role[each.key].name
   policies = {
     "${local.ns_name}-invoke" = templatefile("${path.module}/policies/lambda-invoke.json.tftpl", { lambda_arn = module.ns_lambda[each.key].arn })
+  }
+}
+
+# 장애 조치 이벤트로 바로 실행 (Lambda를 늘리지 않고 같은 함수에 실행 조건만 추가)
+#   Aurora는 장애 조치 때 쓰기 인스턴스가 바뀌므로 1분 주기만으로는 최대 1분 넘게 이전(이제 읽기) 인스턴스로 연결됨
+#   RDS 클러스터 이벤트 중 failover 분류만. 1분 주기는 그대로 둠 (ENI 교체·이벤트 누락 대비)
+module "ns_failover_rule" {
+  source   = "../../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/event-rule"
+  for_each = local.ns
+
+  name        = "${local.np}-evb-rule-rdsnlbsync-01"
+  description = "run RDS NLB target sync on DB cluster failover"
+  event_pattern = jsonencode({
+    source        = ["aws.rds"]
+    "detail-type" = ["RDS DB Cluster Event"]
+    detail        = { EventCategories = ["failover"] }
+  })
+
+  common_tags   = var.common_tags
+  resource_tags = local.resource_tags
+  site          = local.site
+  stack         = var.name
+  key_target    = "${local.key}_nlbsync_failover"
+}
+
+module "ns_failover_target" {
+  source   = "../../../aws-iac-terraform-module/module/monitor_log/aws-cloudwatch-workload/event-target"
+  for_each = local.ns
+
+  rule      = module.ns_failover_rule[each.key].name
+  target_id = "nlbsync"
+  arn       = module.ns_lambda[each.key].arn
+  # 장애 조치 실행 표시 → Lambda가 쓰기 주소(DNS)가 바뀔 때까지 몇 초 간격으로 다시 확인
+  input = jsonencode({ trigger = "failover" })
+}
+
+module "ns_failover_permission" {
+  source   = "../../../aws-iac-terraform-module/module/devtools/aws-lambda-workload/permission"
+  for_each = local.ns
+
+  function_name = module.ns_lambda[each.key].function_name
+  permissions = {
+    "rds-failover-event" = {
+      principal  = "events.amazonaws.com"
+      source_arn = module.ns_failover_rule[each.key].arn
+    }
   }
 }
 

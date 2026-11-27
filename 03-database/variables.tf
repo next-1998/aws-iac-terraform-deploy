@@ -192,17 +192,27 @@ variable "rds_nlb" {
     RDS 앞 NLB (고정 IP 용도, 특수 상황에만). null(기본)이면 NLB를 만들지 않음
       mode        : dedicated (nlb를 적은 DB마다 개별 NLB) | shared (사이트 통합 NLB 하나에 DB마다 리스너). 한 사이트에서 섞지 않음
       private_ips : 통합 NLB의 AZ → 고정 IP (shared만. 비우면 AWS가 정하고 NLB를 지울 때까지 유지)
+      target_sync : NLB 대상(DB IP)을 맞추는 방법
+                    apply (기본) : 배포(apply) 때 Terraform이 조회해 등록. IP가 바뀌면 이 단계를 다시 apply
+                                   RDS = DB SG의 ENI IP(원본 + 대기, 장애 조치는 상태 확인이 처리)
+                                   Aurora = 지금 쓰기 인스턴스 IP 하나 (장애 조치 뒤에는 다시 apply 필요)
+                    lambda       : 동기화 Lambda가 1분마다 + DB 클러스터 장애 조치 때 바로 맞춤 (운영 관리 대상이 늘어 필요할 때만)
     연결할 DB는 DB 설정에 nlb = { allowed_cidrs } 를 적음 (원본·대기만 연결, 읽기 복제본은 연결하지 않음)
   EOT
   type = object({
     mode        = string
     private_ips = optional(map(string), {})
+    target_sync = optional(string, "apply")
   })
   default = null
 
   validation {
     condition     = var.rds_nlb == null || contains(["dedicated", "shared"], try(var.rds_nlb.mode, ""))
     error_message = "rds_nlb.mode는 dedicated(개별 NLB) 또는 shared(통합 NLB)여야 합니다."
+  }
+  validation {
+    condition     = var.rds_nlb == null || contains(["apply", "lambda"], try(var.rds_nlb.target_sync, ""))
+    error_message = "rds_nlb.target_sync는 apply(배포 때 등록, 기본) 또는 lambda(동기화 Lambda)여야 합니다."
   }
   validation {
     # DB에 nlb를 적었으면 사이트 방식이 있어야 함

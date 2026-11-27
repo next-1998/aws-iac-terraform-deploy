@@ -33,7 +33,7 @@ locals {
   instance_class = local.serverless ? "db.serverless" : var.instance_class
 
   # 인스턴스: 쓰기 1 + (multi_az면 다른 AZ에 장애 조치용 읽기 1, 우선순위 0) + replicas (키 이름순, 우선순위 1)
-  azs = local.base.azs
+  azs     = local.base.azs
   ro_keys = concat(var.multi_az ? ["__multi_az"] : [], sort(keys(var.replicas)))
   instances = merge(
     { w = { identifier = "${local.instance_id}-01", az = local.azs[0], tier = 0, instance_class = local.instance_class, performance_insights = var.performance_insights } },

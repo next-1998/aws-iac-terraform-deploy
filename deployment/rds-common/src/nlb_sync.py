@@ -10,6 +10,10 @@ RDS NLB 대상 동기화 Lambda (1분마다)
                                        장애 조치 뒤 쓰기 주소가 새 인스턴스를 가리키면 1분 안에 대상을 바꿈
   찾은 IP가 없으면(DB 재생성 중, DNS 조회 실패 등) 기존 대상을 지우지 않습니다 (연결 유지).
 
+실행
+  1분마다 (EventBridge Scheduler) + DB 클러스터 장애 조치 이벤트 때 바로 (EventBridge 규칙, event = {"trigger": "failover"})
+  장애 조치 실행은 쓰기 주소(DNS)가 늦게 바뀔 수 있어, DNS 방식 대상이 바뀔 때까지 5초 간격으로 최대 45초 다시 확인
+
 환경 변수
   TAG_KEY     : SG 방식 태그 키
   DNS_TAG_KEY : DNS 방식 태그 키
@@ -19,6 +23,7 @@ RDS NLB 대상 동기화 Lambda (1분마다)
 import logging
 import os
 import socket
+import time
 
 import boto3
 
@@ -71,8 +76,24 @@ def _dns_ips(name):
 
 
 def lambda_handler(event, context):
+    if (event or {}).get("trigger") != "failover":
+        return _sync(_tagged_target_groups())
+    # 장애 조치: DNS 방식(Aurora) 대상이 바뀔 때까지 다시 확인 (쓰기 주소가 몇 초 늦게 바뀜)
+    groups = _tagged_target_groups()
+    dns_names = {g["name"] for g in groups.values() if "dns" in g}
+    result = _sync(groups)
+    # 7번 x (확인 + 5초) ≈ 45초. Lambda 제한 시간 60초 안
+    for _ in range(6):
+        if not dns_names or any(isinstance(result.get(n), dict) and result[n]["added"] for n in dns_names):
+            break
+        time.sleep(5)
+        result = _sync(groups)
+    return result
+
+
+def _sync(groups):
     result = {}
-    for arn, tg in _tagged_target_groups().items():
+    for arn, tg in groups.items():
         source = tg.get("sg") or tg.get("dns")
         want = _sg_ips(tg["sg"]) if "sg" in tg else _dns_ips(tg["dns"])
         have = {t["Target"]["Id"] for t in elb.describe_target_health(TargetGroupArn=arn)["TargetHealthDescriptions"]}

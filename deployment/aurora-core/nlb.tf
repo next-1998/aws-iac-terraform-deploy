@@ -1,12 +1,16 @@
 ############################################################
 # NLB (선택, 고정 IP 용도) — 클러스터와 함께 만듦. 방식(개별/통합)은 03-database rds_nlb.mode
-#   RDS와 다른 점: Aurora 읽기 인스턴스도 접속을 받아 상태 확인을 통과하므로 SG의 ENI 전체를 넣으면 안 됨
-#   → 대상 그룹 태그 RdsNlbSyncDns = <클러스터 쓰기 주소>. 동기화 Lambda가 DNS를 조회해 지금 쓰기 인스턴스 IP 하나만 등록
-#     장애 조치 뒤에는 쓰기 주소가 새 인스턴스를 가리키고, Lambda가 1분 안에 대상을 바꿈
+#   Aurora 읽기 인스턴스도 접속을 받아 상태 확인을 통과하므로 SG의 ENI 전체를 넣으면 안 됨 → 지금 쓰기 인스턴스 IP 하나만
+#   대상 등록 (rds_nlb.target_sync)
+#     apply (기본) : 배포 때 지금 쓰기 인스턴스 주소(DNS) IP를 Terraform이 등록
+#                    장애 조치 뒤에는 다시 apply (그 전까지 NLB는 이전 쓰기 인스턴스 = 이제 읽기로 보내 쓰기가 실패함)
+#     lambda       : 대상 그룹 태그 RdsNlbSyncDns = <클러스터 쓰기 주소>. 동기화 Lambda가 1분마다 + 장애 조치 이벤트 때 바로 맞춤
 ############################################################
 locals {
   nlb_on  = try(var.nlb.allowed_cidrs, null) != null
   nlb_ded = local.nlb_on && try(var.nlb.mode, "") == "dedicated"
+  # 대상 등록 방법 (03-database rds_nlb.target_sync): apply(기본) | lambda
+  nlb_lambda = local.nlb_on && try(var.nlb.target_sync, "apply") == "lambda"
 
   nlb_shared = try(var.common.nlb.shared, null)
   nlb_arn    = !local.nlb_on ? null : (local.nlb_ded ? module.nlb[0].elb.arn : try(local.nlb_shared.arn, null))
@@ -73,11 +77,34 @@ module "nlb_tg" {
   }
 
   common_tags = var.common_tags
-  # 동기화 Lambda가 이 주소(DNS)를 조회해 쓰기 인스턴스 IP만 등록
-  resource_tags = merge(local.resource_tags, { (var.common.nlb.sync_dns_tag_key) = module.cluster.endpoint })
+  # lambda 방식만: 동기화 Lambda가 이 주소(DNS)를 조회해 쓰기 인스턴스 IP만 등록
+  resource_tags = local.nlb_lambda ? merge(local.resource_tags, { (var.common.nlb.sync_dns_tag_key) = module.cluster.endpoint }) : local.resource_tags
   site          = local.site
   stack         = var.name
   key_target    = "${local.key}_nlb"
+}
+
+# ── 대상 등록: apply 방식 (기본) ───────────────────────────────
+#   Terraform이 읽어 온 쓰기 인스턴스(writer = true)의 주소를 조회. 처음 만들 때는 인스턴스가 생긴 뒤(apply 중)에 조회
+#   장애 조치 뒤 다시 apply하면 새 쓰기 인스턴스 IP로 바뀜
+locals {
+  writer_address = try([for k, i in module.instance : i.address if i.writer][0], module.instance["w"].address)
+}
+
+data "dns_a_record_set" "nlb_target" {
+  count = local.nlb_on && !local.nlb_lambda ? 1 : 0
+  host  = local.writer_address
+}
+
+module "nlb_target" {
+  source = "../../../aws-iac-terraform-module/module/network/aws-elb-workload/target-attachment"
+  attachments = local.nlb_on && !local.nlb_lambda ? {
+    w = {
+      target_group_arn = module.nlb_tg[0].target_group_arn["w"]
+      target_id        = sort(data.dns_a_record_set.nlb_target[0].addrs)[0]
+      port             = local.port
+    }
+  } : {}
 }
 
 module "nlb_listener" {

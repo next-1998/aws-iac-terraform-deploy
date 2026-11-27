@@ -53,8 +53,8 @@ module "rds_common" {
   kms_key_administrators = var.kms_key_administrators
   # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성
   enable_enhanced_monitoring = anytrue([for k, v in local.all_dbs : v.monitoring_interval > 0])
-  # NLB (rds_nlb가 있을 때만): 연결한 DB가 있으면 대상 동기화 Lambda, 통합(shared)이면 공유 NLB
-  enable_nlb_sync  = var.rds_nlb != null && anytrue([for k, v in local.all_dbs : v.nlb != null])
+  # NLB (rds_nlb가 있을 때만): 통합(shared)이면 공유 NLB. 대상 동기화 Lambda는 target_sync = "lambda"일 때만
+  enable_nlb_sync  = try(var.rds_nlb.target_sync, "") == "lambda" && anytrue([for k, v in local.all_dbs : v.nlb != null])
   shared_nlb       = try(var.rds_nlb.mode, "") == "shared" && anytrue([for k, v in local.all_dbs : v.nlb != null]) ? { private_ips = var.rds_nlb.private_ips } : null
   protect_nlb      = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn
@@ -73,7 +73,7 @@ module "rds_postgres" {
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -87,7 +87,7 @@ module "rds_mysql" {
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -101,7 +101,7 @@ module "rds_mariadb" {
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -119,7 +119,7 @@ module "aurora_postgres" {
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn
@@ -132,7 +132,7 @@ module "aurora_mysql" {
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode }) })
+  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn
