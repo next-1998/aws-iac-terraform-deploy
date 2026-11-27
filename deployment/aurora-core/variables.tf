@@ -119,7 +119,7 @@ variable "multi_az" {
 }
 
 variable "replicas" {
-  description = "읽기 인스턴스 (키 → 설정). 이름 <클러스터 DB 이름>-ro-NN (multi_az 인스턴스 다음 순번)"
+  description = "읽기 인스턴스 (키 → 설정). 이름 <인스턴스 이름>-NN (01 처음 쓰기, multi_az 다음 순번, 키 이름순)"
   type = map(object({
     instance_class       = optional(string)
     performance_insights = optional(bool)

@@ -25,7 +25,8 @@ locals {
   port        = coalesce(var.port, local.ed.port)
   log_exports = var.log_exports != null ? var.log_exports : local.ed.logs
 
-  # 이름: 클러스터 <np>-rds-cl-<엔진>-<키>-01, 인스턴스 <np>-rds-<엔진>-<키>-01 (처음 쓰기), 읽기 …-ro-NN
+  # 이름: 클러스터 <np>-rds-cl-<엔진>-<키>-01, 인스턴스 <np>-rds-<엔진>-<키>-NN (순번만. 01 = 처음 쓰기, 그다음 multi_az, replicas 키 이름순)
+  #   Aurora는 장애 조치 때 쓰기·읽기 역할이 바뀌므로 이름에 역할(ro)을 넣지 않음 (RDS 읽기 복제본은 역할 고정이라 -ro-NN)
   cluster_id  = "${local.np}-rds-cl-${local.ed.code}-${local.db_key}-01"
   instance_id = "${local.np}-rds-${local.ed.code}-${local.db_key}"
 
@@ -39,7 +40,7 @@ locals {
     { w = { identifier = "${local.instance_id}-01", az = local.azs[0], tier = 0, instance_class = local.instance_class, performance_insights = var.performance_insights } },
     {
       for i, k in local.ro_keys : k => {
-        identifier           = format("%s-ro-%02d", local.instance_id, i + 1)
+        identifier           = format("%s-%02d", local.instance_id, i + 2)
         az                   = local.azs[(i + 1) % length(local.azs)]
         tier                 = k == "__multi_az" ? 0 : 1
         instance_class       = local.serverless ? "db.serverless" : coalesce(try(var.replicas[k].instance_class, null), var.instance_class)

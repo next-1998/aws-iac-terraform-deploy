@@ -92,7 +92,7 @@ rds_mariadb = {
 #   - 비밀번호는 RDS가 Secrets Manager로 관리 (읽기 인스턴스가 있어도 rds_master_passwords 불필요)
 #   - 파라미터 CSV 두 개: deployment/aurora-<엔진>/src/rds-<DB 키>.cluster-parameters.csv, rds-<DB 키>.parameters.csv
 #   - nlb = { allowed_cidrs } → 쓰기 인스턴스만 연결 (쓰기 주소 DNS 기준, 장애 조치 뒤 1분 안에 대상 교체)
-# 이름: 클러스터 <접두어>-rds-cl-<apg|amy>-<DB 키>-01, 인스턴스 …-rds-<apg|amy>-<DB 키>-01, 읽기 …-ro-NN
+# 이름: 클러스터 <접두어>-rds-cl-<apg|amy>-<DB 키>-01, 인스턴스 …-rds-<apg|amy>-<DB 키>-01, -02 … (순번만. 장애 조치로 쓰기·읽기가 바뀌어 ro를 붙이지 않음)
 # 출력: rds.<DB 키>.address = 쓰기 주소, reader_address = 읽기 주소. DB 키는 RDS·Aurora 전체에서 겹치면 안 됨
 aurora_postgres = {
   # app2 = {

@@ -416,10 +416,10 @@ run "aurora_postgres_cluster" {
     condition = (
       module.aurora_postgres["app2"].settings.cluster_identifier == "hw-iac-dev-an2-rds-cl-apg-app2-01" &&
       module.aurora_postgres["app2"].settings.instances["w"].identifier == "hw-iac-dev-an2-rds-apg-app2-01" &&
-      module.aurora_postgres["app2"].settings.instances["__multi_az"].identifier == "hw-iac-dev-an2-rds-apg-app2-ro-01" &&
+      module.aurora_postgres["app2"].settings.instances["__multi_az"].identifier == "hw-iac-dev-an2-rds-apg-app2-02" &&
       module.aurora_postgres["app2"].settings.instances["__multi_az"].tier == 0 &&
       module.aurora_postgres["app2"].settings.instances["__multi_az"].az != module.aurora_postgres["app2"].settings.instances["w"].az &&
-      module.aurora_postgres["app2"].settings.instances["r1"].identifier == "hw-iac-dev-an2-rds-apg-app2-ro-02" &&
+      module.aurora_postgres["app2"].settings.instances["r1"].identifier == "hw-iac-dev-an2-rds-apg-app2-03" &&
       module.aurora_postgres["app2"].settings.parameter_group_name == "hw-iac-dev-an2-rds-pagrp-apg16-app2-01" &&
       module.aurora_postgres["app2"].settings.cluster_parameter_group_name == "hw-iac-dev-an2-rds-cpar-apg16-app2-01" &&
       module.aurora_postgres["app2"].settings.parameter_group_family == "aurora-postgresql16" &&
