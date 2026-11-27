@@ -50,7 +50,7 @@
 | VPC | `hw-iac-dev-an2-vpc-<naming.vpc>-01` |
 | 서브넷 (EC2, AZ a) | `hw-iac-dev-an2-sbn-ec2-01-a` |
 | EC2 (WAS) | `hw-iac-dev-an2-ec2-was-01-a` |
-| EBS (WAS 데이터) | `hw-iac-dev-an2-vol-wasxvdb-01-a` |
+| EBS (WAS 루트 / 데이터) | `hw-iac-dev-an2-vol-wasroot-01-a` / `hw-iac-dev-an2-vol-wasxvdb-01-a` |
 | ALB / 대상 그룹 | `hw-iac-dev-an2-alb-was-01` / `hw-iac-dev-an2-tg-was-01` |
 | IAM 역할 | `hw-iac-dev-an2-role-was-01` |
 | Lambda | `hw-iac-dev-an2-lbd-ebsgrow-01` |

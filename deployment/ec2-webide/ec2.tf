@@ -6,6 +6,7 @@ module "ec2" {
   source = "../../../aws-iac-terraform-module/module/computing/aws-instance-workload"
 
   name                 = "${local.np}-ec2-${local.purpose}-01-${local.base.az_short[local.instance_az]}"
+  root_volume_name     = "${local.np}-vol-${local.purpose}root-01-${local.base.az_short[local.instance_az]}" # 데이터 볼륨(vol-<용도><장치>)과 같은 규칙
   iam_instance_profile = module.instance_profile.name
   key_name             = one(data.aws_key_pair.this[*].key_name)
 
