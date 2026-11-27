@@ -173,8 +173,8 @@ variable "rds_master_passwords" {
   sensitive   = true
 
   validation {
-    condition     = alltrue([for k in keys(var.rds_master_passwords) : contains(concat(keys(var.rds_postgres), keys(var.rds_mysql), keys(var.rds_mariadb)), k)])
-    error_message = "rds_master_passwords의 키는 rds_postgres, rds_mysql, rds_mariadb에 있는 DB 키여야 합니다."
+    condition     = alltrue([for k in keys(var.rds_master_passwords) : contains(local.rds_keys, k)]) # tfvars + databases.csv
+    error_message = "rds_master_passwords의 키는 RDS DB 키(rds_postgres, rds_mysql, rds_mariadb 또는 databases.csv의 RDS 엔진)여야 합니다."
   }
   validation {
     # RDS 규칙: 8~128자, / " @ 공백 불가
@@ -360,3 +360,9 @@ variable "aurora_mysql" {
   }
 }
 
+
+variable "databases_csv" {
+  description = "DB 목록 CSV 내용 (테스트용). null이면 src/databases.csv를 읽음 (없으면 CSV DB 없음)"
+  type        = string
+  default     = null
+}

@@ -1,0 +1,4 @@
+no,name,engine,engine_version,instance_class,storage,max_storage,multi_az,db_name,port,backup,snapshot_identifier,replica,nlb_allowed_cidrs,nlb_private_ips,memo
+1,app,postgres,16,db.t4g.medium,50,200,true,app,,true,,false,,,업무 DB (Multi-AZ + 백업)
+2,core,aurora_postgres,16,db.r7g.large,,,true,core,,true,,false,10.10.0.0/16;10.20.0.0/16,a=10.227.0.200;c=10.227.1.200,고정 IP 필요 (개별 NLB)
+3,orders,aurora_mysql,8.0,serverless:0.5-2,,,false,orders,,false,orders-snap-20261127,false,,,스냅샷에서 복원 (Serverless v2)

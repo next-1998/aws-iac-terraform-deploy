@@ -24,6 +24,7 @@ terraform apply
 |---|---|
 | 엔진 | 엔진별 목록 `rds_postgres`, `rds_mysql`, `rds_mariadb`. 쓰는 엔진 목록만 채움. Aurora(`aurora-core`), Oracle·SQL Server는 같은 틀로 추후 |
 | 이름 | DB `<접두어>-rds-<엔진 코드>-<DB 키>-01` (pg / my / mdb), 복제본 `…-<DB 키>-ro-01`, 파라미터 그룹 `<접두어>-rds-pagrp-<엔진·주버전>-<DB 키>-01` (pg16 / my80 / mdb1011), 서브넷 그룹 `<접두어>-rds-sng-main-01`. DB 키는 엔진이 달라도 겹치면 안 됨 |
+| DB 목록 CSV (선택) | `src/databases.csv`에 DB마다 한 줄 (열: `src/README.md`). 자주 정하는 값만 받고 나머지는 tfvars 기본값. `backup = true` → daily + pitr, `replica = true` → 같은 사양 복제본 하나(나중에 켜도 됨), `nlb_allowed_cidrs`·`nlb_private_ips`(비우면 자동). 사이트 단위 값(`rds_nlb`, `rds_master_passwords`, `operation_mode`)은 tfvars. tfvars와 같은 DB 키면 plan에서 막힘 |
 | 읽기 복제본 | `<엔진 목록>.<DB 키>.replicas = { r1 = {}, … }` → `<접두어>-rds-<엔진>-<DB 키>-ro-01`, `-02` (키 이름순). 원본과 같은 SG·파라미터 그룹·RDS 키, 복제본마다 로그 그룹. 원본 자동 백업 필요(plan에서 검사). 출력 `readers`에 읽기 주소 |
 | 스냅샷으로 배포 | `<엔진 목록>.<DB 키>.snapshot_identifier` (DB "이미지"). **처음 만들 때만 적용**, 이후 바꿔도 다시 만들지 않음 (바꾸려면 `-replace`). 복원 뒤 비밀번호는 Secrets Manager 관리로 바뀜. 다른 키로 암호화된 스냅샷은 RDS 키로 복사해서 지정 |
 | 파라미터 | DBA에게 받은 값만 `deployment/rds-<엔진>/src/rds-<DB 키>.parameters.csv` (`no,name,value,apply_method,memo`). 나머지는 엔진 기본값 |

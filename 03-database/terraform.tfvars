@@ -28,6 +28,9 @@ region      = "ap-northeast-2"
 common_tags = {}
 
 # ── RDS: 엔진별 목록 (DB 키 → 설정) ───────────────────────────
+# DB 목록은 CSV로도 넣을 수 있습니다: 03-database/src/databases.csv (열 설명: src/README.md, 예: src/databases.example.csv)
+#   CSV는 자주 정하는 값만 (엔진·버전·사양·저장소·Multi-AZ·백업 여부·스냅샷·복제본 여부·NLB). 그 밖의 설정이 필요한 DB는 여기 tfvars로
+#   한 DB는 tfvars나 CSV 한 곳에만 (같은 키면 plan에서 막힘)
 # 이름: DB <접두어>-rds-<엔진 코드>-<DB 키>-01 (엔진 코드 pg | my | mdb), 복제본 …-<DB 키>-ro-01, 파라미터 그룹 <접두어>-rds-pagrp-<엔진·주버전>-<DB 키>-01
 # 비우면({}) 그 엔진 DB를 만들지 않습니다. DB 키는 소문자·숫자 12자 이하, 엔진이 달라도 겹치면 안 됨. 바꾸면 DB가 새로 만들어짐
 # 엔진별 설정 항목은 모두 같습니다 (아래 rds_postgres 예시 참고). 엔진 전용 예제·CSV: deployment/rds-<엔진>/src/

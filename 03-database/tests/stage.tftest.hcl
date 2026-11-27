@@ -483,3 +483,105 @@ run "reject_same_key_rds_and_aurora" {
   }
   expect_failures = [var.aurora_mysql]
 }
+
+############################################################
+# DB 목록 CSV (src/databases.csv)
+############################################################
+run "csv_creates_dbs" {
+  # CSV만으로 RDS·Aurora 생성. backup = true → daily + pitr, replica = true → 같은 사양 복제본 하나
+  command = plan
+  variables {
+    rds_postgres         = {}
+    rds_nlb              = { mode = "dedicated" }
+    rds_master_passwords = { app = "Test-Passw0rd-123" }
+    databases_csv        = "﻿no,name,engine,engine_version,instance_class,storage,max_storage,multi_az,db_name,port,backup,snapshot_identifier,replica,nlb_allowed_cidrs,nlb_private_ips,memo\r\n1,app,postgres,16,db.t4g.medium,50,200,true,app,,true,,true,,,업무\r\n2,core,aurora_postgres,,serverless:0.5-2,,,,core,,TRUE,,,10.10.0.0/16;10.20.0.0/16,a=10.227.0.200,고정 IP\r\n"
+  }
+  assert {
+    condition = (
+      module.rds_postgres["app"].settings.multi_az == true &&
+      module.rds_postgres["app"].settings.backup_tags == { "Backup-daily" = "true", "Backup-pitr" = "true" } &&
+      length(module.rds_postgres["app"].replicas) == 1 &&
+      module.aurora_postgres["core"].settings.instances["w"].instance_class == "db.serverless" &&
+      module.aurora_postgres["core"].settings.nlb_target_sync == "apply" &&
+      module.aurora_postgres["core"].db.nlb != null &&
+      output.databases_csv_check == ["app", "core"]
+    )
+    error_message = "CSV DB: ${jsonencode(module.rds_postgres["app"].settings)} / ${jsonencode(module.aurora_postgres["core"].settings)}"
+  }
+}
+
+run "csv_matches_tfvars_defaults" {
+  # CSV 기본값이 tfvars(optional 기본값)와 같아야 함 (빈칸만 있는 행 = tfvars {} )
+  command = plan
+  variables {
+    rds_postgres    = { t = {} }
+    aurora_postgres = { ta = {} }
+    databases_csv   = "no,name,engine\n1,u,postgres\n2,ua,aurora_postgres\n"
+  }
+  assert {
+    condition     = jsonencode(local.rds_postgres["t"]) == jsonencode(local.rds_postgres["u"])
+    error_message = "RDS 기본값 차이: tfvars ${jsonencode(local.rds_postgres["t"])} / CSV ${jsonencode(local.rds_postgres["u"])}"
+  }
+  assert {
+    condition     = jsonencode(local.aurora_postgres["ta"]) == jsonencode(local.aurora_postgres["ua"])
+    error_message = "Aurora 기본값 차이: tfvars ${jsonencode(local.aurora_postgres["ta"])} / CSV ${jsonencode(local.aurora_postgres["ua"])}"
+  }
+}
+
+run "reject_csv_replica_without_password" {
+  command = plan
+  variables {
+    rds_postgres  = {}
+    databases_csv = "no,name,engine,replica\n1,app,postgres,true\n"
+  }
+  expect_failures = [output.databases_csv_check]
+}
+
+run "reject_csv_nlb_without_site_mode" {
+  command = plan
+  variables {
+    rds_postgres  = {}
+    databases_csv = "no,name,engine,nlb_allowed_cidrs\n1,app,postgres,10.10.0.0/16\n"
+  }
+  expect_failures = [output.databases_csv_check]
+}
+
+run "reject_bad_csv_rows" {
+  # 행 검사 (helper 모듈 직접): 엔진, 키 중복, Aurora 저장소, 버전, Serverless 범위, 고정 IP 형식, tfvars와 같은 키
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_databases_csv" }
+  variables {
+    region        = "ap-northeast-2"
+    existing_keys = ["dup"]
+    csv           = "no,name,engine,engine_version,instance_class,storage,nlb_allowed_cidrs,nlb_private_ips\n1,a,oracle,,,,,\n1,b,aurora_mysql,,,50,,\n3,c,postgres,v16,,,,\n4,d,aurora_postgres,,serverless:4-1,,,\n5,e,postgres,,,,10.0.0.0/16,a:10.0.0.1\n6,dup,postgres,,,,,\n"
+  }
+  expect_failures = [output.databases]
+}
+
+run "csv_bad_rows_listed" {
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_databases_csv" }
+  variables {
+    region = "ap-northeast-2"
+    csv    = "no,name,engine,storage\n1,a,oracle,\n1,b,aurora_mysql,50\n"
+  }
+  expect_failures = [output.databases]
+  assert {
+    condition     = length(output.errors) == 2 && strcontains(join(" ", output.errors), "2행(a): engine") && strcontains(join(" ", output.errors), "3행(b): Aurora는 storage")
+    error_message = "오류 목록: ${jsonencode(output.errors)}"
+  }
+}
+
+run "csv_example_file_valid" {
+  # src/databases.example.csv 예제가 형식에 맞는지 (복사해서 쓰는 예제라 항상 통과해야 함)
+  command = plan
+  module { source = "../../aws-iac-terraform-module/module/_rds_databases_csv" }
+  variables {
+    region = "ap-northeast-2"
+    csv    = file("src/databases.example.csv")
+  }
+  assert {
+    condition     = length(output.errors) == 0 && output.databases["core"].nlb.private_ips == { "ap-northeast-2a" = "10.227.0.200", "ap-northeast-2c" = "10.227.1.200" } && output.databases["orders"].serverless_v2 == { min_acu = 0.5, max_acu = 2 }
+    error_message = "예제 CSV: ${jsonencode(output.errors)}"
+  }
+}

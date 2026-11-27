@@ -31,7 +31,7 @@ locals {
   network = { for k, p in data.aws_ssm_parameter.network : k => jsondecode(p.insecure_value) }
 
   # 엔진과 관계없이 모든 DB (RDS + Aurora, DB 키 → 설정)
-  all_dbs = merge(var.rds_postgres, var.rds_mysql, var.rds_mariadb, var.aurora_postgres, var.aurora_mysql)
+  all_dbs = merge(local.rds_postgres, local.rds_mysql, local.rds_mariadb, local.aurora_postgres, local.aurora_mysql) # tfvars + src/databases.csv
   any_db  = length(local.all_dbs) > 0
 
   # RDS는 서브넷 그룹에 2개 AZ 이상 필요
@@ -69,11 +69,11 @@ module "rds_common" {
 ############################################################
 module "rds_postgres" {
   source   = "../deployment/rds-postgres"
-  for_each = var.rds_postgres
+  for_each = local.rds_postgres
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
+  db               = merge(each.value, { nlb = var.rds_nlb == null || try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -83,11 +83,11 @@ module "rds_postgres" {
 
 module "rds_mysql" {
   source   = "../deployment/rds-mysql"
-  for_each = var.rds_mysql
+  for_each = local.rds_mysql
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
+  db               = merge(each.value, { nlb = var.rds_nlb == null || try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -97,11 +97,11 @@ module "rds_mysql" {
 
 module "rds_mariadb" {
   source   = "../deployment/rds-mariadb"
-  for_each = var.rds_mariadb
+  for_each = local.rds_mariadb
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
+  db               = merge(each.value, { nlb = var.rds_nlb == null || try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   master_password  = lookup(var.rds_master_passwords, each.key, null)
@@ -115,11 +115,11 @@ module "rds_mariadb" {
 ############################################################
 module "aurora_postgres" {
   source   = "../deployment/aurora-postgres"
-  for_each = var.aurora_postgres
+  for_each = local.aurora_postgres
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
+  db               = merge(each.value, { nlb = var.rds_nlb == null || try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn
@@ -128,11 +128,11 @@ module "aurora_postgres" {
 
 module "aurora_mysql" {
   source   = "../deployment/aurora-mysql"
-  for_each = var.aurora_mysql
+  for_each = local.aurora_mysql
 
   common           = module.rds_common[0].contract
   name             = "rds-${each.key}"
-  db               = merge(each.value, { nlb = try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
+  db               = merge(each.value, { nlb = var.rds_nlb == null || try(each.value.nlb.allowed_cidrs, null) == null ? null : merge(each.value.nlb, { mode = var.rds_nlb.mode, target_sync = var.rds_nlb.target_sync }) })
   multi_az         = coalesce(each.value.multi_az, var.operation_mode == "enable")
   protect          = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn
