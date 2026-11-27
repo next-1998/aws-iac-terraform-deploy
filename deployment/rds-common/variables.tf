@@ -69,7 +69,7 @@ variable "protect_nlb" {
 }
 
 variable "subnet_cidrs" {
-  description = "DB 서브넷 CIDR (AZ 끝 글자 → CIDR). null이면 01-network 배치 규칙 계산값. 01-network shared_subnets에 use = db 서브넷이 있으면 쓰지 않음"
+  description = "DB 서브넷 CIDR (AZ 끝 글자 → CIDR). null이면 01-network 배치 규칙 계산값. 01-network purpose_subnets에 use = db 서브넷이 있으면 쓰지 않음"
   type        = map(string)
   default     = null
 
@@ -77,4 +77,10 @@ variable "subnet_cidrs" {
     condition     = var.subnet_cidrs == null || alltrue([for k, c in coalesce(var.subnet_cidrs, {}) : can(cidrhost(c, 0)) && cidrsubnet(c, 0, 0) == c && tonumber(split("/", c)[1]) >= 16 && tonumber(split("/", c)[1]) <= 28])
     error_message = "subnet_cidrs의 CIDR 형식이 올바르지 않습니다 (네트워크 주소로 시작, /16~/28)."
   }
+}
+
+variable "enable_nlb_any" {
+  description = "NLB를 쓰는 DB가 하나라도 있는지 (03-database가 켬). 켜면 NLB 서브넷(태그 Use-nlb)을 조회"
+  type        = bool
+  default     = false
 }

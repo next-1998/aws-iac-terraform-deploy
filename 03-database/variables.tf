@@ -368,7 +368,7 @@ variable "databases_csv" {
 }
 
 variable "db_subnet_cidrs" {
-  description = "DB 서브넷 CIDR (AZ 끝 글자 → CIDR). null이면 01-network 배치 규칙 계산값. 01-network shared_subnets에 use = db 서브넷이 있으면 그 서브넷을 쓰고 이 값은 쓰지 않음"
+  description = "DB 서브넷 CIDR (AZ 끝 글자 → CIDR). null이면 01-network 배치 규칙 계산값. 01-network purpose_subnets에 use = db 서브넷이 있으면 그 서브넷을 쓰고 이 값은 쓰지 않음"
   type        = map(string)
   default     = null
 }

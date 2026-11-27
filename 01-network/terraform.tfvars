@@ -102,11 +102,11 @@ subnet_cidrs = null
 #   transit = { a = "10.10.0.96/28", c = "10.10.0.112/28" }
 # }
 
-# shared_subnets: 공용 서브넷 (선택). 여러 종류(db, efs, cache)가 한 서브넷을 함께 씀. 태그 Use-<종류> = true
-#   그 종류를 받는 공용 서브넷이 있으면 그 단계는 자기 서브넷을 만들지 않고 이 서브넷을 씀. 없으면 각자 만듦
+# purpose_subnets: 용도 지정 서브넷 (선택). 서브넷마다 둘 리소스 종류(용도)를 지정 → 태그 Use-<용도> = true. 한 서브넷에 여러 용도 가능
+#   각 리소스(DB, EFS, 캐시)는 배포할 때 자기 용도 태그가 있는 서브넷을 찾아 씀. 없으면 자기 서브넷을 만듦 (그 단계 tfvars CIDR)
 #   이름 <접두어>-sbn-<이름>-01-<AZ>. 라우팅: 사내망 → TGW, peering (인터넷 경로 없음)
-shared_subnets = {}
-# shared_subnets = {
+purpose_subnets = {}
+# purpose_subnets = {
 #   data = { cidrs = { a = "10.10.2.0/26", c = "10.10.2.64/26" }, use = ["db", "efs", "cache"] }
 # }
 

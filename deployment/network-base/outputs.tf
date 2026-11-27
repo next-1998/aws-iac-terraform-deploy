@@ -33,10 +33,10 @@ locals {
       eks_cidrs     = local.eks_cidrs
       # 수동 서브넷 (purpose별). 해당 <유형>-common이 생성
       manual = { for s in var.manual_subnets : s.name => s }
-      # 공용 서브넷 (shared_subnets): 이름 → { use, AZ → CIDR·ID }, 종류 → AZ → 서브넷 ID·CIDR (그 종류를 받는 공용 서브넷)
-      shared           = { for n, s in var.shared_subnets : n => { use = s.use, cidrs = { for az in local.azs : az => s.cidrs[local.az_short[az]] if contains(keys(s.cidrs), local.az_short[az]) }, ids = lookup(local.subnet_ids, n, {}) } }
-      shared_for       = local.shared_for
-      shared_cidrs_for = local.shared_cidrs_for
+      # 용도 지정 서브넷 (purpose_subnets): 이름 → { use, AZ → CIDR·ID }, 종류 → AZ → 서브넷 ID·CIDR (그 종류를 받는 용도 지정 서브넷)
+      purpose           = { for n, s in var.purpose_subnets : n => { use = s.use, cidrs = { for az in local.azs : az => s.cidrs[local.az_short[az]] if contains(keys(s.cidrs), local.az_short[az]) }, ids = lookup(local.subnet_ids, n, {}) } }
+      purpose_for       = local.purpose_for
+      purpose_cidrs_for = local.purpose_cidrs_for
     }
 
     routing = {

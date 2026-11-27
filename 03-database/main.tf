@@ -49,13 +49,14 @@ module "rds_common" {
   count  = local.any_db ? 1 : 0
 
   network                = local.network
-  subnet_cidrs           = var.db_subnet_cidrs # 비우면 01-network 배치 규칙. 01-network 공용 서브넷(use = db)이 있으면 그 서브넷
+  subnet_cidrs           = var.db_subnet_cidrs # 비우면 01-network 배치 규칙. 01-network 용도 지정 서브넷(use = db)이 있으면 그 서브넷
   central_kms_key_arns   = var.central_kms_key_arns
   kms_key_administrators = var.kms_key_administrators
   # 향상된 모니터링을 쓰는 DB가 있으면 역할 생성
   enable_enhanced_monitoring = anytrue([for k, v in local.all_dbs : v.monitoring_interval > 0])
   # NLB (rds_nlb가 있을 때만): 통합(shared)이면 공유 NLB. 대상 동기화 Lambda는 target_sync = "lambda"일 때만
   enable_nlb_sync  = try(var.rds_nlb.target_sync, "") == "lambda" && anytrue([for k, v in local.all_dbs : v.nlb != null])
+  enable_nlb_any   = var.rds_nlb != null && anytrue([for k, v in local.all_dbs : v.nlb != null])
   shared_nlb       = try(var.rds_nlb.mode, "") == "shared" && anytrue([for k, v in local.all_dbs : v.nlb != null]) ? { private_ips = var.rds_nlb.private_ips } : null
   protect_nlb      = local.protect.rds
   logs_kms_key_arn = local.logs_kms_key_arn

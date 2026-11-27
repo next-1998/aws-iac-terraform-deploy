@@ -77,8 +77,8 @@ variable "subnet_cidrs" {
   default     = null
 }
 
-variable "shared_subnets" {
-  description = "공용 서브넷 (이름 → { cidrs = { AZ 끝 글자 → CIDR }, use = [종류] }). 여러 종류의 리소스가 함께 씀. 설명: deployment/network-base/variables.tf"
+variable "purpose_subnets" {
+  description = "용도 지정 서브넷 (이름 → { cidrs = { AZ 끝 글자 → CIDR }, use = [종류] }). 여러 종류의 리소스가 함께 씀. 설명: deployment/network-base/variables.tf"
   type = map(object({
     cidrs = map(string)
     use   = list(string)

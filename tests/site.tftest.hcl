@@ -1029,8 +1029,8 @@ run "reject_rds_parameters_tfvars_and_csv" {
 ############################################################
 # 서브넷 CIDR 직접 입력 (subnet_cidrs): 고객 대역 모양과 관계없이 설계서 값 그대로
 ############################################################
-run "manual_cidrs_single_24_with_shared" {
-  # /24 하나 (AZ 2개, 규칙 배치로는 안 되는 크기): 01-network는 자기 서브넷만 직접 입력 + 공용 서브넷(db·efs)은 내부 대역
+run "manual_cidrs_single_24_with_purpose_subnet" {
+  # /24 하나 (AZ 2개, 규칙 배치로는 안 되는 크기): 01-network는 자기 서브넷만 직접 입력 + 용도 지정 서브넷(db·efs)은 내부 대역
   command = plan
   module { source = "../deployment/network-base" }
   variables {
@@ -1044,7 +1044,7 @@ run "manual_cidrs_single_24_with_shared" {
       vpce    = { a = "10.30.0.64/28", b = "10.30.0.80/28" }
       transit = { a = "10.30.0.96/28", b = "10.30.0.112/28" }
     }
-    shared_subnets = {
+    purpose_subnets = {
       data = { cidrs = { a = "100.64.255.0/27", b = "100.64.255.32/27" }, use = ["db", "efs"] }
     }
   }
@@ -1052,39 +1052,39 @@ run "manual_cidrs_single_24_with_shared" {
     condition = (
       output.contract.base.subnet_mode == "manual" && output.contract.subnets.cidrs.edge["ap-northeast-2a"] == "10.30.0.0/27" &&
       !contains(keys(output.contract.subnets.cidrs), "ec2") &&
-      jsonencode(output.contract.subnets.shared_cidrs_for.db) == jsonencode({ "ap-northeast-2a" = "100.64.255.0/27", "ap-northeast-2b" = "100.64.255.32/27" }) &&
-      output.contract.subnets.shared_cidrs_for.efs["ap-northeast-2b"] == "100.64.255.32/27" &&
-      jsonencode(output.contract.subnets.shared["data"].use) == jsonencode(["db", "efs"])
+      jsonencode(output.contract.subnets.purpose_cidrs_for.db) == jsonencode({ "ap-northeast-2a" = "100.64.255.0/27", "ap-northeast-2b" = "100.64.255.32/27" }) &&
+      output.contract.subnets.purpose_cidrs_for.efs["ap-northeast-2b"] == "100.64.255.32/27" &&
+      jsonencode(output.contract.subnets.purpose["data"].use) == jsonencode(["db", "efs"])
     )
-    error_message = "직접 입력 /24 + 공용: ${jsonencode(output.contract.subnets.cidrs)} / ${jsonencode(output.contract.subnets.shared_cidrs_for)}"
+    error_message = "직접 입력 /24 + 용도 지정: ${jsonencode(output.contract.subnets.cidrs)} / ${jsonencode(output.contract.subnets.purpose_cidrs_for)}"
   }
 }
 
-run "reject_shared_subnet_overlap_with_layout" {
-  # 규칙 배치(v1)를 쓰면서 공용 서브넷이 계산된 db 칸과 겹침
+run "reject_purpose_subnet_overlap_with_layout" {
+  # 규칙 배치(v1)를 쓰면서 용도 지정 서브넷이 계산된 db 칸과 겹침
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site           = "simple"
-    vpc_name       = "simple-vpc"
-    name_prefix    = "hw-iac-dev-an2"
-    vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
-    shared_subnets = { data = { cidrs = { a = "10.227.0.192/28", b = "10.227.0.112/28" }, use = ["db"] } }
+    site            = "simple"
+    vpc_name        = "simple-vpc"
+    name_prefix     = "hw-iac-dev-an2"
+    vpc_cidrs       = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    purpose_subnets = { data = { cidrs = { a = "10.227.0.192/28", b = "10.227.0.112/28" }, use = ["db"] } }
   }
   expect_failures = [output.input_checks]
 }
 
-run "reject_shared_subnet_bad_use" {
+run "reject_purpose_subnet_bad_use" {
   command = plan
   module { source = "../deployment/network-base" }
   variables {
-    site           = "simple"
-    vpc_name       = "simple-vpc"
-    name_prefix    = "hw-iac-dev-an2"
-    vpc_cidrs      = [{ cidr = "10.227.0.0/23", role = "routable" }]
-    shared_subnets = { db = { cidrs = { a = "10.227.0.112/28", b = "10.227.1.112/28" }, use = ["ec2"] } }
+    site            = "simple"
+    vpc_name        = "simple-vpc"
+    name_prefix     = "hw-iac-dev-an2"
+    vpc_cidrs       = [{ cidr = "10.227.0.0/23", role = "routable" }]
+    purpose_subnets = { db = { cidrs = { a = "10.227.0.112/28", b = "10.227.1.112/28" }, use = ["ec2"] } }
   }
-  expect_failures = [var.shared_subnets]
+  expect_failures = [var.purpose_subnets]
 }
 
 run "ec2_subnet_cidrs_direct" {

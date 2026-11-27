@@ -51,7 +51,7 @@ variable "subnet_cidrs" {
   default = null
 }
 
-variable "shared_subnets" {
+variable "purpose_subnets" {
   type    = any
   default = {}
 }
@@ -113,7 +113,7 @@ module "network_base" {
   eks_placement       = var.eks_placement
   manual_subnets      = var.manual_subnets
   subnet_cidrs        = var.subnet_cidrs
-  shared_subnets      = var.shared_subnets
+  purpose_subnets     = var.purpose_subnets
   interface_endpoints = var.interface_endpoints
   gateway_endpoints   = ["s3"]
   root_domain         = "example.com"

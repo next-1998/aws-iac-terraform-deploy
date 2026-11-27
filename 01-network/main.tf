@@ -47,11 +47,11 @@ module "network_base" {
   peerings      = var.peerings
   prefix_lists  = var.prefix_lists
 
-  eks_placement  = var.eks_placement
-  eks_subnet     = var.eks_subnet
-  manual_subnets = var.manual_subnets
-  subnet_cidrs   = var.subnet_cidrs
-  shared_subnets = var.shared_subnets
+  eks_placement   = var.eks_placement
+  eks_subnet      = var.eks_subnet
+  manual_subnets  = var.manual_subnets
+  subnet_cidrs    = var.subnet_cidrs
+  purpose_subnets = var.purpose_subnets
 
   interface_endpoints     = var.interface_endpoints
   gateway_endpoints       = var.gateway_endpoints

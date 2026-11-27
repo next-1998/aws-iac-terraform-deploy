@@ -13,6 +13,8 @@ locals {
   nlb_sync_tag     = "RdsNlbSyncSg"
   nlb_sync_dns_tag = "RdsNlbSyncDns" # Aurora: 값 = 클러스터 쓰기 주소 (DNS로 쓰기 인스턴스 IP 하나만)
   db_subnet_by_az  = local.db_subnet_ids
+  # NLB 서브넷: 태그 Use-nlb = true (Tier = private) 서브넷 (01-network edge 등, 배포 때 조회). 없으면 DB 서브넷
+  nlb_subnet_by_az = { for az in local.azs : az => try(module.nlb_subnet_use[0].found, false) ? module.nlb_subnet_use[0].subnet_ids[az] : local.db_subnet_ids[az] } # 키(AZ)는 plan 전에 정해짐
 
   # Lambda가 쓰는 AWS API는 VPC endpoint로만 (워크로드는 private 기본)
   nlb_sync_endpoints = setsubtract(["ec2", "elasticloadbalancing"], try(var.network.endpoints.interface, []))
@@ -43,8 +45,8 @@ module "shared_nlb" {
   internal           = true
   lb_sg_id_list      = [module.shared_nlb_sg[0].securitygroup_id]
   subnet_mapping = [
-    for az, id in local.db_subnet_by_az : merge(
-      { subnet_id = id },
+    for az in local.azs : merge( # 개수(AZ)는 plan 전에 정해짐
+      { subnet_id = local.nlb_subnet_by_az[az] },
       contains(keys(var.shared_nlb.private_ips), az) ? { private_ipv4_address = var.shared_nlb.private_ips[az] } : {},
     )
   ]
@@ -271,4 +273,16 @@ module "ns_schedule" {
       role_arn   = module.ns_scheduler_role[each.key].arn
     }
   }
+}
+
+# NLB를 둘 서브넷: 태그 Use-nlb = true + Tier = private (01-network edge가 붙임). AZ마다 하나
+module "nlb_subnet_use" {
+  source = "../../../aws-iac-terraform-module/module/_subnet_use_lookup"
+  count  = var.enable_nlb_any ? 1 : 0
+
+  label  = "RDS NLB 서브넷"
+  vpc_id = local.base.vpc_id
+  azs    = local.azs
+  use    = "nlb"
+  tier   = "private"
 }

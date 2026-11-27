@@ -10,8 +10,10 @@
 locals {
   internet_facing = var.enable_alb && !var.alb_internal
 
-  alb_subnet_ids = var.alb_subnet_ids != null ? var.alb_subnet_ids : values(
-    var.alb_internal ? local.network.subnets.ids.edge : local.network.subnets.ids.public
+  # ALB 서브넷: alb_subnet_ids(직접) > 태그 Use-alb = true 서브넷 (Tier: 내부용 private, 외부용 public. 배포 때 조회)
+  #             > 01-network edge / public (태그 서브넷이 없을 때)
+  alb_subnet_ids = var.alb_subnet_ids != null ? var.alb_subnet_ids : (
+    [for az in local.network.base.azs : try(module.alb_subnet_use[0].found, false) ? module.alb_subnet_use[0].subnet_ids[az] : lookup(var.alb_internal ? local.network.subnets.ids.edge : local.network.subnets.ids.public, az, null)] # 개수(AZ)는 plan 전에 정해짐 (없으면 null → 검사에서 막힘)
   )
 
   # ALB 접근 허용 출발지: 지정하지 않으면 내부용은 VPC + 사내망, 외부용은 인터넷 전체
@@ -174,4 +176,16 @@ module "alb_record" {
       }
     }
   }
+}
+
+# ALB를 둘 서브넷: 태그 Use-alb = true + Tier (내부용 private, 외부용 public). AZ마다 하나
+module "alb_subnet_use" {
+  source = "../../../aws-iac-terraform-module/module/_subnet_use_lookup"
+  count  = var.enable_alb && var.alb_subnet_ids == null ? 1 : 0
+
+  label  = "ALB 서브넷 (${local.purpose})"
+  vpc_id = local.network.base.vpc_id
+  azs    = local.network.base.azs
+  use    = "alb"
+  tier   = var.alb_internal ? "private" : "public"
 }

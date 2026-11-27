@@ -215,27 +215,27 @@ locals {
 }
 
 ############################################################
-# 공용 서브넷 (shared_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷 (01-network가 미리 만듦)
+# 용도 지정 서브넷 (purpose_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷 (01-network가 미리 만듦)
 #   use에 적은 종류의 리소스가 자기 서브넷 대신 이 서브넷을 씀 (예: db·efs·cache를 한 서브넷에)
-#   그 종류를 받는 공용 서브넷이 없으면 각 단계가 자기 서브넷을 만듦
+#   그 종류를 받는 용도 지정 서브넷이 없으면 각 단계가 자기 서브넷을 만듦
 ############################################################
 locals {
-  shared_map = merge([
-    for name, s in var.shared_subnets : {
+  purpose_map = merge([
+    for name, s in var.purpose_subnets : {
       for short, c in s.cidrs : "${name}_${local.az_by_short[short]}" => { name = name, az = local.az_by_short[short], short = short, cidr = c, use = s.use }
       if contains(keys(local.az_by_short), short)
     }
   ]...)
 
-  # 종류 → AZ → 서브넷 ID (그 종류를 받는 공용 서브넷. 같은 종류를 받는 공용 서브넷이 여러 개면 이름순 첫 번째)
-  shared_for = {
-    for u in distinct(flatten([for n, s in var.shared_subnets : s.use])) : u => {
-      for az in local.layout_azs : az => [for n in sort(keys(var.shared_subnets)) : module.subnet["${n}_${az}"].vpc_subnet[0].id if contains(var.shared_subnets[n].use, u) && contains(keys(local.shared_map), "${n}_${az}")][0]
+  # 종류 → AZ → 서브넷 ID (그 종류를 받는 용도 지정 서브넷. 같은 종류를 받는 용도 지정 서브넷이 여러 개면 이름순 첫 번째)
+  purpose_for = {
+    for u in distinct(flatten([for n, s in var.purpose_subnets : s.use])) : u => {
+      for az in local.layout_azs : az => [for n in sort(keys(var.purpose_subnets)) : module.subnet["${n}_${az}"].vpc_subnet[0].id if contains(var.purpose_subnets[n].use, u) && contains(keys(local.purpose_map), "${n}_${az}")][0]
     }
   }
-  shared_cidrs_for = {
-    for u in distinct(flatten([for n, s in var.shared_subnets : s.use])) : u => {
-      for az in local.azs : az => [for n in sort(keys(var.shared_subnets)) : local.shared_map["${n}_${az}"].cidr if contains(var.shared_subnets[n].use, u) && contains(keys(local.shared_map), "${n}_${az}")][0]
+  purpose_cidrs_for = {
+    for u in distinct(flatten([for n, s in var.purpose_subnets : s.use])) : u => {
+      for az in local.azs : az => [for n in sort(keys(var.purpose_subnets)) : local.purpose_map["${n}_${az}"].cidr if contains(var.purpose_subnets[n].use, u) && contains(keys(local.purpose_map), "${n}_${az}")][0]
     }
   }
 }

@@ -3,8 +3,8 @@ output "contract" {
   value = {
     network           = var.network
     subnet_group_name = module.subnet_group.name
-    subnet_cidrs      = merge({ for k, s in local.all_subnets : k => s.cidr }, local.use_shared ? try(local.subnets.shared_cidrs_for.db, {}) : {})
-    shared_subnet     = local.use_shared # 01-network 공용 서브넷(use = db)을 쓰는지
+    subnet_cidrs      = merge({ for k, s in local.all_subnets : k => s.cidr }, module.subnet_use.subnet_cidrs)
+    use_tagged_subnet = local.use_shared # 태그 Use-db = true 서브넷을 쓰는지 (01-network 용도 지정 서브넷 등)
     # 접근 허용 대역: 태그 Access-db = true 서브넷 (EC2 등). rds-core·aurora-core가 기본 허용에 더함
     access_cidrs   = sort(distinct([for id, s in data.aws_subnet.access_db : s.cidr_block]))
     kms_key_arn    = local.rds_kms_key_arn
@@ -16,7 +16,8 @@ output "contract" {
     nlb = {
       sync_tag_key     = local.nlb_sync_tag
       sync_dns_tag_key = local.nlb_sync_dns_tag
-      db_subnet_by_az  = local.db_subnet_by_az
+      db_subnet_by_az  = local.db_subnet_by_az  # (호환용) DB 서브넷
+      nlb_subnet_by_az = local.nlb_subnet_by_az # NLB를 둘 서브넷 (Use-nlb 태그 서브넷, 없으면 DB 서브넷)
       shared = var.shared_nlb == null ? null : {
         arn         = module.shared_nlb[0].elb.arn
         dns_name    = module.shared_nlb[0].elb.dns_name

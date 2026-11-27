@@ -49,7 +49,7 @@
 |---|---|
 | VPC | `hw-iac-dev-an2-vpc-<naming.vpc>-01` |
 | 서브넷 (EC2, AZ a) | `hw-iac-dev-an2-sbn-ec2-01-a` |
-| 공용 서브넷 (01-network shared_subnets `data`) | `hw-iac-dev-an2-sbn-data-01-a` (태그 `Use-db`, `Use-efs` …) |
+| 용도 지정 서브넷 (01-network purpose_subnets `data`) | `hw-iac-dev-an2-sbn-data-01-a` (태그 `Use-db`, `Use-efs` …) |
 | EC2 (WAS) | `hw-iac-dev-an2-ec2-was-01-a` |
 | EBS (WAS 루트 / 데이터) | `hw-iac-dev-an2-vol-wasroot-01-a` / `hw-iac-dev-an2-vol-wasxvdb-01-a` |
 | ALB / 대상 그룹 | `hw-iac-dev-an2-alb-was-01` / `hw-iac-dev-an2-tg-was-01` |

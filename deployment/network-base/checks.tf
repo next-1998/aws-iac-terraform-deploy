@@ -16,11 +16,11 @@ locals {
       cidrsubnet(format("%s/%s", cidrhost(s.cidr, 0), split("/", b)[1]), 0, 0) == b
     ])
   }
-  # 직접 입력(subnet_cidrs)·공용 서브넷(shared_subnets) 검사: VPC 대역 안, 서로 겹침, 모든 AZ, 필수 용도, 크기
-  #   규칙 배치(layout)를 쓰면 계산한 서브넷(ec2·db 포함)과 공용 서브넷이 겹치는지도 봄
+  # 직접 입력(subnet_cidrs)·용도 지정 서브넷(purpose_subnets) 검사: VPC 대역 안, 서로 겹침, 모든 AZ, 필수 용도, 크기
+  #   규칙 배치(layout)를 쓰면 계산한 서브넷(ec2·db 포함)과 용도 지정 서브넷이 겹치는지도 봄
   check_list = concat(
     local.manual_mode ? local.manual_list : flatten([for p, m in local.layout_subnet_cidrs : [for az, c in m : { name = "${p}-${local.az_short[az]}", purpose = p, short = local.az_short[az], cidr = c }]]),
-    [for k, s in local.shared_map : { name = "${s.name}-${s.short}", purpose = s.name, short = s.short, cidr = s.cidr }],
+    [for k, s in local.purpose_map : { name = "${s.name}-${s.short}", purpose = s.name, short = s.short, cidr = s.cidr }],
   )
   sub_inside = {
     for s in local.check_list : s.name => anytrue([
@@ -100,15 +100,15 @@ output "input_checks" {
   }
   precondition {
     condition     = length(local.sub_az_mismatch) == 0
-    error_message = "subnet_cidrs·shared_subnets는 용도마다 사용 중인 AZ(${join(", ", local.az_letters)})에 하나씩 있어야 합니다. 맞지 않는 용도: ${join(", ", local.sub_az_mismatch)}"
+    error_message = "subnet_cidrs·purpose_subnets는 용도마다 사용 중인 AZ(${join(", ", local.az_letters)})에 하나씩 있어야 합니다. 맞지 않는 용도: ${join(", ", local.sub_az_mismatch)}"
   }
   precondition {
     condition     = alltrue(values(local.sub_inside))
-    error_message = "subnet_cidrs·shared_subnets가 VPC 대역(${join(", ", local.vpc_cidrs)}) 밖에 있습니다: ${join(", ", [for k, v in local.sub_inside : k if !v])}"
+    error_message = "subnet_cidrs·purpose_subnets가 VPC 대역(${join(", ", local.vpc_cidrs)}) 밖에 있습니다: ${join(", ", [for k, v in local.sub_inside : k if !v])}"
   }
   precondition {
     condition     = length(local.sub_overlaps) == 0
-    error_message = "서브넷끼리 겹칩니다 (subnet_cidrs·shared_subnets·배치 규칙 계산값): ${join(", ", local.sub_overlaps)}"
+    error_message = "서브넷끼리 겹칩니다 (subnet_cidrs·purpose_subnets·배치 규칙 계산값): ${join(", ", local.sub_overlaps)}"
   }
   precondition {
     condition     = length(local.sub_size_errors) == 0

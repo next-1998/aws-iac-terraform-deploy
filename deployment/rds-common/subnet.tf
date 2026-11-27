@@ -82,6 +82,19 @@ module "subnet_group" {
   key_target    = local.key
 }
 
+# DB를 둘 서브넷 판단: 태그 Use-db = true 서브넷(01-network 용도 지정 서브넷 등)이 있으면 그것, 없으면 자기 서브넷
+module "subnet_use" {
+  source = "../../../aws-iac-terraform-module/module/_subnet_use_lookup"
+
+  label           = "DB 서브넷"
+  vpc_id          = local.base.vpc_id
+  azs             = local.azs
+  use             = "db"
+  tier            = "private" # DB는 private 서브넷에만
+  need_cidrs      = true      # DB 서브넷 대역을 contract로 넘김
+  own_name_prefix = "${local.np}-sbn-db-"
+}
+
 # 서브넷 CIDR 검사 (이 단계가 서브넷을 만들고 subnet_cidrs를 직접 넣었을 때만): 모든 AZ, VPC 대역 안, 기존 서브넷과 겹침
 module "subnet_check" {
   source = "../../../aws-iac-terraform-module/module/_subnet_cidr_check"

@@ -78,13 +78,14 @@ module "default_sg" {
 ############################################################
 locals {
   # 배치가 맞지 않으면(대역이 작음 등) 서브넷을 만들지 않고 checks.tf의 에러 메시지를 보여 줌
+  # use → 태그 Use-<용도> = true: 리소스가 배포할 때 태그(+ Tier)로 서브넷을 찾음 (ALB·NLB는 edge = private, public = 외부용)
   base_subnets = !local.subnets_ready ? {} : merge(
-    { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az, tier = "private", cidr = null, use = [] } },
+    { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az, tier = "private", cidr = null, use = ["alb", "nlb"] } }, # 내부용 LB
     { for az in local.layout_azs : "vpce_${az}" => { purpose = "vpce", az = az, tier = "private", cidr = null, use = [] } },
     { for az in local.layout_azs : "transit_${az}" => { purpose = "transit", az = az, tier = "private", cidr = null, use = [] } },
-    var.enable_public ? { for az in local.layout_azs : "public_${az}" => { purpose = "public", az = az, tier = "public", cidr = null, use = [] } } : {},
-    # 공용 서브넷 (shared_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷. 태그 Use-<종류> = true
-    { for k, s in local.shared_map : k => { purpose = s.name, az = s.az, tier = "private", cidr = s.cidr, use = s.use } },
+    var.enable_public ? { for az in local.layout_azs : "public_${az}" => { purpose = "public", az = az, tier = "public", cidr = null, use = ["alb", "nlb"] } } : {}, # 외부용 LB (Tier = public)
+    # 용도 지정 서브넷 (purpose_subnets): 여러 종류의 리소스가 함께 쓰는 서브넷. 태그 Use-<종류> = true
+    { for k, s in local.purpose_map : k => { purpose = s.name, az = s.az, tier = "private", cidr = s.cidr, use = s.use } },
   )
 
   # EKS Load Balancer Controller가 LB 위치를 찾는 태그
@@ -116,7 +117,7 @@ module "subnet" {
 
 locals {
   subnet_ids = {
-    for p in concat(["edge", "vpce", "transit", "public"], keys(var.shared_subnets)) : p => {
+    for p in concat(["edge", "vpce", "transit", "public"], keys(var.purpose_subnets)) : p => {
       for az in local.layout_azs : az => module.subnet["${p}_${az}"].vpc_subnet[0].id if contains(keys(local.base_subnets), "${p}_${az}")
     }
   }
@@ -221,8 +222,8 @@ locals {
   route_tables = merge(
     { for az in local.layout_azs : "edge_${az}" => { purpose = "edge", az = az } },
     { for az in local.layout_azs : "transit_${az}" => { purpose = "transit", az = az } },
-    # 공용 서브넷도 AZ별 라우트 테이블 + 사내망·peering 경로 (인터넷 경로 없음)
-    { for k, s in local.shared_map : k => { purpose = s.name, az = s.az } },
+    # 용도 지정 서브넷도 AZ별 라우트 테이블 + 사내망·peering 경로 (인터넷 경로 없음)
+    { for k, s in local.purpose_map : k => { purpose = s.name, az = s.az } },
   )
 }
 

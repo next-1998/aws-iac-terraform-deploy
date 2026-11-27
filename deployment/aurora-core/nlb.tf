@@ -43,8 +43,8 @@ module "nlb" {
   internal           = true
   lb_sg_id_list      = [module.nlb_sg[0].securitygroup_id]
   subnet_mapping = [
-    for az, id in var.common.nlb.db_subnet_by_az : merge(
-      { subnet_id = id },
+    for az in local.base.azs : merge( # 개수(AZ)는 plan 전에 정해짐
+      { subnet_id = try(var.common.nlb.nlb_subnet_by_az, var.common.nlb.db_subnet_by_az)[az] },
       contains(keys(try(var.nlb.private_ips, {})), az) ? { private_ipv4_address = var.nlb.private_ips[az] } : {},
     )
   ]
